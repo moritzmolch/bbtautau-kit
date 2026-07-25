@@ -1,3 +1,18 @@
+"""
+Analysis instance of the X &rarr; YH &rarr; bb&tau;&tau; search.
+
+Attributes
+----------
+
+DECAY_MODES: list[tuple[str, str]]
+    List of decay mode configurations. The first element defines the Y boson
+    decay, the second one the H boson decay.
+
+XY_MASSES: list[tuple[int, int]]
+    List of mass combinations. The first element defines the X boson mass, the
+    second one the Y boson mass.
+"""
+
 from order import Analysis
 
 from configuration.xyh_bbtautau.metadata.configs import add_configs
@@ -10,6 +25,7 @@ DECAY_MODES = [
     ("y2b", "h2tau"),
     ("y2tau", "h2b"),
 ]
+
 
 # Masses of the X and Y bosons
 XY_MASSES = [
@@ -329,7 +345,7 @@ def create_xyh_analysis(
             f"{(m_x, m_y)} not found in XY_MASSES"
         )
 
-    # Create the main analysis instance
+    # Create the analysis instance
     analysis_inst = Analysis(
         name=f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}",
         id="+",
