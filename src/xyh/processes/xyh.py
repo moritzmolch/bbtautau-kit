@@ -1,42 +1,54 @@
 from itertools import product
 
+from order import Process, UniqueObjectIndex
+
 from xyh.analysis import DECAY_MODES, XY_MASSES
 
+# Index of signal processes
+processes = UniqueObjectIndex(Process, [])
 
-for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(DECAY_MODES, XY_MASSES):
 
-    # Some samples seem to be missing in the production
-    # TODO request production of these samples
-    if (
-        y_decay_mode == "2b"
-        and h_decay_mode == "2tau"
-        and m_x == 2500
-        and m_y == 800
-    ):
+# ------------------------------------------------------------------------------
+# X -> HY -> b b tau tau signal processes
+# ------------------------------------------------------------------------------
+
+
+# X -> HY -> b b tau tau parent process
+xyh = processes.add(
+    name="xyh",
+    id="+",
+    is_data=False,
+    tags={"signal"},
+    aux=dict(
+        is_signal=True,
+        parameter_names=["decay_mode", "m_x", "m_y"],
+        parameter_values=[
+            (d, x, y) for d, (x, y) in product(DECAY_MODES, XY_MASSES)
+        ],
+    ),
+)
+
+
+for decay_mode, (m_x, m_y) in product(DECAY_MODES, XY_MASSES):
+    # TODO Some samples seem to be missing in the production. Request production
+    # of them.
+    if decay_mode == "y2b_h2tau" and m_x == 2500 and m_y == 800:
+        continue
+    if decay_mode == "y2tau_h2b" and m_x == 2500 and m_y == 90:
         continue
 
-    if (
-        y_decay_mode == "2tau"
-        and h_decay_mode == "2b"
-        and m_x == 2500
-        and m_y == 90
-    ):
-        continue
-
-    # Construct the process name
-    name = f"xyh_y{y_decay_mode}_h{h_decay_mode}_mx{m_x}_my{m_y}"
-
-    # Create variable dynamically
-    locals()[name] = Process(
+    # Add the process for this specific hypothesis to the X -> HY parent
+    # processs
+    name = f"xyh_{decay_mode}_mx{m_x}_my{m_y}"
+    locals()[name] = xyh.add_process(
         name=name,
         id="+",
         is_data=False,
-        tags={"signal"},
-        aux={
-            "is_signal": True,
-            "m_x": m_x,
-            "m_y": m_y,
-            "y_decay_mode": y_decay_mode,
-            "h_decay_mode": h_decay_mode,
-        },
+        tags=xyh.tags,
+        aux=dict(
+            is_signal=True,
+            decay_mode=decay_mode,
+            m_x=m_x,
+            m_y=m_y,
+        ),
     )
