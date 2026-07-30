@@ -1,4 +1,7 @@
-from order import Process
+from order import Process, UniqueObjectIndex
+
+# Index of top quark processes
+processes = UniqueObjectIndex(Process, [])
 
 
 # ------------------------------------------------------------------------------
@@ -11,7 +14,7 @@ _default_tags = {"background", "tt"}
 
 
 # tt production; genuine tau tau pairs
-tt_tautau = Process(
+tt_tautau = processes.add(
     name="tt_tautau",
     id="+",
     is_data=False,
@@ -20,7 +23,7 @@ tt_tautau = Process(
 
 
 # tt production; jets faking hadronic taus
-tt_jetfakes = Process(
+tt_jetfakes = processes.add(
     name="tt_jetfakes",
     id="+",
     is_data=False,
@@ -30,7 +33,7 @@ tt_jetfakes = Process(
 
 # tt production; remaining events (leptons faking hadronic taus and prompt
 # leptons)
-tt_rem = Process(
+tt_rem = processes.add(
     name="tt_rem",
     id="+",
     is_data=False,
@@ -48,7 +51,7 @@ _default_tags = {"background", "single_t"}
 
 
 # Single top quark production; genuine tau tau pairs
-single_t_tautau = Process(
+single_t_tautau = processes.add(
     name="single_t_tautau",
     id="+",
     is_data=False,
@@ -57,7 +60,7 @@ single_t_tautau = Process(
 
 
 # Single top production; jets faking hadronic taus
-single_t_jetfakes = Process(
+single_t_jetfakes = processes.add(
     name="single_t_jetfakes",
     id="+",
     is_data=False,
@@ -67,7 +70,7 @@ single_t_jetfakes = Process(
 
 # Single top production; remaining events (leptons faking hadronic taus and
 # prompt leptons)
-single_t_rem = Process(
+single_t_rem = processes.add(
     name="single_t_rem",
     id="+",
     is_data=False,

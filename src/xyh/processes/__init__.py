@@ -1,13 +1,28 @@
 """
-Physics processes of the $\text{X} \to \text{YH} \to \text{bb}\tau\tau$
-analysis.
+Physics processes relevant for this analysis.
 """
 
+from itertools import chain
 
-# Import all processes from submodules
-from .data import *
-from .ewk import *
-from .higgs import *
-from .jetfakes import *
-from .top import *
-from .xyh import *
+from order import Process, UniqueObjectIndex
+
+# Import process indices from submodules
+from xyh.processes.data import processes as data_processes
+from xyh.processes.ewk import processes as ewk_processes
+from xyh.processes.higgs import processes as higgs_processes
+from xyh.processes.jetfakes import processes as jetfakes_processes
+from xyh.processes.top import processes as top_processes
+from xyh.processes.xyh import processes as xyh_processes
+
+# Merge all processes into a single index
+processes = UniqueObjectIndex(
+    Process,
+    chain(
+        data_processes.values(),
+        ewk_processes.values(),
+        higgs_processes.values(),
+        jetfakes_processes.values(),
+        top_processes.values(),
+        xyh_processes.values(),
+    ),
+)

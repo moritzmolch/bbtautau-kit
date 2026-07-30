@@ -1,4 +1,7 @@
-from order import Process
+from order import Process, UniqueObjectIndex
+
+# Index of jetfakes processes
+processes = UniqueObjectIndex(Process, [])
 
 
 # ------------------------------------------------------------------------------
@@ -7,7 +10,7 @@ from order import Process
 
 
 # jet -> tau_h misidentification
-jetfakes = Process(
+jetfakes = processes.add(
     name="jetfakes",
     id="+",
     is_data=False,

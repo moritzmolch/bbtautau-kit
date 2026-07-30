@@ -1,7 +1,10 @@
-from order import Process
+from order import Process, UniqueObjectIndex
+
+# Index of Higgs processes
+processes = UniqueObjectIndex(Process, [])
 
 
-# TODO add these processes
+# TODO These processes might be added:
 # # H -> tau tau
 # # H -> WW
 # "gluglu_h_2w_2l2nu",
@@ -26,7 +29,6 @@ from order import Process
 # "vbf_hh_4v",
 
 
-
 # ------------------------------------------------------------------------------
 # Higgs -> tau tau production
 # ------------------------------------------------------------------------------
@@ -37,7 +39,7 @@ _default_tags = {"background", "h_2tau"}
 
 
 # Higgs -> tau tau production; genuine tau tau pairs
-h_2tau_tautau = Process(
+h_2tau_tautau = processes.add(
     name="h_2tau_tautau",
     id="+",
     is_data=False,
@@ -46,7 +48,7 @@ h_2tau_tautau = Process(
 
 
 # Higgs -> tau tau production; jets faking hadronic taus
-h_2tau_jetfakes = Process(
+h_2tau_jetfakes = processes.add(
     name="h_2tau_jetfakes",
     id="+",
     is_data=False,
@@ -56,7 +58,7 @@ h_2tau_jetfakes = Process(
 
 # Higgs -> tau tau production; remaining events (leptons faking hadronic taus
 # and prompt leptons)
-h_2tau_rem = Process(
+h_2tau_rem = processes.add(
     name="h_2tau_rem",
     id="+",
     is_data=False,
@@ -74,7 +76,7 @@ _default_tags = {"background", "h_2b"}
 
 
 # Higgs -> b b production; genuine tau tau pairs
-h_2b_tautau = Process(
+h_2b_tautau = processes.add(
     name="h_2b_tautau",
     id="+",
     is_data=False,
@@ -83,7 +85,7 @@ h_2b_tautau = Process(
 
 
 # Higgs -> b b production; jets faking hadronic taus
-h_2b_jetfakes = Process(
+h_2b_jetfakes = processes.add(
     name="h_2b_jetfakes",
     id="+",
     is_data=False,
@@ -93,7 +95,7 @@ h_2b_jetfakes = Process(
 
 # Higgs -> b b production; remaining events (leptons faking hadronic taus
 # and prompt leptons)
-h_2b_rem = Process(
+h_2b_rem = processes.add(
     name="h_2b_rem",
     id="+",
     is_data=False,
@@ -111,7 +113,7 @@ _default_tags = {"background", "tth"}
 
 
 # ttH production; genuine tau tau pairs
-tth_tautau = Process(
+tth_tautau = processes.add(
     name="tth_tautau",
     id="+",
     is_data=False,
@@ -120,7 +122,7 @@ tth_tautau = Process(
 
 
 # ttH production; jets faking hadronic taus
-tth_jetfakes = Process(
+tth_jetfakes = processes.add(
     name="tth_jetfakes",
     id="+",
     is_data=False,
@@ -130,7 +132,7 @@ tth_jetfakes = Process(
 
 # ttH production; remaining events (leptons faking hadronic taus and prompt
 # leptons)
-tth_rem = Process(
+tth_rem = processes.add(
     name="tth_rem",
     id="+",
     is_data=False,
@@ -148,16 +150,16 @@ _default_tags = {"background", "hh_2b2tau"}
 
 
 # HH -> b b tau tau production, gluon-gluon fusion
-ggf_hh_2b2tau = Process(
-    name="ggf_hh_2b2tau",
+gluglu_hh_2b2tau = processes.add(
+    name="gluglu_hh_2b2tau",
     id="+",
     is_data=False,
-    tags=_default_tags | {"ggf_hh_2b2tau"},
+    tags=_default_tags | {"gluglu_hh_2b2tau"},
 )
 
 
 # HH -> b b tau tau production, vector boson fusion
-ggf_hh_2b2tau = Process(
+vbf_hh_2b2tau = processes.add(
     name="vbf_hh_2b2tau",
     id="+",
     is_data=False,

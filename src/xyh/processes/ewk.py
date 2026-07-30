@@ -1,4 +1,7 @@
-from order import Process
+from order import Process, UniqueObjectIndex
+
+# Index of electroweak processes
+processes = UniqueObjectIndex(Process, [])
 
 
 # ------------------------------------------------------------------------------
@@ -13,7 +16,7 @@ _default_tags_tau = _default_tags | {"tautau"}
 
 
 # Z -> light leptons + jets production; genuine tau tau pairs
-z_2e_2mu_tautau = Process(
+z_2e_2mu_tautau = processes.add(
     name="z_2e_2mu_tautau",
     id="+",
     is_data=False,
@@ -22,7 +25,7 @@ z_2e_2mu_tautau = Process(
 
 
 # Z -> light leptons + jets production; jets faking hadronic taus
-z_2e_2mu_jetfakes = Process(
+z_2e_2mu_jetfakes = processes.add(
     name="z_2e_2mu_jetfakes",
     id="+",
     is_data=False,
@@ -32,7 +35,7 @@ z_2e_2mu_jetfakes = Process(
 
 # Z -> light leptons + jets production; remaining events (leptons faking
 # hadronic taus and prompt leptons)
-z_2e_2mu_rem = Process(
+z_2e_2mu_rem = processes.add(
     name="z_2e_2mu_rem",
     id="+",
     is_data=False,
@@ -41,30 +44,30 @@ z_2e_2mu_rem = Process(
 
 
 # Z -> tau leptons + jets production; genuine tau tau pairs
-z_2tau_tautau = Process(
+z_2tau_tautau = processes.add(
     name="z_2tau_tautau",
     id="+",
     is_data=False,
-    tags=_default_tags_light | {"tautau_genuine"},
+    tags=_default_tags_tau | {"tautau_genuine"},
 )
 
 
 # Z -> tau leptons + jets production; jets faking hadronic taus
-z_2tau_jetfakes = Process(
+z_2tau_jetfakes = processes.add(
     name="z_2tau_jetfakes",
     id="+",
     is_data=False,
-    tags=_default_tags_light | {"tautau_jetfakes"},
+    tags=_default_tags_tau | {"tautau_jetfakes"},
 )
 
 
 # Z -> tau leptons + jets production; remaining events (leptons faking
 # hadronic taus and prompt leptons)
-z_2tau_rem = Process(
+z_2tau_rem = processes.add(
     name="z_2tau_rem",
     id="+",
     is_data=False,
-    tags=_default_tags_light | {"tautau_remaining"},
+    tags=_default_tags_tau | {"tautau_remaining"},
 )
 
 
@@ -78,7 +81,7 @@ _default_tags = {"background", "w"}
 
 
 # W -> leptons + jets production; genuine tau tau pairs
-w_lnu_tautau = Process(
+w_lnu_tautau = processes.add(
     name="w_lnu_tautau",
     id="+",
     is_data=False,
@@ -87,7 +90,7 @@ w_lnu_tautau = Process(
 
 
 # W (-> ell nu) production -- jets faking hadronic taus
-w_lnu_jetfakes = Process(
+w_lnu_jetfakes = processes.add(
     name="w_lnu_jetfakes",
     id="+",
     is_data=False,
@@ -97,7 +100,7 @@ w_lnu_jetfakes = Process(
 
 # W -> leptons + jets production; remaining events (leptons faking
 # hadronic taus and prompt leptons)
-w_lnu_rem = Process(
+w_lnu_rem = processes.add(
     name="w_lnu_rem",
     id="+",
     is_data=False,
@@ -115,16 +118,16 @@ _default_tags = {"background", "vv"}
 
 
 # Diboson production; genuine tau tau pairs
-vv_tautau = Process(
+vv_tautau = processes.add(
     name="vv_tautau",
     id="+",
     is_data=False,
-    tags=_default_tags | {"tautau_genuine"}
+    tags=_default_tags | {"tautau_genuine"},
 )
 
 
 # Diboson production; jets faking hadronic taus
-vv_jetfakes = Process(
+vv_jetfakes = processes.add(
     name="vv_jetfakes",
     id="+",
     is_data=False,
@@ -134,7 +137,7 @@ vv_jetfakes = Process(
 
 # Diboson production; remaining events (leptons faking hadronic taus and prompt
 # leptons)
-vv_rem = Process(
+vv_rem = processes.add(
     name="vv_rem",
     id="+",
     is_data=False,

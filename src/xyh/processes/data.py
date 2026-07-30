@@ -1,4 +1,7 @@
-from order import Process
+from order import Process, UniqueObjectIndex
+
+# Index of data processes
+processes = UniqueObjectIndex(Process, [])
 
 
 # ------------------------------------------------------------------------------
@@ -7,7 +10,7 @@ from order import Process
 
 
 # General data process (mainly needed for statistical inference)
-data = Process(
+data = processes.add(
     name="data",
     id="+",
     is_data=True,
