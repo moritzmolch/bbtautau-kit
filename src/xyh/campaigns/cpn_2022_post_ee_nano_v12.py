@@ -35,6 +35,12 @@ cpn_2022_post_ee_nano_v12 = Campaign(
 # ------------------------------------------------------------------------------
 
 
+# Function to derive name of a signal sample from the signal parameters 
+def xyh_name(*, y_decay_mode, h_decay_mode, m_x, m_y):
+    decay_mode = f"2{y_decay_mode[2:].capitalize()}{h_decay_mode[2:].capitalize()}"
+    return f"NMSSM_XtoYHto{decay_mode}_MX-{m_x}_MY-{m_y}_TuneCP5_13p6TeV_madgraph-pythia8_Run3Summer22EENanoAODv12-130X"
+
+
 # Map of dataset names to their corresponding nicks in the sample database
 dataset_nicks = {
     # --- Data -----------------------------------------------------------------
@@ -59,7 +65,8 @@ dataset_nicks = {
         "Tau_Run2022F-22Sep2023-v1",
         "Tau_Run2022G-22Sep2023-v1",
     ],
-    # --- TODO signal ----------------------------------------------------------
+    # --- signal ---------------------------------------------------------------
+    "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name,
     # --- Top quark pair production --------------------------------------------
     "tt_4q_powheg": [
         "TTto4Q_TuneCP5_13p6TeV_powheg-pythia8_Run3Summer22EENanoAODv12-130X",
