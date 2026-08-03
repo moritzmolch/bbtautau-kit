@@ -15,15 +15,11 @@ XY_MASSES: list[tuple[int, int]]
 
 from order import Analysis
 
-from configuration.xyh_bbtautau.metadata.configs import add_configs
-from functools import cache
-
-
 # Decay modes of the Y and H bosons
 DECAY_MODES = [
-    # (Y decay mode, H decay mode)
-    ("y2b", "h2tau"),
-    ("y2tau", "h2b"),
+    # <Y decay mode>_<H decay mode>
+    "y2b_h2tau",
+    "y2tau_h2b",
 ]
 
 
@@ -298,7 +294,6 @@ XY_MASSES = [
 ]
 
 
-@cache
 def create_xyh_analysis(
     y_decay_mode: str,
     h_decay_mode: str,
@@ -330,6 +325,7 @@ def create_xyh_analysis(
 
     Returns
     -------
+
     order.Analysis
         The analysis instance.
     """
@@ -341,9 +337,7 @@ def create_xyh_analysis(
         )
     # Validate decay modes and masses
     if (m_x, m_y) not in XY_MASSES:
-        raise ValueError(
-            f"{(m_x, m_y)} not found in XY_MASSES"
-        )
+        raise ValueError(f"{(m_x, m_y)} not found in XY_MASSES")
 
     # Create the analysis instance
     analysis_inst = Analysis(
@@ -354,7 +348,7 @@ def create_xyh_analysis(
             "h_decay_mode": h_decay_mode,
             "m_x": m_x,
             "m_y": m_y,
-        }
+        },
     )
 
     return analysis_inst
