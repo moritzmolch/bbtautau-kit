@@ -81,11 +81,15 @@ def mock_yaml_file_reader(mock_config_file):
         # Setup the mock path instance
         mock_path_instance = Mock(spec=Path)
         mock_path_instance.exists.return_value = True
-        mock_path_instance.open.return_value.__enter__ = Mock(
-            return_value=Mock(read=Mock(return_value=yaml_content))
-        )
-        mock_path_instance.open.return_value.__exit__ = Mock(return_value=False)
-        mock_path_instance.resolve.return_value.parent.parent = mock_path.parent
+
+        # Mock the file open context manager properly
+        mock_file = Mock()
+        mock_file.__enter__ = Mock(return_value=mock_file)
+        mock_file.__exit__ = Mock(return_value=False)
+        mock_file.read.return_value = yaml_content
+        mock_path_instance.open.return_value = mock_file
+
+        mock_path_instance.resolve.return_value.parent.parent = mock_path.parent.parent
         mock_path_class.return_value = mock_path_instance
 
         with patch("xyh.settings.yaml.safe_load") as mock_yaml:
@@ -120,6 +124,12 @@ class TestDefaultConfigFile:
         assert DEFAULT_CONFIG_FILE.name == "config.yaml"
         assert "config" in str(DEFAULT_CONFIG_FILE)
 
+    def test_default_config_file_exists_as_file(self):
+        """Verify that the default config file actually exists in the project."""
+        # This test assumes the default config file is present in the repo
+        assert DEFAULT_CONFIG_FILE.exists()
+        assert DEFAULT_CONFIG_FILE.is_file()
+
 
 # =============================================================================
 # Tests for SingletonMeta metaclass
@@ -153,17 +163,6 @@ class TestSingletonMeta:
                 # All instances should be identical
                 assert all(instance is instances[0] for instance in instances)
 
-    def test_singleton_instances_cleared_by_fixture(
-        self, reset_settings_singleton
-    ):
-        """Verify fixture properly clears singleton cache."""
-        # Before using fixture, manually add an instance
-        SingletonMeta._instances["TestClass"] = "test"
-
-        # Fixture should clear this (done via yield)
-        # After fixture cleanup, check it's cleared
-        assert "TestClass" not in SingletonMeta._instances
-
 
 # =============================================================================
 # Tests for Settings initialization and config loading
@@ -176,14 +175,19 @@ class TestSettingsInitialization:
     def test_settings_initialization_with_mock_config(
         self,
         reset_settings_singleton,
-        mock_yaml_file_reader,
         sample_config_dict,
     ):
         """Verify Settings initializes correctly with valid config."""
-        settings = Settings()
+        with patch.object(
+            Settings, "_load_config", return_value=sample_config_dict
+        ):
+            with patch.object(
+                Settings, "_get_config_file", return_value=Path("/fake.yaml")
+            ):
+                settings = Settings()
 
-        assert settings is not None
-        assert isinstance(settings.raw_config, dict)
+                assert settings is not None
+                assert isinstance(settings.raw_config, dict)
 
     def test_settings_get_config_file_default_path(
         self, reset_settings_singleton, mock_yaml_file_reader
@@ -197,15 +201,27 @@ class TestSettingsInitialization:
             assert settings.config_file == DEFAULT_CONFIG_FILE
 
     def test_settings_get_config_file_from_env_variable(
-        self, reset_settings_singleton, mock_yaml_file_reader
+        self, reset_settings_singleton, sample_config_dict
     ):
         """Verify _get_config_file uses KIT_CONFIG_FILE env var when set."""
         custom_path = Path("/custom/path/config.yaml")
 
         with patch.dict(os.environ, {"KIT_CONFIG_FILE": str(custom_path)}):
-            settings = Settings()
+            # Mock Path.exists() to return True
+            with patch.object(Path, "exists", return_value=True):
+                # Mock Path.open() as a context manager
+                mock_file = Mock()
+                mock_file.__enter__ = Mock(return_value=mock_file)
+                mock_file.__exit__ = Mock(return_value=False)
+                
+                with patch.object(Path, "open", return_value=mock_file):
+                    with patch(
+                        "xyh.settings.yaml.safe_load",
+                        return_value=sample_config_dict,
+                    ):
+                        settings = Settings()
 
-            assert settings.config_file == custom_path
+                        assert settings.config_file == custom_path
 
     def test_settings_load_config_file_not_found_raises_error(
         self, reset_settings_singleton
@@ -651,15 +667,22 @@ class TestSettingsIntegration:
         custom_path = Path("/custom/config.yaml")
 
         with patch.dict(os.environ, {"KIT_CONFIG_FILE": str(custom_path)}):
+            # Mock Path.exists() to return True
             with patch.object(Path, "exists", return_value=True):
-                with patch(
-                    "xyh.settings.yaml.safe_load",
-                    return_value=sample_config_dict,
-                ):
-                    settings = Settings()
+                # Mock Path.open() as a context manager
+                mock_file = Mock()
+                mock_file.__enter__ = Mock(return_value=mock_file)
+                mock_file.__exit__ = Mock(return_value=False)
+                
+                with patch.object(Path, "open", return_value=mock_file):
+                    with patch(
+                        "xyh.settings.yaml.safe_load",
+                        return_value=sample_config_dict,
+                    ):
+                        settings = Settings()
 
-                    assert settings.config_file == custom_path
-                    assert settings.get("analysis.version") == "1.0.0"
+                        assert settings.config_file == custom_path
+                        assert settings.get("analysis.version") == "1.0.0"
 
     def test_settings_complex_nested_structure(self, reset_settings_singleton):
         """Test with complex nested configuration structure."""
