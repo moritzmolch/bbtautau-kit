@@ -1,0 +1,192 @@
+import json
+from dataclasses import dataclass, field, fields
+from functools import cache, singledispatch
+from math import isclose
+from pathlib import Path
+from typing import Any
+
+from order import Campaign, Dataset
+
+from xyh.settings import Settings
+
+
+@dataclass
+class Sample:
+    """
+    Dataclass representing a sample in the sample database.
+    """
+
+    nick: str
+    era: str
+    nevents: int
+    nfiles: int
+    sample_type: str
+    dbs: str | None = field(default=None)
+    filelist: list[str] | None = field(default=None)
+    instance: str | None = field(default=None)
+    xsec: float | None = field(default=None)
+    generator_weight: float | None = field(default=None)
+
+
+@cache
+def load_database(
+    sample_database_dir: Path,
+    nanoaod_version: str,
+) -> dict[str, Sample]:
+    """
+    Load the sample database from a JSON file.
+
+    The sample database is cached to avoid reloading the same file multiple
+    times during the same execution.
+
+    Parameters
+    ----------
+    sample_database_dir : Path
+        Directory containing the sample database JSON file.
+
+    nanoaod_version : str
+        Version of the NanoAOD samples to load.
+
+    Returns
+    -------
+    dict[str, Sample]
+        Dictionary mapping sample nicks to Sample instances.
+    """
+    # Construct the path to the sample database JSON file
+    sample_database_file = (
+        sample_database_dir / f"nanoAOD_{nanoaod_version}" / "datasets.json"
+    )
+
+    # Load the JSON data from the file
+    with sample_database_file.open("r") as f:
+        samples = {nick: Sample(**data) for nick, data in json.load(f).items()}
+
+    return samples
+
+
+@singledispatch
+def add_dataset(campaign_inst: Campaign, name: str, nick: Any):
+    pass
+
+
+@add_dataset.register(list)
+def _(campaign_inst: Campaign, name: str, nicks: list[str]) -> Dataset:
+    """
+    Add a dataset to a campaign instance.
+
+    Parameters
+    ----------
+    campaign_inst : Campaign
+        The campaign instance to which the dataset will be added.
+
+    nicks : list[str]
+        The nicks of the dataset to be added.
+
+    Returns
+    -------
+    Dataset
+        The created `Dataset` object.
+    """
+
+    # Get the sample database directory and the nanoAOD version
+    sample_database_dir = Settings().get("sample_database_dir")
+    nanoaod_version = campaign_inst.x.nanoaod_version
+
+    # Merge cross section and generator weight information from all nicks in the
+    # list
+    sample_info = {}
+    for nick in nicks:
+        # Load the sample database information
+        sample = load_database(sample_database_dir, nanoaod_version).get(nick)
+
+        # Add the sample information to the sample_info dictionary
+        for f in fields(Sample):
+            # Ignore fields which are not expected to be equal across all nicks
+            # in the list and do not need to be merged
+            if f.name in ["nick", "dbs", "filelist", "instance"]:
+                continue
+
+            # Add value of this sample to merging list in sample_info
+            sample_info.setdefault(f.name, []).append(getattr(sample, f.name))
+
+    # Check if all generator weights and cross sections are equal within a
+    # relative tolerance of 1e-3
+    for f in ["generator_weight", "xsec"]:
+        if all(value is None for value in sample_info[f.name]):
+            # Check if all values are 'None'
+            sample_info[f.name] = None
+
+        elif all(
+            isclose(sample_info[f.name][0], value, rel_tol=1e-3)
+            for value in sample_info[f.name]
+        ):
+            # Check if all values are numerically close (relative tolerance of
+            # 1e-3)
+            sample_info[f.name] = sample_info[f.name][0]
+
+        else:
+            # Other formats are not supported, raise an error
+            raise ValueError(
+                f"Values of '{f.name}' not equal for nicks: {nicks}"
+            )
+
+    # Check if eras and sample types are the same for all nicks in the list
+    for f in ["era", "sample_type"]:
+        if not all(
+            sample_info[f.name][0] == value for value in sample_info[f.name]
+        ):
+            raise ValueError(
+                f"Values of '{f.name}' not equal for nicks: {nicks}"
+            )
+
+        # Reduce list of values to a single value (the first one) since they are
+        # all equal
+        sample_info[f.name] = sample_info[f.name][0]
+
+    # Reduce 'nevents' and 'nfiles' to the sum of all values in the list
+    for f in ["nevents", "nfiles"]:
+        sample_info[f.name] = sum(sample_info[f.name])
+
+    # Create the new dataset
+    dataset_inst = campaign_inst.add_dataset(
+        name=name,
+        id="+",
+        is_data=(sample_info["sample_type"] == "data"),
+        n_events=sample_info["nevents"],
+        n_files=sample_info["nfiles"],
+        aux={
+            "nicks": nicks,
+            "xsec": sample_info["xsec"],
+            "generator_weight": sample_info["generator_weight"],
+        },
+    )
+
+    return dataset_inst
+
+
+@add_dataset.register
+def _(campaign_inst: Campaign, name: str, nick: str) -> Dataset:
+    """
+    Add a dataset to a campaign instance.
+
+    Parameters
+    ----------
+    campaign_inst : Campaign
+        The campaign instance to which the dataset will be added.
+
+    name: str
+        The short name of the dataset to be added.       
+
+    nick : str
+        The nick of the dataset to be added.
+
+    Returns
+    -------
+    Dataset
+        The created `Dataset` object.
+    """
+
+    # Convert the nick to a list of strings
+    nicks = [nick]
+
+    return add_dataset(campaign_inst, name, nicks)
