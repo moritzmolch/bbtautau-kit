@@ -1,0 +1,66 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bbtautau-kit"
+version = "0.1.0"
+description = "Analysis framework for X &rarr; HY &rarr; bbττ searches"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.12"
+authors = [
+    {name = "Moritz Molch", email = "moritz.molch@kit.edu"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "order>=2.1.7,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.11.5,<1",
+    "basedpyright>=1.39.8,<2",
+]
+
+[project.urls]
+Homepage = "https://github.com/moritzmolch/bbtautau-kit"
+Repository = "https://github.com/moritzmolch/bbtautau-kit"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/xyh"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 80
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["xyh"]
+
+[tool.basedpyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+include = ["src"]
+exclude = ["**/__pycache__", ".pixi"]
