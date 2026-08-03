@@ -44,8 +44,7 @@ def xyh_name(*, y_decay_mode: str, h_decay_mode: str, m_x: int, m_y: int,) -> st
     decay_mode = (
         f"2{y_decay_mode[2:].capitalize()}{h_decay_mode[2:].capitalize()}"
     )
-    return f""
-
+    return f"NMSSM-XtoYHto{decay_mode}_Par-MX-{m_x}-MY-{m_y}_TuneCP5_13p6TeV_madgraph-pythia8_RunIII2024Summer24NanoAODv15-150X"
 
 # Map of dataset names to their corresponding nicks in the sample database
 dataset_nicks = {
