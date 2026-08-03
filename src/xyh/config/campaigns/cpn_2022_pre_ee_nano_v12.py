@@ -3,7 +3,7 @@
 """
 
 from order import Campaign
-from xyh.campaigns.util import add_dataset
+from .util import add_dataset
 
 
 # ------------------------------------------------------------------------------
@@ -16,10 +16,10 @@ cpn_2022_pre_ee_nano_v12 = Campaign(
     name="cpn_2022_pre_ee_nano_v12",
     id="+",
     ecm=13.6,
-    lumi=7.989513666,  # fb^-1
     aux=dict(
         year=2022,
         postfix="preEE",
+        lumi=7.989513666,  # fb^-1
         runs={
             "C": [355794, 357486],
             "D": [357487, 359021],
