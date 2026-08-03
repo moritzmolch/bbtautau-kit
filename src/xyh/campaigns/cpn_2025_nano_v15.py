@@ -38,7 +38,13 @@ cpn_2025_nano_v15 = Campaign(
 
 
 # Function to derive name of a signal sample from the signal parameters
-def xyh_name(*, y_decay_mode: str, h_decay_mode: str, m_x: int, m_y: int,) -> str:
+def xyh_name(
+    *,
+    y_decay_mode: str,
+    h_decay_mode: str,
+    m_x: int,
+    m_y: int,
+) -> str:
     decay_mode = (
         f"2{y_decay_mode[2:].capitalize()}{h_decay_mode[2:].capitalize()}"
     )
@@ -48,12 +54,9 @@ def xyh_name(*, y_decay_mode: str, h_decay_mode: str, m_x: int, m_y: int,) -> st
 # Map of dataset names to their corresponding nicks in the sample database
 dataset_nicks = {
     # --- Data -----------------------------------------------------------------
-    "egamma_2025_cdefg": [
-    ],
-    "muon_2025_cdefg": [
-    ],
-    "tau_2025_cdefg": [
-    ],
+    "egamma_2025_cdefg": [],
+    "muon_2025_cdefg": [],
+    "tau_2025_cdefg": [],
     # --- TODO signal ----------------------------------------------------------
     "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name,
     # --- Top quark pair production --------------------------------------------

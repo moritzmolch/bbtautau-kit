@@ -35,9 +35,17 @@ cpn_2022_post_ee_nano_v12 = Campaign(
 # ------------------------------------------------------------------------------
 
 
-# Function to derive name of a signal sample from the signal parameters 
-def xyh_name(*, y_decay_mode, h_decay_mode, m_x, m_y):
-    decay_mode = f"2{y_decay_mode[2:].capitalize()}{h_decay_mode[2:].capitalize()}"
+# Function to derive name of a signal sample from the signal parameters
+def xyh_name(
+    *,
+    y_decay_mode: str,
+    h_decay_mode: str,
+    m_x: int,
+    m_y: int,
+) -> str:
+    decay_mode = (
+        f"2{y_decay_mode[2:].capitalize()}{h_decay_mode[2:].capitalize()}"
+    )
     return f"NMSSM_XtoYHto{decay_mode}_MX-{m_x}_MY-{m_y}_TuneCP5_13p6TeV_madgraph-pythia8_Run3Summer22EENanoAODv12-130X"
 
 

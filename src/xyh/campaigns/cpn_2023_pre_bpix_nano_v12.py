@@ -34,7 +34,13 @@ cpn_2023_pre_bpix_nano_v12 = Campaign(
 
 
 # Function to derive name of a signal sample from the signal parameters
-def xyh_name(*, y_decay_mode, h_decay_mode, m_x, m_y):
+def xyh_name(
+    *,
+    y_decay_mode: str,
+    h_decay_mode: str,
+    m_x: int,
+    m_y: int,
+) -> str:
     decay_mode = (
         f"2{y_decay_mode[2:].capitalize()}{h_decay_mode[2:].capitalize()}"
     )
