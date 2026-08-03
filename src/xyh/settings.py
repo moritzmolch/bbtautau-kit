@@ -1,6 +1,6 @@
 import logging
 import os
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, override
 
@@ -9,7 +9,7 @@ import yaml
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG_FILE = (
-    Path(__file__).resolve().parent.parent / "config" / "config.yaml"
+    Path(__file__).resolve().parent.parent.parent / "config" / "config.yaml"
 )
 
 
@@ -29,7 +29,7 @@ class SingletonMeta(type):
         return cls._instances[cls]
 
 
-class Settings(Mapping, metaclass=SingletonMeta):
+class Settings(metaclass=SingletonMeta):
     # --- Constructor and initialization ---------------------------------------
 
     def __init__(self):
