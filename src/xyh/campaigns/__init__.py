@@ -25,13 +25,12 @@ cpn_2022_pre_ee_nano_v12 = Campaign(
 
 # 2022postEE, NanoAOD v12
 cpn_2022_post_ee_nano_v12 = Campaign(
-    analysis,
-    name="2022postEE",
+    name="2022_post_ee_nano_v12",
     id="+",
-    year=2022,
     ecm=13.6,
-    lumi=26.6717,  # fb^-1
+    lumi=26.674924045,  # fb^-1
     aux=dict(
+        year=2022,
         postfix="postEE",
         runs={
             "E": [359022, 360331],
@@ -41,15 +40,18 @@ cpn_2022_post_ee_nano_v12 = Campaign(
         nano_version="v12",
     ),
 )
+add_datasets(
+    cpn_2022_post_ee_nano_v12,
+    samples_2022_post_ee_nano_v12,
+)
 
 
 # 2023preBPix, NanoAOD v12
 cpn_2023_pre_bpix_nano_v12 = Campaign(
-    analysis,
-    name="2023preBPix",
+    name="2023_pre_bpix_nano_v12",
     id="+",
     ecm=13.6,
-    lumi=18.063,  # fb^-1
+    lumi=17.964217998,  # fb^-1
     aux=dict(
         year=2023,
         postfix="preBPix",
@@ -59,14 +61,18 @@ cpn_2023_pre_bpix_nano_v12 = Campaign(
         nano_version="v12",
     ),
 )
+add_datasets(
+    cpn_2023_pre_bpix_nano_v12,
+    samples_2023_pre_bpix_nano_v12,
+)
 
 
-# 2023postBPix, NanoAOD v12 
+# 2023postBPix, NanoAOD v12
 cpn_2023_post_bpix_nano_v12 = Campaign(
-    name="2023postBPix",
+    name="2023_post_bpix_nano_v12",
     id="+",
     ecm=13.6,
-    lumi=9.693,  # fb^-1
+    lumi=9.676737966,  # fb^-1
     aux=dict(
         year=2023,
         postfix="postBPix",
@@ -76,14 +82,18 @@ cpn_2023_post_bpix_nano_v12 = Campaign(
         nano_version="v12",
     ),
 )
+add_datasets(
+    cpn_2023_post_bpix_nano_v12,
+    samples_2023_post_bpix_nano_v12,
+)
 
 
 # 2024, NanoAOD v15
 cpn_2024_nano_v15 = Campaign(
-    name="2024",
+    name="2024_nano_v15",
     id="+",
     ecm=13.6,
-    lumi=108.83,  # fb^-1
+    lumi=109.816515335,  # fb^-1
     aux=dict(
         year=2024,
         postfix=None,
@@ -99,10 +109,39 @@ cpn_2024_nano_v15 = Campaign(
         nano_version="v15",
     ),
 )
+add_datasets(
+    cpn_2024_nano_v15,
+    samples_2024_nano_v15,
+)
+
+
+# 2025, NanoAOD v15
+cpn_2025_nano_v15 = Campaign(
+    name="2025_nano_v15",
+    id="+",
+    ecm=13.6,
+    lumi=109.898115287,  # fb^-1
+    aux=dict(
+        year=2025,
+        postfix=None,
+        runs={
+            "C": [392159, 393609],
+            "D": [394286, 395967],
+            "E": [395968, 396597],
+            "F": [396598, 397853],
+            "G": [397854, 398903],
+        },
+        nano_version="v15",
+    ),
+)
+add_datasets(
+    cpn_2025_nano_v15,
+    samples_2025_nano_v15,
+)
 
 
 # Container for all campaigns
-campaigns = od.UniqueObjectIndex(
+campaigns = UniqueObjectIndex(
     Campaign,
     [
         cpn_2022_pre_ee_nano_v12,
@@ -110,5 +149,6 @@ campaigns = od.UniqueObjectIndex(
         cpn_2023_pre_bpix_nano_v12,
         cpn_2023_post_bpix_nano_v12,
         cpn_2024_nano_v15,
-    ]
+        cpn_2025_nano_v15,
+    ],
 )
