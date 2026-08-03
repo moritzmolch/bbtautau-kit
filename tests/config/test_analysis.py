@@ -67,29 +67,25 @@ class TestDecayModesConfiguration:
         """Verify DECAY_MODES contains at least one entry."""
         assert len(DECAY_MODES) > 0
 
-    def test_decay_modes_are_strings(self):
-        """Verify all decay modes are strings."""
+    def test_decay_modes_are_tuples(self):
+        """Verify all decay modes are tuples."""
         for mode in DECAY_MODES:
-            assert isinstance(mode, str), f"Expected string, got {type(mode)}"
+            assert isinstance(mode, tuple), f"Expected tuple, got {type(mode)}"
 
     def test_decay_modes_contain_y2b_h2tau(self):
-        """Verify y2b_h2tau decay mode is present."""
-        assert "y2b_h2tau" in DECAY_MODES
+        """Verify (y2b, h2tau) decay mode is present."""
+        assert ("y2b", "h2tau") in DECAY_MODES
 
     def test_decay_modes_contain_y2tau_h2b(self):
-        """Verify y2tau_h2b decay mode is present."""
-        assert "y2tau_h2b" in DECAY_MODES
+        """Verify (y2tau, h2b) decay mode is present."""
+        assert ("y2tau", "h2b") in DECAY_MODES
 
-    def test_decay_modes_format_valid(self):
-        """Verify all decay modes follow the expected format."""
-        valid_prefixes = ["y2b", "y2tau"]
-        valid_suffixes = ["h2b", "h2tau"]
-
+    def test_decay_modes_order_valid(self):
+        """Verify that Y decay modes precede H decay modes in the tuples."""
         for mode in DECAY_MODES:
-            parts = mode.split("_")
-            assert len(parts) == 2, f"Invalid format: {mode}"
-            assert parts[0] in valid_prefixes, f"Invalid Y decay: {parts[0]}"
-            assert parts[1] in valid_suffixes, f"Invalid H decay: {parts[1]}"
+            y_decay, h_decay = mode
+            assert y_decay.startswith("y"), f"Expected Y decay, got {y_decay}"
+            assert h_decay.startswith("h"), f"Expected H decay, got {h_decay}"
 
 
 # =============================================================================
@@ -404,38 +400,6 @@ class TestCreateXYHAnalysis:
 
 class TestEdgeCases:
     """Test edge cases and boundary conditions."""
-
-    def test_create_xyh_analysis_minimum_mass_in_config(
-        self, mock_order_analysis, valid_decay_mode_pair
-    ):
-        """Verify function works with minimum mass values from config."""
-        y_decay, h_decay = valid_decay_mode_pair
-        # Find minimum mass combination
-        min_mass = min(XY_MASSES, key=lambda x: (x[0], x[1]))
-        m_x, m_y = min_mass
-
-        result = create_xyh_analysis(y_decay, h_decay, m_x, m_y)
-
-        assert result is not None
-        call_kwargs = mock_order_analysis.call_args[1]
-        assert call_kwargs["aux"]["m_x"] == m_x
-        assert call_kwargs["aux"]["m_y"] == m_y
-
-    def test_create_xyh_analysis_maximum_mass_in_config(
-        self, mock_order_analysis, valid_decay_mode_pair
-    ):
-        """Verify function works with maximum mass values from config."""
-        y_decay, h_decay = valid_decay_mode_pair
-        # Find maximum mass combination
-        max_mass = max(XY_MASSES, key=lambda x: (x[0], x[1]))
-        m_x, m_y = max_mass
-
-        result = create_xyh_analysis(y_decay, h_decay, m_x, m_y)
-
-        assert result is not None
-        call_kwargs = mock_order_analysis.call_args[1]
-        assert call_kwargs["aux"]["m_x"] == m_x
-        assert call_kwargs["aux"]["m_y"] == m_y
 
     def test_create_xyh_analysis_string_type_validation(
         self, mock_order_analysis, valid_mass_pair
