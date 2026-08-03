@@ -4,6 +4,8 @@ from functools import cache, singledispatch
 from math import isclose
 from pathlib import Path
 from typing import Any
+import string
+import inspect
 
 from order import Campaign, Dataset
 
@@ -66,7 +68,18 @@ def load_database(
 
 @singledispatch
 def add_dataset(campaign_inst: Campaign, name: str, nick: Any):
-    pass
+
+    # First check if the name has a dependency on the parameters of the
+    # analysis, e.g., for a signal sample.
+
+    if len(get_format_string_parameters(name)) > 0:
+        return campaign_inst.add_dataset(
+            DatasetProxy(
+                name=name,
+                id="+",
+                aux={"nicks": nick},
+            )
+        )
 
 
 @add_dataset.register(list)
@@ -175,7 +188,7 @@ def _(campaign_inst: Campaign, name: str, nick: str) -> Dataset:
         The campaign instance to which the dataset will be added.
 
     name: str
-        The short name of the dataset to be added.       
+        The short name of the dataset to be added.
 
     nick : str
         The nick of the dataset to be added.
@@ -190,3 +203,89 @@ def _(campaign_inst: Campaign, name: str, nick: str) -> Dataset:
     nicks = [nick]
 
     return add_dataset(campaign_inst, name, nicks)
+
+
+def get_format_string_parameters(format_string: str) -> set[str]:
+    """
+    Get parameter of a format string.
+
+    The function extracts the names of parameters in curly braces inside a
+    string. The parameter names are returned as a set of strings.
+
+    Parameters
+    ----------
+
+    format_string : str
+        The format string to extract parameters from.
+
+    Returns
+    -------
+    set[str]
+        A set of parameter names found in the format string.
+    """
+
+    return set(
+        field_name
+        for _, field_name, _, _ in string.Formatter().parse(format_string)
+        if field_name is not None
+    )
+
+
+class DatasetProxy(Dataset):
+    """
+    Proxy class for a dataset that allows for lazy creation of the dataset
+    instance.
+    """
+
+    def __init__(
+        self,
+        name,
+        id,
+        campaign=None,
+        info=None,
+        processes=None,
+        label=None,
+        label_short=None,
+        is_data=False,
+        tags=None,
+        aux=None,
+        **kwargs,
+    ):
+        # Initialize base class
+        super().__init__(
+            name=name,
+            id=id,
+            campaign=campaign,
+            info=info,
+            processes=processes,
+            label=label,
+            label_short=label_short,
+            is_data=is_data,
+            tags=tags,
+            aux=aux,
+            **kwargs,
+        )
+
+        # Extract parameters from the name
+        self._parameters = get_format_string_parameters(name)
+
+        # Inspect the nicks in the aux dictionary and check whether
+        # they contain the same parameter names as the dataset name.
+        for nick in self.aux.get("nicks", []):
+            nick_parameters = set()
+            if callable(nick):
+                nick_parameters = inspect.signature(nick).parameters
+            elif isinstance(nick, str):
+                nick_parameters = get_format_string_parameters(nick)
+            else:
+                raise TypeError(
+                    f"Unsupported type for nick: {type(nick)}. "
+                    "Expected str or callable."
+                )
+
+            if not nick_parameters.issubset(self._parameters):
+                raise ValueError(
+                    f"Nick '{nick}' contains parameters {nick_parameters} "
+                    f"which are not present in the dataset name '{name}' "
+                    f"with parameters {self._parameters}."
+                )
