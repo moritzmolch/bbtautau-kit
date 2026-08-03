@@ -17,9 +17,9 @@ from order import Analysis
 
 # Decay modes of the Y and H bosons
 DECAY_MODES = [
-    # <Y decay mode>_<H decay mode>
-    "y2b_h2tau",
-    "y2tau_h2b",
+    # (<Y decay mode>, <H decay mode>)
+    ("y2b", "h2tau"),
+    ("y2tau", "h2b"),
 ]
 
 
