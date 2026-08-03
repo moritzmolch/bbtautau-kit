@@ -28,6 +28,9 @@ dependencies = [
 dev = [
     "ruff>=0.11.5,<1",
     "basedpyright>=1.39.8,<2",
+    "pytest>=8.0.0,<9",
+    "pytest-cov>=5.0.0,<6",
+    "pytest-mock>=3.14.0,<4",
 ]
 
 [project.urls]
@@ -36,6 +39,24 @@ Repository = "https://github.com/moritzmolch/bbtautau-kit"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/xyh"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
 
 [tool.ruff]
 target-version = "py312"
