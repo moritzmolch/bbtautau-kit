@@ -23,7 +23,8 @@ xyh = processes.add(
         is_signal=True,
         parameter_names=["y_decay_mode", "h_decay_mode", "m_x", "m_y"],
         parameter_values=[
-            (dy, dh, x, y) for (dy, dh), (x, y) in product(DECAY_MODES, XY_MASSES)
+            (dy, dh, x, y)
+            for (dy, dh), (x, y) in product(DECAY_MODES, XY_MASSES)
         ],
     ),
 )
