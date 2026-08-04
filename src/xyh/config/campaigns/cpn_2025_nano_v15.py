@@ -144,9 +144,9 @@ dataset_nicks = {
     "z_2tau_m50_1j_amcatnlo": "DYto2Tau-2Jets_Bin-1J-MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_RunIII2025Summer24NanoAODv15-150X",
     "z_2tau_m50_2j_amcatnlo": "DYto2Tau-2Jets_Bin-2J-MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_RunIII2025Summer24NanoAODv15-150X",
     # --- W + jets production --------------------------------------------------
-    "w_lnu_0j_amcatnlo": "WtoENu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_RunIII2025Summer24NanoAODv15-150X",
-    "w_lnu_1j_amcatnlo": "WtoMuNu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_RunIII2025Summer24NanoAODv15-150X",
-    "w_lnu_2j_amcatnlo": "WtoTauNu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_RunIII2025Summer24NanoAODv15-150X",
+    "w_enu_amcatnlo": "WtoENu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_RunIII2025Summer24NanoAODv15-150X",
+    "w_munu_amcatnlo": "WtoMuNu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_RunIII2025Summer24NanoAODv15-150X",
+    "w_taunu_amcatnlo": "WtoTauNu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_RunIII2025Summer24NanoAODv15-150X",
     # --- Diboson production ---------------------------------------------------
     "ww_2l2nu_powheg": "WWto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-150X",
     "ww_lnu2q_powheg": "WWtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-150X",
