@@ -2,13 +2,23 @@
 Integration tests for campaigns.
 """
 
+import os
+
+import pytest
+
 from xyh.config.campaigns.util import DatasetProxy
 
 # =============================================================================
 # Integration tests for single campaigns
 # =============================================================================
 
+# Skip tests in GitHub Actions since they require access to the local filesystem
+IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS", "false") == "true"
 
+
+@pytest.mark.skipif(
+    IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions."
+)
 class TestCpn2022PreEENanoV12Integration:
     """Tests for cpn_2022_pre_ee_nano_v12 campaign."""
 
@@ -97,6 +107,9 @@ class TestCpn2022PreEENanoV12Integration:
                 assert dataset.x.generator_weight > 0
 
 
+@pytest.mark.skipif(
+    IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions."
+)
 class TestCpn2022PostEENanoV12Integration:
     """Tests for cpn_2022_post_ee_nano_v12 campaign."""
 
@@ -185,6 +198,9 @@ class TestCpn2022PostEENanoV12Integration:
                 assert dataset.x.generator_weight > 0
 
 
+@pytest.mark.skipif(
+    IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions."
+)
 class TestCpn2023PreBPixNanoV12Integration:
     """Tests for cpn_2023_pre_bpix_nano_v12 campaign."""
 
@@ -273,6 +289,9 @@ class TestCpn2023PreBPixNanoV12Integration:
                 assert dataset.x.generator_weight > 0
 
 
+@pytest.mark.skipif(
+    IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions."
+)
 class TestCpn2023PostBPixNanoV12Integration:
     """Tests for cpn_2023_post_bpix_nano_v12 campaign."""
 
@@ -361,6 +380,9 @@ class TestCpn2023PostBPixNanoV12Integration:
                 assert dataset.x.generator_weight > 0
 
 
+@pytest.mark.skipif(
+    IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions."
+)
 class TestCpn2024NanoV15Integration:
     """Tests for cpn_2024_nano_v15 campaign."""
 
@@ -445,6 +467,9 @@ class TestCpn2024NanoV15Integration:
                 assert dataset.x.generator_weight > 0
 
 
+@pytest.mark.skipif(
+    IN_GITHUB_ACTIONS, reason="Test doesn't work in Github Actions."
+)
 class TestCpn2025NanoV15Integration:
     """Tests for cpn_2025_nano_v15 campaign."""
 
