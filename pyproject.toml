@@ -46,7 +46,7 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
-    "-v",
+    "-vv",
     "--strict-markers",
     "--tb=short",
 ]
