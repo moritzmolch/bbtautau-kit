@@ -13,7 +13,7 @@ from .util import add_dataset
 
 # Campaign 2022preEE, NanoAOD v12
 cpn_2022_pre_ee_nano_v12 = Campaign(
-    name="cpn_2022_pre_ee_nano_v12",
+    name="2022_pre_ee_nano_v12",
     id="+",
     ecm=13.6,
     aux=dict(
