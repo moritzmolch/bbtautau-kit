@@ -24,10 +24,6 @@ jobs:
         with:
           pixi-version: v0.69.0
 
-      - name: Set up Python ${{ matrix.python-version }}
-        run: |
-          pixi shell -e dev --frozen -c "python --version"
-
       # - name: Install dependencies
       #   run: |
       #     pixi run -e dev pip install -e ".[dev]"
