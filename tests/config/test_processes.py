@@ -13,27 +13,29 @@ and that the combined process index has the expected structure and properties.
 
 class TestCombinedProcessIndex:
     """Tests for the combined processes index."""
-    
+
     def test_combined_index_creation(self):
         """Test that combined process index is created."""
         from xyh.config.processes import processes
+
         assert processes is not None
         assert len(processes) > 0
-    
+
     def test_combined_index_contains_all_categories(self):
         """Test that combined index contains processes from all categories."""
         from xyh.config.processes import processes
+
         process_names = processes.names()
-        
+
         # Check for representative processes from each category
-        assert 'data' in process_names  # Data
-        assert 'tt_tautau' in process_names  # Top
-        assert 'z_2e_2mu_tautau' in process_names  # EWK
-        assert 'h_2tau_tautau' in process_names  # Higgs
-        assert 'jetfakes' in process_names  # Jet fakes
-        assert 'tt_tautau' in process_names  # Top
-        assert 'xyh_y2b_h2tau_mx2000_my500' in process_names  # Signal
-    
+        assert "data" in process_names  # Data
+        assert "tt_tautau" in process_names  # Top
+        assert "z_2e_2mu_tautau" in process_names  # EWK
+        assert "h_2tau_tautau" in process_names  # Higgs
+        assert "jetfakes" in process_names  # Jet fakes
+        assert "tt_tautau" in process_names  # Top
+        assert "xyh_y2b_h2tau_mx2000_my500" in process_names  # Signal
+
 
 # =============================================================================
 # Tests for process properties
@@ -48,7 +50,7 @@ class TestProcessProperties:
         from xyh.config.processes import processes
 
         for process_inst in processes.values():
-            assert hasattr(process_inst, 'is_data')
+            assert hasattr(process_inst, "is_data")
             assert isinstance(process_inst.is_data, bool)
 
     def test_data_processes_properties(self):
@@ -66,7 +68,6 @@ class TestProcessProperties:
 
         # Check that all data processes are present in the combined index
         for process_inst in processes.values():
-
             # Skip non-X -> HY signal processes
             if not process_inst.name.startswith("xyh_"):
                 continue
@@ -87,7 +88,6 @@ class TestProcessProperties:
 
         # Check that all data processes are present in the combined index
         for process_inst in processes.values():
-
             # Skip data processes and X -> HY signal processes
             if any(
                 process_inst.name.startswith(match)
@@ -111,7 +111,6 @@ class TestProcessProperties:
 
         # Check that all data processes are present in the combined index
         for process_inst in processes.values():
-
             # Only consider processes that end with "_tautau"
             if not process_inst.name.endswith("tautau"):
                 continue
@@ -125,7 +124,6 @@ class TestProcessProperties:
 
         # Check that all data processes are present in the combined index
         for process_inst in processes.values():
-
             # Only consider processes that end with "_tautau"
             if not process_inst.name.endswith("jetfakes"):
                 continue
@@ -139,7 +137,6 @@ class TestProcessProperties:
 
         # Check that all data processes are present in the combined index
         for process_inst in processes.values():
-
             # Only consider processes that end with "_tautau"
             if not process_inst.name.endswith("rem"):
                 continue
