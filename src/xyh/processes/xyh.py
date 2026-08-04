@@ -2,7 +2,7 @@ from itertools import product
 
 from order import Process, UniqueObjectIndex
 
-from xyh.analysis import DECAY_MODES, XY_MASSES
+from xyh.config.analysis import DECAY_MODES, XY_MASSES
 
 # Index of signal processes
 processes = UniqueObjectIndex(Process, [])
