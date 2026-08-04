@@ -84,11 +84,11 @@ def get_format_string_parameters(format_string: str) -> set[str]:
         A set of parameter names found in the format string.
     """
 
-    return set(
+    return {
         field_name
         for _, field_name, _, _ in string.Formatter().parse(format_string)
         if field_name is not None
-    )
+    }
 
 
 def add_dataset(
