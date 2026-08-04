@@ -9,6 +9,7 @@ version = "0.1.0"
 
 [dependencies]
 python = "3.12.*"
+pyyaml = ">=6.0.3,<7"
 
 [pypi-dependencies]
 order = ">=2.1.7, <3"
