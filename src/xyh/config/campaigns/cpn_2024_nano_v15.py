@@ -16,11 +16,11 @@ cpn_2024_nano_v15 = Campaign(
     name="2024_nano_v15",
     id="+",
     ecm=13.6,
-    aux=dict(
-        year=2024,
-        postfix=None,
-        lumi=109.816515335,  # fb^-1
-        runs={
+    aux={
+        "year": 2024,
+        "postfix": None,
+        "lumi": 109.816515335,  # fb^-1
+        "runs": {
             "C": [378971, 379411],
             "D": [379412, 380252],
             "E": [380948, 381943],
@@ -29,8 +29,8 @@ cpn_2024_nano_v15 = Campaign(
             "H": [385814, 386408],
             "I": [386409, 387121],
         },
-        nano_version="v15",
-    ),
+        "nano_version": "v15",
+    },
 )
 
 

@@ -16,15 +16,15 @@ cpn_2023_pre_bpix_nano_v12 = Campaign(
     name="2023_pre_bpix_nano_v12",
     id="+",
     ecm=13.6,
-    aux=dict(
-        year=2023,
-        postfix="preBPix",
-        lumi=17.964217998,  # fb^-1
-        runs={
+    aux={
+        "year": 2023,
+        "postfix": "preBPix",
+        "lumi": 17.964217998,  # fb^-1
+        "runs": {
             "C": [367080, 369802],
         },
-        nano_version="v12",
-    ),
+        "nano_version": "v12",
+    },
 )
 
 

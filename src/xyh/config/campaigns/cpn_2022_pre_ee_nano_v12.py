@@ -16,16 +16,16 @@ cpn_2022_pre_ee_nano_v12 = Campaign(
     name="2022_pre_ee_nano_v12",
     id="+",
     ecm=13.6,
-    aux=dict(
-        year=2022,
-        postfix="preEE",
-        lumi=7.989513666,  # fb^-1
-        runs={
+    aux={
+        "year": 2022,
+        "postfix": "preEE",
+        "lumi": 7.989513666,  # fb^-1
+        "runs": {
             "C": [355794, 357486],
             "D": [357487, 359021],
         },
-        nano_version="v12",
-    ),
+        "nano_version": "v12",
+    },
 )
 
 

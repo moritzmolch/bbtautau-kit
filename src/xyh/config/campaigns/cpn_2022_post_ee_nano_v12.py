@@ -3,6 +3,7 @@
 """
 
 from order import Campaign
+
 from .util import add_dataset
 
 
@@ -16,17 +17,17 @@ cpn_2022_post_ee_nano_v12 = Campaign(
     name="2022_post_ee_nano_v12",
     id="+",
     ecm=13.6,
-    aux=dict(
-        year=2022,
-        postfix="postEE",
-        lumi=26.674924045,  # fb^-1
-        runs={
+    aux={
+        "year": 2022,
+        "postfix": "postEE",
+        "lumi": 26.674924045,  # fb^-1
+        "runs": {
             "E": [359022, 360331],
             "F": [360332, 362180],
             "G": [362350, 362760],
         },
-        nano_version="v12",
-    ),
+        "nano_version": "v12",
+    },
 )
 
 
