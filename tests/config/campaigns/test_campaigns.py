@@ -4,7 +4,6 @@ Integration tests for campaigns.
 
 from xyh.config.campaigns.util import DatasetProxy
 
-
 # =============================================================================
 # Integration tests for single campaigns
 # =============================================================================

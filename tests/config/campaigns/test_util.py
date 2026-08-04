@@ -5,11 +5,10 @@ These tests are completely isolated and use mocks for all external dependencies.
 """
 
 import json
-import pytest
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, mock_open
-from dataclasses import fields
+from unittest.mock import MagicMock, Mock, patch
 
+import pytest
 
 # =============================================================================
 # Dummy classes for external dependencies
@@ -208,7 +207,7 @@ class TestLoadDatabase:
 
     def test_load_database_success(self, sample_data):
         """Test successful loading of sample database."""
-        from xyh.config.campaigns.util import load_database, Sample
+        from xyh.config.campaigns.util import Sample, load_database
 
         # Clear cache before test
         load_database.cache_clear()
@@ -401,7 +400,7 @@ class TestAddDatasetStr:
 
     def test_add_dataset_data_sample(self, mock_campaign, mock_settings):
         """Test adding a data dataset (is_data=True)."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         data_sample = Sample(
             nick="data_sample",
@@ -422,7 +421,7 @@ class TestAddDatasetStr:
 
     def test_add_dataset_none_values(self, mock_campaign, mock_settings):
         """Test adding a dataset with None xsec and generator_weight."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         sample = Sample(
             nick="test_nick",
@@ -453,7 +452,7 @@ class TestAddDatasetList:
 
     def test_add_dataset_multiple_nicks(self, mock_campaign, mock_settings):
         """Test adding a dataset with multiple nicks."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -497,7 +496,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that cross sections within tolerance are accepted."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         # Cross sections differ by less than 1e-3 relative tolerance
         sample1 = Sample(
@@ -536,7 +535,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched cross sections raise ValueError."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -572,7 +571,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched generator weights raise ValueError."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -610,7 +609,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched generator weight types raise TypeError."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -648,7 +647,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched eras raise ValueError."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -684,7 +683,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched sample types raise ValueError."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -720,7 +719,7 @@ class TestAddDatasetList:
 
     def test_add_dataset_all_none_xsec(self, mock_campaign, mock_settings):
         """Test adding datasets where all have None xsec."""
-        from xyh.config.campaigns.util import add_dataset, Sample
+        from xyh.config.campaigns.util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
