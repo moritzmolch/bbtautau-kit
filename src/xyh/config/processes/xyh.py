@@ -19,14 +19,14 @@ xyh = processes.add(
     id="+",
     is_data=False,
     tags={"signal"},
-    aux=dict(
-        is_signal=True,
-        parameter_names=["y_decay_mode", "h_decay_mode", "m_x", "m_y"],
-        parameter_values=[
+    aux={
+        "is_signal": True,
+        "parameter_names": ["y_decay_mode", "h_decay_mode", "m_x", "m_y"],
+        "parameter_values": [
             (dy, dh, x, y)
             for (dy, dh), (x, y) in product(DECAY_MODES, XY_MASSES)
         ],
-    ),
+    },
 )
 
 
@@ -56,11 +56,11 @@ for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(DECAY_MODES, XY_MASSES):
         id="+",
         is_data=False,
         tags=xyh.tags,
-        aux=dict(
-            is_signal=True,
-            y_decay_mode=y_decay_mode,
-            h_decay_mode=h_decay_mode,
-            m_x=m_x,
-            m_y=m_y,
-        ),
+        aux={
+            "is_signal": True,
+            "y_decay_mode": y_decay_mode,
+            "h_decay_mode": h_decay_mode,
+            "m_x": m_x,
+            "m_y": m_y,
+        },
     )

@@ -3,8 +3,8 @@
 """
 
 from order import Campaign
-from .util import add_dataset
 
+from .util import add_dataset
 
 # ------------------------------------------------------------------------------
 # Campaign definition
