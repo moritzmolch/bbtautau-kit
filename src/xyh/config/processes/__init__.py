@@ -7,12 +7,12 @@ from itertools import chain
 from order import Process, UniqueObjectIndex
 
 # Import process indices from submodules
-from xyh.processes.data import processes as data_processes
-from xyh.processes.ewk import processes as ewk_processes
-from xyh.processes.higgs import processes as higgs_processes
-from xyh.processes.jetfakes import processes as jetfakes_processes
-from xyh.processes.top import processes as top_processes
-from xyh.processes.xyh import processes as xyh_processes
+from .data import processes as data_processes
+from .ewk import processes as ewk_processes
+from .higgs import processes as higgs_processes
+from .jetfakes import processes as jetfakes_processes
+from .top import processes as top_processes
+from .xyh import processes as xyh_processes
 
 # Merge all processes into a single index
 processes = UniqueObjectIndex(

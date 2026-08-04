@@ -21,33 +21,44 @@ xyh = processes.add(
     tags={"signal"},
     aux=dict(
         is_signal=True,
-        parameter_names=["decay_mode", "m_x", "m_y"],
+        parameter_names=["y_decay_mode", "h_decay_mode", "m_x", "m_y"],
         parameter_values=[
-            (d, x, y) for d, (x, y) in product(DECAY_MODES, XY_MASSES)
+            (dy, dh, x, y) for (dy, dh), (x, y) in product(DECAY_MODES, XY_MASSES)
         ],
     ),
 )
 
 
-for decay_mode, (m_x, m_y) in product(DECAY_MODES, XY_MASSES):
+for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(DECAY_MODES, XY_MASSES):
     # TODO Some samples seem to be missing in the production. Request production
     # of them.
-    if decay_mode == "y2b_h2tau" and m_x == 2500 and m_y == 800:
+    if (
+        y_decay_mode == "y2b"
+        and h_decay_mode == "h2tau"
+        and m_x == 2500
+        and m_y == 800
+    ):
         continue
-    if decay_mode == "y2tau_h2b" and m_x == 2500 and m_y == 90:
+    if (
+        y_decay_mode == "y2tau"
+        and h_decay_mode == "h2b"
+        and m_x == 2500
+        and m_y == 90
+    ):
         continue
 
     # Add the process for this specific hypothesis to the X -> HY parent
     # processs
-    name = f"xyh_{decay_mode}_mx{m_x}_my{m_y}"
-    locals()[name] = xyh.add_process(
+    name = f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"
+    locals()[name] = processes.add(
         name=name,
         id="+",
         is_data=False,
         tags=xyh.tags,
         aux=dict(
             is_signal=True,
-            decay_mode=decay_mode,
+            y_decay_mode=y_decay_mode,
+            h_decay_mode=h_decay_mode,
             m_x=m_x,
             m_y=m_y,
         ),
