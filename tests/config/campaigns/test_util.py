@@ -212,9 +212,6 @@ class TestLoadDatabase:
         # Clear cache before test
         load_database.cache_clear()
 
-        # Mock the JSON file content
-        mock_json_content = json.dumps(sample_data)
-
         # Create a mock file handle that returns our mock content
         mock_file_handle = MagicMock()
         mock_file_handle.__enter__.return_value = mock_file_handle
@@ -240,8 +237,6 @@ class TestLoadDatabase:
 
         # Clear cache before test
         load_database.cache_clear()
-
-        mock_json_content = json.dumps(sample_data)
 
         # Create a mock file handle that returns our mock content
         mock_file_handle = MagicMock()

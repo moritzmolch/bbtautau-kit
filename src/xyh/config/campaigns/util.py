@@ -85,11 +85,9 @@ def get_format_string_parameters(format_string: str) -> set[str]:
     """
 
     return set(
-        (
-            field_name
-            for _, field_name, _, _ in string.Formatter().parse(format_string)
-            if field_name is not None
-        )
+        field_name
+        for _, field_name, _, _ in string.Formatter().parse(format_string)
+        if field_name is not None
     )
 
 
