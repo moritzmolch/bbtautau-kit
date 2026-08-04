@@ -23,30 +23,32 @@ class TestCpn2022PreEENanoV12Integration:
 
     def test_campaign_attributes(self):
         """Test that campaign has expected attributes."""
-        from xyh.config.campaigns import cpn_2022_pre_ee_nano_v12 as campaign_inst
+        from xyh.config.campaigns import (
+            cpn_2022_pre_ee_nano_v12 as campaign_inst,
+        )
 
         # Check basic attributes exist
-        assert hasattr(campaign_inst, 'name')
-        assert hasattr(campaign_inst, 'id')
-        assert hasattr(campaign_inst, 'ecm')
-        assert hasattr(campaign_inst, 'aux')
-        
+        assert hasattr(campaign_inst, "name")
+        assert hasattr(campaign_inst, "id")
+        assert hasattr(campaign_inst, "ecm")
+        assert hasattr(campaign_inst, "aux")
+
         # Verify name is set correctly
         assert campaign_inst.name == "2022_pre_ee_nano_v12"
         assert campaign_inst.x.nano_version == "v12"
 
         # Verify aux contains expected keys
-        assert 'year' in campaign_inst.aux
-        assert 'postfix' in campaign_inst.aux
-        assert 'lumi' in campaign_inst.aux
-        assert 'runs' in campaign_inst.aux
-        assert 'nano_version' in campaign_inst.aux
+        assert "year" in campaign_inst.aux
+        assert "postfix" in campaign_inst.aux
+        assert "lumi" in campaign_inst.aux
+        assert "runs" in campaign_inst.aux
+        assert "nano_version" in campaign_inst.aux
 
     def test_data_available(self):
         """Test that the campaign file contains the expected data samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2022_pre_ee_nano_v12
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
         for dataset_name in [
@@ -54,7 +56,9 @@ class TestCpn2022PreEENanoV12Integration:
             "muon_2022_cd",
             "tau_2022_cd",
         ]:
-            dataset_inst = cpn_2022_pre_ee_nano_v12.get_dataset(dataset_name, None)
+            dataset_inst = cpn_2022_pre_ee_nano_v12.get_dataset(
+                dataset_name, None
+            )
 
             # Check base attributes of the dataset instance
             assert dataset_inst is not None
@@ -68,10 +72,12 @@ class TestCpn2022PreEENanoV12Integration:
         """Test that the campaign file contains the expected signal samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2022_pre_ee_nano_v12
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
-        dataset_inst = cpn_2022_pre_ee_nano_v12.get_dataset("xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None)
+        dataset_inst = cpn_2022_pre_ee_nano_v12.get_dataset(
+            "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None
+        )
 
         # Check base attributes of the dataset instance
         assert dataset_inst is not None
@@ -105,30 +111,32 @@ class TestCpn2022PostEENanoV12Integration:
 
     def test_campaign_attributes(self):
         """Test that campaign has expected attributes."""
-        from xyh.config.campaigns import cpn_2022_post_ee_nano_v12 as campaign_inst
+        from xyh.config.campaigns import (
+            cpn_2022_post_ee_nano_v12 as campaign_inst,
+        )
 
         # Check basic attributes exist
-        assert hasattr(campaign_inst, 'name')
-        assert hasattr(campaign_inst, 'id')
-        assert hasattr(campaign_inst, 'ecm')
-        assert hasattr(campaign_inst, 'aux')
-        
+        assert hasattr(campaign_inst, "name")
+        assert hasattr(campaign_inst, "id")
+        assert hasattr(campaign_inst, "ecm")
+        assert hasattr(campaign_inst, "aux")
+
         # Verify name and nanoAOD version are set correctly
         assert campaign_inst.name == "2022_post_ee_nano_v12"
         assert campaign_inst.x.nano_version == "v12"
-        
+
         # Verify aux contains expected keys
-        assert 'year' in campaign_inst.aux
-        assert 'postfix' in campaign_inst.aux
-        assert 'lumi' in campaign_inst.aux
-        assert 'runs' in campaign_inst.aux
-        assert 'nano_version' in campaign_inst.aux
+        assert "year" in campaign_inst.aux
+        assert "postfix" in campaign_inst.aux
+        assert "lumi" in campaign_inst.aux
+        assert "runs" in campaign_inst.aux
+        assert "nano_version" in campaign_inst.aux
 
     def test_data_available(self):
         """Test that the campaign file contains the expected data samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2022_post_ee_nano_v12
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
         for dataset_name in [
@@ -136,7 +144,9 @@ class TestCpn2022PostEENanoV12Integration:
             "muon_2022_efg",
             "tau_2022_efg",
         ]:
-            dataset_inst = cpn_2022_post_ee_nano_v12.get_dataset(dataset_name, None)
+            dataset_inst = cpn_2022_post_ee_nano_v12.get_dataset(
+                dataset_name, None
+            )
 
             # Check base attributes of the dataset instance
             assert dataset_inst is not None
@@ -150,10 +160,12 @@ class TestCpn2022PostEENanoV12Integration:
         """Test that the campaign file contains the expected signal samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2022_post_ee_nano_v12
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
-        dataset_inst = cpn_2022_post_ee_nano_v12.get_dataset("xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None)
+        dataset_inst = cpn_2022_post_ee_nano_v12.get_dataset(
+            "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None
+        )
 
         # Check base attributes of the dataset instance
         assert dataset_inst is not None
@@ -187,30 +199,32 @@ class TestCpn2023PreBPixNanoV12Integration:
 
     def test_campaign_attributes(self):
         """Test that campaign has expected attributes."""
-        from xyh.config.campaigns import cpn_2023_pre_bpix_nano_v12 as campaign_inst
+        from xyh.config.campaigns import (
+            cpn_2023_pre_bpix_nano_v12 as campaign_inst,
+        )
 
         # Check basic attributes exist
-        assert hasattr(campaign_inst, 'name')
-        assert hasattr(campaign_inst, 'id')
-        assert hasattr(campaign_inst, 'ecm')
-        assert hasattr(campaign_inst, 'aux')
-        
+        assert hasattr(campaign_inst, "name")
+        assert hasattr(campaign_inst, "id")
+        assert hasattr(campaign_inst, "ecm")
+        assert hasattr(campaign_inst, "aux")
+
         # Verify name and nanoAOD version are set correctly
         assert campaign_inst.name == "2023_pre_bpix_nano_v12"
         assert campaign_inst.x.nano_version == "v12"
-        
+
         # Verify aux contains expected keys
-        assert 'year' in campaign_inst.aux
-        assert 'postfix' in campaign_inst.aux
-        assert 'lumi' in campaign_inst.aux
-        assert 'runs' in campaign_inst.aux
-        assert 'nano_version' in campaign_inst.aux
+        assert "year" in campaign_inst.aux
+        assert "postfix" in campaign_inst.aux
+        assert "lumi" in campaign_inst.aux
+        assert "runs" in campaign_inst.aux
+        assert "nano_version" in campaign_inst.aux
 
     def test_data_available(self):
         """Test that the campaign file contains the expected data samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2023_pre_bpix_nano_v12
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
         for dataset_name in [
@@ -218,7 +232,9 @@ class TestCpn2023PreBPixNanoV12Integration:
             "muon_2023_c",
             "tau_2023_c",
         ]:
-            dataset_inst = cpn_2023_pre_bpix_nano_v12.get_dataset(dataset_name, None)
+            dataset_inst = cpn_2023_pre_bpix_nano_v12.get_dataset(
+                dataset_name, None
+            )
 
             # Check base attributes of the dataset instance
             assert dataset_inst is not None
@@ -232,10 +248,12 @@ class TestCpn2023PreBPixNanoV12Integration:
         """Test that the campaign file contains the expected signal samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2023_pre_bpix_nano_v12
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
-        dataset_inst = cpn_2023_pre_bpix_nano_v12.get_dataset("xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None)
+        dataset_inst = cpn_2023_pre_bpix_nano_v12.get_dataset(
+            "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None
+        )
 
         # Check base attributes of the dataset instance
         assert dataset_inst is not None
@@ -269,30 +287,32 @@ class TestCpn2023PostBPixNanoV12Integration:
 
     def test_campaign_attributes(self):
         """Test that campaign has expected attributes."""
-        from xyh.config.campaigns import cpn_2023_post_bpix_nano_v12 as campaign_inst
+        from xyh.config.campaigns import (
+            cpn_2023_post_bpix_nano_v12 as campaign_inst,
+        )
 
         # Check basic attributes exist
-        assert hasattr(campaign_inst, 'name')
-        assert hasattr(campaign_inst, 'id')
-        assert hasattr(campaign_inst, 'ecm')
-        assert hasattr(campaign_inst, 'aux')
-        
+        assert hasattr(campaign_inst, "name")
+        assert hasattr(campaign_inst, "id")
+        assert hasattr(campaign_inst, "ecm")
+        assert hasattr(campaign_inst, "aux")
+
         # Verify name and nanoAOD version are set correctly
         assert campaign_inst.name == "2023_post_bpix_nano_v12"
         assert campaign_inst.x.nano_version == "v12"
-        
+
         # Verify aux contains expected keys
-        assert 'year' in campaign_inst.aux
-        assert 'postfix' in campaign_inst.aux
-        assert 'lumi' in campaign_inst.aux
-        assert 'runs' in campaign_inst.aux
-        assert 'nano_version' in campaign_inst.aux
+        assert "year" in campaign_inst.aux
+        assert "postfix" in campaign_inst.aux
+        assert "lumi" in campaign_inst.aux
+        assert "runs" in campaign_inst.aux
+        assert "nano_version" in campaign_inst.aux
 
     def test_data_available(self):
         """Test that the campaign file contains the expected data samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2023_post_bpix_nano_v12
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
         for dataset_name in [
@@ -300,7 +320,9 @@ class TestCpn2023PostBPixNanoV12Integration:
             "muon_2023_d",
             "tau_2023_d",
         ]:
-            dataset_inst = cpn_2023_post_bpix_nano_v12.get_dataset(dataset_name, None)
+            dataset_inst = cpn_2023_post_bpix_nano_v12.get_dataset(
+                dataset_name, None
+            )
 
             # Check base attributes of the dataset instance
             assert dataset_inst is not None
@@ -314,10 +336,12 @@ class TestCpn2023PostBPixNanoV12Integration:
         """Test that the campaign file contains the expected signal samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2023_post_bpix_nano_v12
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
-        dataset_inst = cpn_2023_post_bpix_nano_v12.get_dataset("xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None)
+        dataset_inst = cpn_2023_post_bpix_nano_v12.get_dataset(
+            "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None
+        )
 
         # Check base attributes of the dataset instance
         assert dataset_inst is not None
@@ -354,27 +378,27 @@ class TestCpn2024NanoV15Integration:
         from xyh.config.campaigns import cpn_2024_nano_v15 as campaign_inst
 
         # Check basic attributes exist
-        assert hasattr(campaign_inst, 'name')
-        assert hasattr(campaign_inst, 'id')
-        assert hasattr(campaign_inst, 'ecm')
-        assert hasattr(campaign_inst, 'aux')
-        
+        assert hasattr(campaign_inst, "name")
+        assert hasattr(campaign_inst, "id")
+        assert hasattr(campaign_inst, "ecm")
+        assert hasattr(campaign_inst, "aux")
+
         # Verify name and nanoAOD version are set correctly
         assert campaign_inst.name == "2024_nano_v15"
         assert campaign_inst.x.nano_version == "v15"
-        
+
         # Verify aux contains expected keys
-        assert 'year' in campaign_inst.aux
-        assert 'postfix' in campaign_inst.aux
-        assert 'lumi' in campaign_inst.aux
-        assert 'runs' in campaign_inst.aux
-        assert 'nano_version' in campaign_inst.aux
+        assert "year" in campaign_inst.aux
+        assert "postfix" in campaign_inst.aux
+        assert "lumi" in campaign_inst.aux
+        assert "runs" in campaign_inst.aux
+        assert "nano_version" in campaign_inst.aux
 
     def test_data_available(self):
         """Test that the campaign file contains the expected data samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2024_nano_v15
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
         for dataset_name in [
@@ -396,10 +420,12 @@ class TestCpn2024NanoV15Integration:
         """Test that the campaign file contains the expected signal samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2024_nano_v15
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
-        dataset_inst = cpn_2024_nano_v15.get_dataset("xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None)
+        dataset_inst = cpn_2024_nano_v15.get_dataset(
+            "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None
+        )
 
         # Check base attributes of the dataset instance
         assert dataset_inst is not None
@@ -436,27 +462,27 @@ class TestCpn2025NanoV15Integration:
         from xyh.config.campaigns import cpn_2025_nano_v15 as campaign_inst
 
         # Check basic attributes exist
-        assert hasattr(campaign_inst, 'name')
-        assert hasattr(campaign_inst, 'id')
-        assert hasattr(campaign_inst, 'ecm')
-        assert hasattr(campaign_inst, 'aux')
-        
+        assert hasattr(campaign_inst, "name")
+        assert hasattr(campaign_inst, "id")
+        assert hasattr(campaign_inst, "ecm")
+        assert hasattr(campaign_inst, "aux")
+
         # Verify name and nanoAOD version are set correctly
         assert campaign_inst.name == "2025_nano_v15"
         assert campaign_inst.x.nano_version == "v15"
-        
+
         # Verify aux contains expected keys
-        assert 'year' in campaign_inst.aux
-        assert 'postfix' in campaign_inst.aux
-        assert 'lumi' in campaign_inst.aux
-        assert 'runs' in campaign_inst.aux
-        assert 'nano_version' in campaign_inst.aux
+        assert "year" in campaign_inst.aux
+        assert "postfix" in campaign_inst.aux
+        assert "lumi" in campaign_inst.aux
+        assert "runs" in campaign_inst.aux
+        assert "nano_version" in campaign_inst.aux
 
     def test_data_available(self):
         """Test that the campaign file contains the expected data samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2025_nano_v15
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
         for dataset_name in [
@@ -478,10 +504,12 @@ class TestCpn2025NanoV15Integration:
         """Test that the campaign file contains the expected signal samples."""
         # Import should not raise any errors
         from xyh.config.campaigns import cpn_2025_nano_v15
-        
+
         # Verify the data samples have been added and that they have the
         # expected attributes
-        dataset_inst = cpn_2025_nano_v15.get_dataset("xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None)
+        dataset_inst = cpn_2025_nano_v15.get_dataset(
+            "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph", None
+        )
 
         # Check base attributes of the dataset instance
         assert dataset_inst is not None

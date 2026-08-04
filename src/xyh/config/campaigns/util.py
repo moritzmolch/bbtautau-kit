@@ -103,7 +103,7 @@ def add_dataset(
     Add a dataset to a campaign instance.
 
     For unique `name` strings, a `Dataset` is created directly with information
-    from the sample database.   
+    from the sample database.
 
     If `name` can be interpreted as a format string with named parameters, a
     `ProxyDataset` is created instead of a `Dataset` for lazy evaluation with
@@ -140,7 +140,6 @@ def add_dataset(
         campaign_inst.datasets.cls._max_id += 1
         return dataset_inst
 
-
     # If 'nicks' is a string, convert it to a list of strings
     if isinstance(nicks, str):
         nicks = [nicks]
@@ -169,10 +168,10 @@ def add_dataset(
     # Check if all generator weights and cross sections are equal within a
     # relative tolerance of 1e-3
     for f in ["generator_weight", "xsec"]:
-        if any(value is None for value in sample_info[f]) and not all(value is None for value in sample_info[f]):
-            raise TypeError(
-                f"Types of '{f}' not equal for nicks: {nicks}"
-            )
+        if any(value is None for value in sample_info[f]) and not all(
+            value is None for value in sample_info[f]
+        ):
+            raise TypeError(f"Types of '{f}' not equal for nicks: {nicks}")
 
         if all(value is None for value in sample_info[f]):
             # Check if all values are 'None'
@@ -188,18 +187,12 @@ def add_dataset(
 
         else:
             # Other formats are not supported, raise an error
-            raise ValueError(
-                f"Values of '{f}' not equal for nicks: {nicks}"
-            )
+            raise ValueError(f"Values of '{f}' not equal for nicks: {nicks}")
 
     # Check if eras and sample types are the same for all nicks in the list
     for f in ["era", "sample_type"]:
-        if not all(
-            sample_info[f][0] == value for value in sample_info[f]
-        ):
-            raise ValueError(
-                f"Values of '{f}' not equal for nicks: {nicks}"
-            )
+        if not all(sample_info[f][0] == value for value in sample_info[f]):
+            raise ValueError(f"Values of '{f}' not equal for nicks: {nicks}")
 
         # Reduce list of values to a single value (the first one) since they are
         # all equal

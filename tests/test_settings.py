@@ -89,7 +89,9 @@ def mock_yaml_file_reader(mock_config_file):
         mock_file.read.return_value = yaml_content
         mock_path_instance.open.return_value = mock_file
 
-        mock_path_instance.resolve.return_value.parent.parent = mock_path.parent.parent
+        mock_path_instance.resolve.return_value.parent.parent = (
+            mock_path.parent.parent
+        )
         mock_path_class.return_value = mock_path_instance
 
         with patch("xyh.settings.yaml.safe_load") as mock_yaml:
@@ -213,7 +215,7 @@ class TestSettingsInitialization:
                 mock_file = Mock()
                 mock_file.__enter__ = Mock(return_value=mock_file)
                 mock_file.__exit__ = Mock(return_value=False)
-                
+
                 with patch.object(Path, "open", return_value=mock_file):
                     with patch(
                         "xyh.settings.yaml.safe_load",
@@ -673,7 +675,7 @@ class TestSettingsIntegration:
                 mock_file = Mock()
                 mock_file.__enter__ = Mock(return_value=mock_file)
                 mock_file.__exit__ = Mock(return_value=False)
-                
+
                 with patch.object(Path, "open", return_value=mock_file):
                     with patch(
                         "xyh.settings.yaml.safe_load",
