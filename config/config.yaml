@@ -1,0 +1,2 @@
+# Path to the sample database directory to load dataset information
+sample_database_dir: /work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database
