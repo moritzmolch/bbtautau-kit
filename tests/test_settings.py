@@ -7,7 +7,7 @@ dot notation access, environment variable handling, and Mapping interface.
 
 import os
 from pathlib import Path
-from unittest.mock import Mock, mock_open, patch
+from unittest.mock import MagicMock, Mock, mock_open, patch
 
 import pytest
 
@@ -212,7 +212,7 @@ class TestSettingsInitialization:
             # Mock Path.exists() to return True
             with patch.object(Path, "exists", return_value=True):
                 # Mock Path.open() as a context manager
-                mock_file = Mock()
+                mock_file = MagicMock()
                 mock_file.__enter__ = Mock(return_value=mock_file)
                 mock_file.__exit__ = Mock(return_value=False)
 
@@ -241,18 +241,24 @@ class TestSettingsInitialization:
         """Verify _load_config correctly parses YAML file."""
         import yaml
 
+        # Create the sample data
         mock_data = yaml.dump(sample_config_dict)
-        m = mock_open(read_data=mock_data)
+
+        # Mock Path.open() to return the mock file
+        mock_file_handle = MagicMock()
+        mock_file_handle.__enter__.return_value = mock_file_handle
+        mock_file_handle.__exit__.return_value = False
+        mock_file_handle.read.return_value = yaml.dump(mock_data)
 
         with patch.object(Path, "exists", return_value=True):
-            with patch("builtins.open", m):
-                with patch(
-                    "xyh.settings.yaml.safe_load",
-                    return_value=sample_config_dict,
-                ):
+            with patch.object(Path, "open", return_value=mock_file_handle):
+                with patch("yaml.safe_load", return_value=sample_config_dict):
                     settings = Settings()
 
                     assert settings.raw_config == sample_config_dict
+                # settings = Settings()
+
+                # assert settings.raw_config == sample_config_dict
 
     def test_settings_load_config_empty_file_returns_empty_dict(
         self, reset_settings_singleton
@@ -260,12 +266,17 @@ class TestSettingsInitialization:
         """Verify _load_config handles empty YAML file gracefully."""
         m = mock_open(read_data="")
 
-        with patch.object(Path, "exists", return_value=True):
-            with patch("builtins.open", m):
-                with patch("xyh.settings.yaml.safe_load", return_value=None):
-                    settings = Settings()
+        # Mock the file handle to behave as a context manager
+        mock_file_handle = MagicMock()
+        mock_file_handle.__enter__.return_value = mock_file_handle
+        mock_file_handle.__exit__.return_value = False
+        mock_file_handle.read.return_value = ""
 
-                    assert settings.raw_config == {}
+        with patch.object(Path, "exists", return_value=True):
+            with patch.object(Path, "open", return_value=mock_file_handle):
+                settings = Settings()
+
+                assert settings.raw_config == {}
 
 
 # =============================================================================
