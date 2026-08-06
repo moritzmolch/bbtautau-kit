@@ -7,7 +7,7 @@ dot notation access, environment variable handling, and Mapping interface.
 
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -264,7 +264,6 @@ class TestSettingsInitialization:
         self, reset_settings_singleton
     ):
         """Verify _load_config handles empty YAML file gracefully."""
-        m = mock_open(read_data="")
 
         # Mock the file handle to behave as a context manager
         mock_file_handle = MagicMock()
