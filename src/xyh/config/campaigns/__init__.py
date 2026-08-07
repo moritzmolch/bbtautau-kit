@@ -12,7 +12,7 @@ from order import Campaign, UniqueObjectIndex
 @cache
 def load_campaign(campaign_name: str) -> Campaign:
     """
-    Load a campaign module dynamically based on the provided campaign name.
+    Load a campaign dynamically based on the provided campaign name.
 
     Parameters
     ----------
@@ -30,7 +30,6 @@ def load_campaign(campaign_name: str) -> Campaign:
         campaign_inst = getattr(module, campaign_name)
     except (ImportError, AttributeError) as e:
         raise ValueError(f"Campaign '{campaign_name}' not found.") from e
-
     return campaign_inst
 
 
@@ -41,8 +40,8 @@ def campaigns() -> UniqueObjectIndex:
 
     Returns
     -------
-    UniqueObjectIndex[Campaign]
-        A UniqueObjectIndex containing all available campaigns.
+    UniqueObjectIndex
+        A UniqueObjectIndex of all available `Campaign` objects.
     """
 
     return UniqueObjectIndex(
