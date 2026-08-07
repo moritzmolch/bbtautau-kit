@@ -277,3 +277,13 @@ class DatasetProxy(Dataset):
                     f"which are not present in the dataset name '{name}' "
                     f"with parameters {self._parameters}."
                 )
+
+    def eval(self, **kwargs):
+        # Check if all required parameters are provided
+        missing_parameters = self._parameters - set(kwargs.keys())
+        if missing_parameters:
+            raise ValueError(
+                f"Missing parameters for category '{self.name}': {missing_parameters}"
+            )
+
+        return self.copy(name=self.name.format(**kwargs))
