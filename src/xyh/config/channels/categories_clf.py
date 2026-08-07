@@ -18,8 +18,8 @@ def add_clf_category(
             CategoryProxy(
                 name=f"{channel_inst.name}_clf_{name}_xyh_{{y_decay_mode}}_{{h_decay_mode}}_mx{{m_x}}_my{{m_y}}",
                 id="+",
-                label=f"{channel_inst.name}, {label} category",
-                label_short=f"{channel_inst.name}, {label}",
+                label=f"{channel_inst.label} channel, {label} category",
+                label_short=f"{channel_inst.label}, {label}",
             )
         )
 
