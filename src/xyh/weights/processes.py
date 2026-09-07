@@ -1,6 +1,6 @@
 from collections import OrderedDict
 
-from xyh.filters.wrapper import Wrapper
+from xyh.core.wrapper import Wrapper
 
 
 @Wrapper.wrap
