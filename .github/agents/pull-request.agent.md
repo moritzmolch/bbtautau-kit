@@ -50,7 +50,7 @@ Create a markdown file (`<branch_name>_PULL_REQUEST.md`) with:
 - Make it easy for reviewers to understand the scope quickly
 
 ## Output
-Write the PR description to `<branch_name>_PULL_REQUEST.md` in the repository root (e.g., `feature/my-branch_PULL_REQUEST.md`), ready to be used or adapted for the actual pull request.
+Write the PR description to `<branch_name>_PULL_REQUEST.md` in the repository root (e.g., `feature/my-branch_PULL_REQUEST.md`), ready to be used or adapted for the actual pull request. Replace `/` with `-slash-`.
 
 **Do NOT**:
 - Create actual GitHub pull requests
