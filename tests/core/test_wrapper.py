@@ -11,7 +11,7 @@ from collections import OrderedDict
 import pytest
 
 # Import the module under test
-from xyh.filters.wrapper import Wrapper, WrapperMeta
+from xyh.core.wrapper import Wrapper, WrapperMeta
 
 # =============================================================================
 # Tests for WrapperMeta Metaclass
