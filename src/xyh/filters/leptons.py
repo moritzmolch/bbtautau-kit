@@ -202,6 +202,7 @@ def hadronic_taus(self) -> OrderedDict[str, str]:
     return selections
 
 
+@Wrapper.wrap
 def ll_pair(self) -> OrderedDict[str, str]:
     """
     Full selection of the dilepton candidates.

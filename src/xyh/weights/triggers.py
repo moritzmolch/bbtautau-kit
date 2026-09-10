@@ -30,13 +30,13 @@ def triggers(self) -> OrderedDict[str, str]:
             "ee": "trg_wgt_single_ele30",
             "mm": "trg_wgt_single_mu24",
         },
-        "2024": {
+        ("2024", "2025"): {
             "et": "trg_wgt_single_ele30",
             "mt": "trg_wgt_single_mu24",
             "tt": """
                 (
-                    trg_wgt_double_tau35_mediumpnet_leg1
-                    * trg_wgt_double_tau35_mediumpnet_leg2
+                    trg_wgt_double_tau30_mediumpnet_leg1
+                    * trg_wgt_double_tau30_mediumpnet_leg2
                 )
             """,
             "em": "trg_wgt_single_ele30",
