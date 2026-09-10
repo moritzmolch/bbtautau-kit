@@ -1,0 +1,8 @@
+# Parameters specific to the `create_dataset_specs` CLI entry point.
+
+# Load base parameters as default
+defaults:
+- base
+
+# Explicitly define input and output files
+output_file: ${artifacts.dataset_specs_file}

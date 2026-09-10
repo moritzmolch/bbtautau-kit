@@ -1,0 +1,86 @@
+# Base hydra configuration for the shape_processor CLI.
+#
+# The config contains parameters relevant to many/all shape_processor CLI
+# interfaces. Specific CLI configuration files use these parameters as there
+# default values. The set of parameters can be extended and/or overridden by
+# settings in these files.
+#
+# Command-line overrides use Hydra's dot-notation syntax, e.g.
+#
+#   python -m xyh.shape_processor.create_dataset_specs campaigns=[2024] channels=[mt]
+#
+# `hydra.job.chdir: false` keeps the working directory unchanged so that
+# relative paths in the config (e.g. `../data/...`) resolve as before.
+# 
+# Default values for environment variables can be set with the
+# `hydra.job.env_set` entry.
+
+# Tags for input and output artifacts
+tags:
+  ntuple_tag: "ntuple-2026-08-18"
+  shapes_tag: "shapes-2026-09-09"
+
+# Artifact paths
+artifacts:
+  dataset_specs_file: data/output/${tags.shapes_tag}/specs/datasets.json.gz
+  filters_and_weights_specs_file: data/output/${tags.shapes_tag}/specs/filters_and_weights.json.gz
+  histogram_specs_file: data/output/${tags.shapes_tag}/specs/histograms.json.gz
+
+# Basic information about part of the analysis which is considered
+analysis_context:
+  analysis: xyh.config.analysis.analysis_inst
+  campaigns: ["2024_nano_v15", "2025_nano_v15"]
+  channels: ["mt"]
+  categories: ["mt_base_sr"]
+  variables:
+    - "pt_1"
+    - "eta_1"
+    - "phi_1"
+    - "mass_1[tt]"
+    - "iso_1"
+    - "tau_decaymode_1[tt]"
+    - "pt_2"
+    - "eta_2"
+    - "phi_2"
+    - "mass_2[et,mt,tt]"
+    - "iso_2"
+    - "tau_decaymode_2[tt]"
+    - "m_vis"
+    - "pt_vis"
+    - "deltaR_ditaupair"
+    - "bpair_pt_1"
+    - "bpair_eta_1"
+    - "bpair_phi_1"
+    - "bpair_pt_2"
+    - "bpair_eta_2"
+    - "bpair_phi_2"
+    - "bpair_m_inv"
+    - "bpair_pt_dijet"
+    - "bpair_deltaR"
+    - "met"
+    - "metphi"
+    - "mt_1[et,mt,tt]"
+    - "mt_2[et,mt,tt]"
+    - "mt_tot[et,mt,tt]"
+    - "n_jets"
+    - "n_bjets"
+
+# NTuple information
+ntuples:
+  xrootd_server: "root://cmsdcache-kit-disk.gridka.de:1094"
+  base_dir: "/store/user/mmolch/CROWN/ntuples"
+  friends: [] # "fake-factors-2026-06-10", "pnn-2026-07-10"
+
+# Logging
+log_level: INFO
+
+
+# Hydra-specific config
+hydra:
+  run:
+    dir: "data/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}"
+  job:
+    chdir: false
+    env_set:
+      XYH_SAMPLE_DATABASE: "/work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database"
+      XYH_PROFILE: "BENCHMARK"

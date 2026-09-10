@@ -22,6 +22,8 @@ classifiers = [
 ]
 dependencies = [
     "order>=2.1.7,<3",
+    "hydra-core>=1.3.2,<2",
+    "omegaconf>=2.3.0,<3",
 ]
 
 [project.optional-dependencies]
@@ -80,7 +82,7 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["xyh"]
 
-[tool.basedpyright]
+[tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 include = ["src"]
