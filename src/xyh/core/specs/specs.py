@@ -26,6 +26,16 @@ class Dataset:
 
 
 @dataclass
+class Histogram:
+    campaign: str
+    channel: str
+    category: str
+    variable: str
+    expression: str
+    bin_edges: list[int | float]
+
+
+@dataclass
 class FiltersAndWeights:
     filters: OrderedDict[str, str]
     weights: OrderedDict[str, str]
