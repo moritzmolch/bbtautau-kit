@@ -7,7 +7,6 @@ class WrapperMeta(ABCMeta):
     _register = {}
 
     def __new__(meta_cls, cls_name, bases, cls_dict):
-
         # Check if a Wrapper class with the same name has already been
         # registered
         if cls_name in meta_cls._register:
@@ -53,14 +52,41 @@ class Wrapper(metaclass=WrapperMeta):
         self._kwargs = kwargs
 
     @abstractmethod
+    def _wrapped_func(self) -> OrderedDict[str, str]:
+        """
+        Abstract method that must be implemented by subclasses.
+        This method will be used in `__call__` when the wrapper instance is
+        invoked.
+        """
+        raise NotImplementedError(
+            "Subclasses must implement the __wrapped_func__ method."
+        )
+
+    def _sanitize_expression(self, expression: str):
+        # Strip spaces and remove '\n' characters
+        return " ".join(
+            [
+                line.strip()
+                for line in expression.split("\n")
+                if len(line.strip()) > 0
+            ]
+        )
+
+    @abstractmethod
     def __call__(self) -> OrderedDict[str, str]:
         """
         Abstract method that must be implemented by subclasses.
         This method will be called when the wrapper instance is invoked.
         """
-        raise NotImplementedError(
-            "Subclasses must implement the __call__ method."
-        )
+
+        # Get the 'raw' result from the __wrapped_func method
+        result = self._wrapped_func()
+
+        # Sanitize the expressions (remove linebreaks and extra whitespace)
+        for key, value in result.copy().items():
+            result[key] = self._sanitize_expression(value)
+
+        return result
 
     def get_instance(self, cls_name: str):
         return self.get_class(cls_name)(*self._args, **self._kwargs)
@@ -95,6 +121,7 @@ class Wrapper(metaclass=WrapperMeta):
         # Construct the class dictionary with the function as the 'run' method
         cls_dict = {
             "__module__": module,
+            "_wrapped_func": func,
             "__call__": func,
         }
 
