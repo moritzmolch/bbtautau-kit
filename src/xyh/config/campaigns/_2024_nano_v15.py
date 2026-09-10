@@ -8,7 +8,7 @@ from order import Campaign
 
 from xyh.config.profiles import get_profile
 
-from .util import add_dataset
+from ._util import add_dataset
 
 # ------------------------------------------------------------------------------
 # Campaign definition
