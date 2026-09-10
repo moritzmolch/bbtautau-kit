@@ -25,7 +25,7 @@ def load_channel(channel_name: str) -> Channel:
     """
     try:
         # Import the channel module dynamically based on the provided channel name
-        module = importlib.import_module(f"{channel_name}", __package__)
+        module = importlib.import_module(".channels", __package__)
         channel_inst = getattr(module, channel_name)
     except (ImportError, AttributeError) as e:
         raise ValueError(f"Channel '{channel_name}' not found.") from e
