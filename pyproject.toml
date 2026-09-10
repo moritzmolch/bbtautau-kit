@@ -82,7 +82,7 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = ["xyh"]
 
-[tool.basedpyright]
+[tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 include = ["src"]
