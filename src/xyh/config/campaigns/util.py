@@ -283,7 +283,7 @@ class DatasetProxy(Dataset):
         missing_parameters = self._parameters - set(kwargs.keys())
         if missing_parameters:
             raise ValueError(
-                f"Missing parameters for category '{self.name}': {missing_parameters}"
+                f"Missing parameters for dataset '{self.name}': {missing_parameters}"
             )
 
-        return self.copy(name=self.name.format(**kwargs))
+        return self.copy(name=self.name.format(**kwargs), id="+")
