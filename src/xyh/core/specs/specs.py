@@ -37,6 +37,11 @@ class Histogram:
 
 @dataclass
 class FiltersAndWeights:
+    campaign: str
+    channel: str
+    category: str
+    process: str
+    dataset: str
     filters: OrderedDict[str, str]
     weights: OrderedDict[str, str]
 
