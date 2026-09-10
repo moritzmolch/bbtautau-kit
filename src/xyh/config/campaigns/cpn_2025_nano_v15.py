@@ -2,7 +2,11 @@
 2025 data-taking era, nanoAOD v15
 """
 
+from itertools import product
+
 from order import Campaign
+
+from xyh.config.profiles import get_profile
 
 from .util import add_dataset
 
@@ -39,14 +43,13 @@ cpn_2025_nano_v15 = Campaign(
 
 # Function to derive name of a signal sample from the signal parameters
 def xyh_name(
-    *,
     y_decay_mode: str,
     h_decay_mode: str,
     m_x: int,
     m_y: int,
 ) -> str:
     decay_mode = (
-        f"2{y_decay_mode[2:].capitalize()}{h_decay_mode[2:].capitalize()}"
+        f"2{y_decay_mode[2:].capitalize()}2{h_decay_mode[2:].capitalize()}"
     )
     return f"NMSSM-XtoYHto{decay_mode}_Par-MX-{m_x}-MY-{m_y}_TuneCP5_13p6TeV_madgraph-pythia8_RunIII2025Summer24NanoAODv15-150X"
 
@@ -109,8 +112,17 @@ dataset_nicks = {
         "Tau_Run2025F-PromptReco-v2",
         "Tau_Run2025G-PromptReco-v1",
     ],
-    # --- TODO signal ----------------------------------------------------------
-    "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name,
+    # --- Signals --------------------------------------------------------------
+    **{
+        f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name(
+            y_decay_mode, h_decay_mode, m_x, m_y
+        )
+        for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
+            get_profile().decay_modes, get_profile().xy_masses
+        )
+        if ((y_decay_mode, h_decay_mode), (m_x, m_y))
+        not in get_profile().missing_signal_samples[cpn_2025_nano_v15.name]
+    },
     # --- Top quark pair production --------------------------------------------
     "tt_4q_powheg": "TTto4Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-150X",
     "tt_lnu2q_powheg": "TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-150X",
@@ -174,7 +186,7 @@ dataset_nicks = {
     "tth_h_2b_powheg": "TTH-Hto2B_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-150X",
     "tth_h_non2b_powheg": "TTH-HtoNon2B_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-150X",
     # --- HH -> b b tau tau production -----------------------------------------
-    "gg_hh_2b2tau": [
+    "gg_hh_2b2tau_powheg": [
         "GluGluHHto2B2Tau_Par-c2-0p00-kl-1p00-kt-1p00_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-PowhegBugFix",
         "GluGluHHto2B2Tau_Par-c2-0p00-kl-1p00-kt-1p00_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-PowhegBugFix_ext1",
     ],

@@ -26,10 +26,10 @@ def load_campaign(campaign_name: str) -> Campaign:
     """
     try:
         # Import the campaign module dynamically based on the provided campaign name
-        module = importlib.import_module(f"{campaign_name}", __package__)
+        module = importlib.import_module(f".{campaign_name}", __package__)
         campaign_inst = getattr(module, campaign_name)
     except (ImportError, AttributeError) as e:
-        raise ValueError(f"Campaign '{campaign_name}' not found.") from e
+        raise ImportError(f"Could not import campaign {campaign_name}") from e
     return campaign_inst
 
 
