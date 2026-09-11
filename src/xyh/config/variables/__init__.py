@@ -1,40 +1,36 @@
-import importlib
+"""
+Variables relevant for this analysis.
+"""
 
-from order import Analysis, Campaign, Category, UniqueObjectIndex
+from order import Channel, UniqueObjectIndex, Variable
+
+from ._control_plots import get_control_plot_variables
 
 
 def get_variables(
-    analysis_inst: Analysis,
-    campaign_inst: Campaign,
-    category_inst: Category,
-    group: str,
+    channel_inst: Channel,
 ) -> UniqueObjectIndex:
     """
-    Get the variables for a given campaign, category and group.
+    Get the variables for a given channel.
 
     Parameters
     ----------
-    analysis_inst: Analysis
-        The analysis instance.
-
-    campaign_inst: Campaign
-        The campaign instance.
-
-    category_inst: Category
-        The category instance.
-
-    group: str
-        The group name (corresponds to a submodule in this package).
+    channel_inst: Channel
+        The channel instance.
 
     Returns
     -------
     UniqueObjectIndex
-        The variables for the given campaign, category and group.
+        Index of `Variable` objects for the given channel.
     """
 
-    # Get module for the given group
-    variable_group = importlib.import_module(f".{group}", package=__package__)
-
-    return variable_group.get_variables(
-        analysis_inst, campaign_inst, category_inst
+    # Create the variable index
+    variable_insts = UniqueObjectIndex(
+        Variable,
+        [
+            # Control plot variables
+            get_control_plot_variables(channel_inst),
+        ],
     )
+
+    return variable_insts

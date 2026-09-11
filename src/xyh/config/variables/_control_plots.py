@@ -1,15 +1,12 @@
-from order import Analysis, Campaign, Category, UniqueObjectIndex, Variable
+from order import Channel, Variable
 
-from ._util import PI, arange, binning, cat
+from ._util import PI, add_variable, arange, binning, cat
 
 
-def get_variables(
-    analysis_inst: Analysis,
-    campaign_inst: Campaign,
-    category_inst: Category,
-) -> UniqueObjectIndex:
-    # Get the channel of this category
-    channel_inst = category_inst.channel
+def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
+    """
+    Variable definitions for control plots.
+    """
 
     # Define the variable labels for each channel
     labels = {
@@ -709,8 +706,8 @@ def get_variables(
         "max_score": None,
     }
 
-    # Fill the index with variable objects generated with the information above
-    variable_insts = UniqueObjectIndex(Variable, [])
+    # Create variable objects from information above, store them in a list
+    variables = []
 
     for name in labels:
         # If an empty list of bin edges is provided, the variable is not
@@ -719,7 +716,8 @@ def get_variables(
             continue
 
         # Add variable with values given in the dictionaries above.
-        variable_insts.add(
+        add_variable(
+            variables,
             name=name,
             id="+",
             x_title=labels[name][channel_inst.name],
@@ -728,4 +726,4 @@ def get_variables(
             binning=binnings[name][channel_inst.name],
         )
 
-    return variable_insts
+    return variables
