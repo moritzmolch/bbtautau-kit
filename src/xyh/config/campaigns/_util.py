@@ -123,19 +123,6 @@ def add_dataset(
         The created `Dataset` object.
     """
 
-    # First check if the name has a dependency on the parameters of the
-    # analysis, e.g., for a signal sample.
-    if len(get_format_string_parameters(name)) > 0:
-        dataset_inst = campaign_inst.add_dataset(
-            DatasetProxy(
-                name=name,
-                id=campaign_inst.datasets.cls._max_id + 1,
-                aux={"nicks": nicks},
-            )
-        )
-        campaign_inst.datasets.cls._max_id += 1
-        return dataset_inst
-
     # If 'nicks' is a string, convert it to a list of strings
     if isinstance(nicks, str):
         nicks = [nicks]
