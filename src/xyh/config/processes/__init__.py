@@ -21,7 +21,10 @@ from ._xyh import get_xyh_processes
 # Only expose the processes index
 __all__ = ["processes"]
 
-# Merge all processes into a single index
+# ------------------------------------------------------------------------------
+# Index of all processes of this analysis
+# ------------------------------------------------------------------------------
+
 processes = UniqueObjectIndex(
     Process,
     chain(

@@ -6,6 +6,9 @@ from order import Channel, UniqueObjectIndex, Variable
 
 from ._control_plots import get_control_plot_variables
 
+# Only expose the get_variables function
+__all__ = ["get_variables"]
+
 
 def get_variables(
     channel_inst: Channel,
