@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from order import Campaign, Channel, UniqueObjectIndex
 
 from xyh.config.process_datasets_map import get_process_datasets_map
+from xyh.config.process_sets import ProcessSet, process_sets
 from xyh.config.processes import processes
 from xyh.config.profiles import get_profile
 from xyh.config.variables import get_variables
@@ -19,6 +20,7 @@ class Inventory:
     processes: UniqueObjectIndex  # UniqueObjectIndex[Process]
     variables: UniqueObjectIndex  # UniqueObjectIndex[Variable]
     process_datasets_map: dict[str, list[str]]
+    process_set: ProcessSet
 
 
 def create_inventory(
@@ -61,6 +63,9 @@ def create_inventory(
         channel_inst,
     )
 
+    # Add the process set
+    process_set = process_sets[get_profile().process_set]
+
     # Create the inventory
     inventory = Inventory(
         campaign=campaign_inst,
@@ -68,6 +73,7 @@ def create_inventory(
         processes=process_insts,
         variables=variable_insts,
         process_datasets_map=process_datasets_map,
+        process_set=process_set,
     )
 
     return inventory
