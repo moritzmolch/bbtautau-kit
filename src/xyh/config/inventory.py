@@ -1,26 +1,11 @@
-from dataclasses import dataclass
-
-from order import Campaign, Channel, UniqueObjectIndex
+from order import Campaign, Channel
 
 from xyh.config.process_datasets_map import get_process_datasets_map
-from xyh.config.process_sets import ProcessSet, process_sets
+from xyh.config.process_sets import process_sets
 from xyh.config.processes import processes
 from xyh.config.profiles import get_profile
 from xyh.config.variables import get_variables
-
-
-@dataclass
-class Inventory:
-    """
-    Inventory of analysis objects for a given campaign and channel.
-    """
-
-    campaign: Campaign
-    channel: Channel
-    processes: UniqueObjectIndex  # UniqueObjectIndex[Process]
-    variables: UniqueObjectIndex  # UniqueObjectIndex[Variable]
-    process_datasets_map: dict[str, list[str]]
-    process_set: ProcessSet
+from xyh.core.config import Inventory
 
 
 def create_inventory(

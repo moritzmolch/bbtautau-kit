@@ -3,29 +3,11 @@ Process sets that define groups of processes for plots and for statistical
 inference.
 """
 
-from dataclasses import dataclass, field
-
 from xyh.config.profiles import get_profile
+from xyh.core.config import ProcessGroup, ProcessSet
 
 # Only expose the process sets dictionary and the interface definitions
-__all__ = ["process_sets", "ProcessGroup", "ProcessSet"]
-
-
-@dataclass
-class ProcessGroup:
-    name: str
-    processes: list[str]
-    label: str
-    color: str
-    scale_factor: float | None = field(default=None)
-
-
-@dataclass
-class ProcessSet:
-    name: str
-    data: list[ProcessGroup] = field(default_factory=list)
-    signals: list[ProcessGroup] = field(default_factory=list)
-    backgrounds: list[ProcessGroup] = field(default_factory=list)
+__all__ = ["process_sets"]
 
 
 # ------------------------------------------------------------------------------
