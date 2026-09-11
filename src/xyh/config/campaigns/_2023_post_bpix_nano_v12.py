@@ -2,8 +2,6 @@
 2023postBPix data-taking era, nanoAOD v12
 """
 
-from itertools import product
-
 from order import Campaign
 
 from xyh.config.profiles import get_profile
@@ -74,8 +72,11 @@ dataset_nicks = {
         f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name(
             y_decay_mode, h_decay_mode, m_x, m_y
         )
-        for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
-            get_profile().decay_modes, get_profile().xy_masses
+        for (y_decay_mode, h_decay_mode), (
+            m_x,
+            m_y,
+        ) in get_profile().iterate_signal_parameters(
+            campaign=cpn_2023_post_bpix_nano_v12.name
         )
     },
     # --- Top quark pair production --------------------------------------------

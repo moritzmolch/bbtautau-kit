@@ -2,8 +2,6 @@
 2025 data-taking era, nanoAOD v15
 """
 
-from itertools import product
-
 from order import Campaign
 
 from xyh.config.profiles import get_profile
@@ -117,11 +115,12 @@ dataset_nicks = {
         f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name(
             y_decay_mode, h_decay_mode, m_x, m_y
         )
-        for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
-            get_profile().decay_modes, get_profile().xy_masses
+        for (y_decay_mode, h_decay_mode), (
+            m_x,
+            m_y,
+        ) in get_profile().iterate_signal_parameters(
+            campaign=cpn_2025_nano_v15.name
         )
-        if ((y_decay_mode, h_decay_mode), (m_x, m_y))
-        not in get_profile().missing_signal_samples[cpn_2025_nano_v15.name]
     },
     # --- Top quark pair production --------------------------------------------
     "tt_4q_powheg": "TTto4Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-150X",

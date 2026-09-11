@@ -1,5 +1,4 @@
 from functools import partial
-from itertools import product
 
 from order import Category, Channel, Process
 
@@ -18,10 +17,10 @@ def add_clf_categories(channel_inst: Channel):
         )
 
     # Classification category, containing events after categorization/classification
-    for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
-        get_profile().decay_modes,
-        get_profile().xy_masses,
-    ):
+    for (y_decay_mode, h_decay_mode), (
+        m_x,
+        m_y,
+    ) in get_profile().iterate_signal_parameters():
         for name, label in [
             ("jetfakes", r"$\text{j} \to \tau_{\text{h}}$"),
             ("tt", r"$\text{t}\bar{\text{t}}$"),
