@@ -20,9 +20,9 @@ def main(cfg: DictConfig):
 
     # Create the dataset specs
     dataset_specs = create_dataset_specs(
-        analysis=cfg["analysis_context"]["analysis"],
-        campaigns=cfg["analysis_context"]["campaigns"],
-        channels=cfg["analysis_context"]["channels"],
+        inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
+        campaigns=cfg["inventory"]["campaigns"],
+        channels=cfg["inventory"]["channels"],
         xrootd_server=cfg["ntuples"]["xrootd_server"],
         ntuple_base_dir=Path(cfg["ntuples"]["base_dir"]),
         ntuple_tag=cfg["tags"]["ntuple_tag"],
