@@ -306,6 +306,42 @@ class XYHProfile:
         str, list[tuple[tuple[str, str], tuple[int, int]]]
     ]
 
+    def iterate_signal_parameters(
+        self,
+        campaign: str | None = None,
+    ) -> Generator[tuple[tuple[str, str], tuple[int, int]], None, None]:
+        """
+        Yield the signal parameters for the given analysis profile.
+
+        If the `campaign` argument is provided, the missing signal samples for
+        the campaign will be excluded from the iteration.
+
+        Parameters
+        ----------
+        campaign : str | None
+            The campaign name. If provided, the missing signal samples for the
+            campaign will be excluded from the iteration.
+
+        Yields
+        ------
+        tuple[tuple[str, str], tuple[int, int]]
+            A tuple of ((y_decay_mode, h_decay_mode), (m_x, m_y)).
+        """
+
+        for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
+            self.decay_modes, self.xy_masses
+        ):
+            # Skip signals which are missing for certain campaigns
+            if campaign is not None:
+                if (
+                    (y_decay_mode, h_decay_mode),
+                    (m_x, m_y),
+                ) in self.missing_signal_samples.get(campaign, []):
+                    continue
+
+            # Yield the signal parameters
+            yield (y_decay_mode, h_decay_mode), (m_x, m_y)
+
 
 FULL = XYHProfile(
     decay_modes=DECAY_MODES,
@@ -355,43 +391,3 @@ def get_profile():
         )
 
     return profile
-
-
-def iterate_signal_parameters(
-    profile: XYHProfile,
-    campaign: str | None = None,
-) -> Generator[tuple[tuple[str, str], tuple[int, int]], None, None]:
-    """
-    Yield the signal parameters for the given analysis profile.
-
-    If the `campaign` argument is provided, the missing signal samples for the
-    campaign will be excluded from the iteration.
-
-    Parameters
-    ----------
-    profile : XYHProfile
-        The analysis profile.
-
-    campaign : str | None
-        The campaign name. If provided, the missing signal samples for the
-        campaign will be excluded from the iteration.
-
-    Yields
-    ------
-    tuple[tuple[str, str], tuple[int, int]]
-        A tuple of ((y_decay_mode, h_decay_mode), (m_x, m_y)).
-    """
-
-    for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
-        profile.decay_modes, profile.xy_masses
-    ):
-        # Skip signals which are missing for certain campaigns
-        if campaign is not None:
-            if (
-                (y_decay_mode, h_decay_mode),
-                (m_x, m_y),
-            ) in profile.missing_signal_samples.get(campaign, []):
-                continue
-
-        # Yield the signal parameters
-        yield (y_decay_mode, h_decay_mode), (m_x, m_y)
