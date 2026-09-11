@@ -4,7 +4,8 @@ Channels of the analysis.
 
 from order import Channel
 
-from xyh.config.channels.categories_base import add_base_category
+from xyh.config.channels._categories_base import add_base_category
+from xyh.config.channels._categories_clf import add_clf_categories
 
 # Channel for electron+hadronic tau final state
 ch_et = Channel(
@@ -57,3 +58,6 @@ ch_mm = Channel(
 for channel_inst in [ch_et, ch_mt, ch_tt, ch_em, ch_ee, ch_mm]:
     # Add base category to each channel
     add_base_category(channel_inst)
+
+    # Add classifier categories to each channel
+    add_clf_categories(channel_inst)
