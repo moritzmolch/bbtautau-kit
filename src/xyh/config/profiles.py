@@ -1,6 +1,8 @@
 import os
+from collections.abc import Generator
 from dataclasses import dataclass
 from functools import cache
+from itertools import product
 
 # Decay modes of the Y and H bosons
 DECAY_MODES = [
@@ -328,12 +330,68 @@ BKG_ONLY = XYHProfile(
 
 @cache
 def get_profile():
+    """
+    Get the analysis profile.
+
+    The analysis profile is inferred from the `XYH_PROFILE` environment
+    variable. The default profile is `BENCHMARK`.
+
+    Returns
+    -------
+    XYHProfile
+        The analysis profile.
+    """
+
+    # Get the profile name from the environment variable
     name = os.environ.get("XYH_PROFILE", None)
     if name is None:
         name = "BENCHMARK"
+
+    # Load the profile
     profile = globals().get(name)
     if not isinstance(profile, XYHProfile):
         raise ValueError(
             f"Profile {name} not found or not of correct type XYHProfile."
         )
+
     return profile
+
+
+def iterate_signal_parameters(
+    profile: XYHProfile,
+    campaign: str | None = None,
+) -> Generator[tuple[tuple[str, str], tuple[int, int]], None, None]:
+    """
+    Yield the signal parameters for the given analysis profile.
+
+    If the `campaign` argument is provided, the missing signal samples for the
+    campaign will be excluded from the iteration.
+
+    Parameters
+    ----------
+    profile : XYHProfile
+        The analysis profile.
+
+    campaign : str | None
+        The campaign name. If provided, the missing signal samples for the
+        campaign will be excluded from the iteration.
+
+    Yields
+    ------
+    tuple[tuple[str, str], tuple[int, int]]
+        A tuple of ((y_decay_mode, h_decay_mode), (m_x, m_y)).
+    """
+
+    for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
+        profile.decay_modes, profile.xy_masses
+    ):
+        # Skip signals which are missing for certain campaigns
+        if campaign is not None:
+            if (
+                (y_decay_mode, h_decay_mode),
+                (m_x, m_y),
+            ) in profile.missing_signal_samples.get(campaign, []):
+                continue
+
+        # Yield the signal parameters
+        yield (y_decay_mode, h_decay_mode), (m_x, m_y)
