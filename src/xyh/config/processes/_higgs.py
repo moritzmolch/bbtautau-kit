@@ -60,6 +60,7 @@ def get_higgs_2tau_processes() -> list[Process]:
     # and prompt leptons)
     add_process(
         processes,
+        name="h_2tau_rem",
         id="+",
         is_data=False,
         tags=_default_tags | {"tautau_remaining"},
