@@ -16,10 +16,11 @@ logger = logging.getLogger(__name__)
 def main(cfg: DictConfig) -> None:
     # Create the histogram specs
     histogram_specs = create_histogram_specs(
-        analysis=cfg["analysis_context"]["analysis"],
-        campaigns=cfg["analysis_context"]["campaigns"],
-        categories=cfg["analysis_context"]["categories"],
-        variables=cfg["analysis_context"]["variables"],
+        inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
+        campaigns=cfg["inventory"]["campaigns"],
+        channels=cfg["inventory"]["channels"],
+        categories=cfg["inventory"]["categories"],
+        variables=cfg["inventory"]["variables"],
     )
 
     # Dump specs to output file

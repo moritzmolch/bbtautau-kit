@@ -19,7 +19,7 @@ def create_dataset_spec(
     ntuple_tag,
     ntuple_friends,
 ) -> Dataset:
-    logging.info(f"Create dataset spec {dataset_inst.name}")
+    logger.info(f"Create dataset spec {dataset_inst.name}")
 
     # Create the XRootD file system
     fs = FileSystem(xrootd_server)
@@ -33,7 +33,7 @@ def create_dataset_spec(
 
     # Iterate through all nicks of the dataset and concatenate file lists
     for nick in dataset_inst.x.nicks:
-        logging.info(f"Query files for nick {nick}")
+        logger.info(f"Query files for nick {nick}")
 
         # Query main files
         main_files_channel_dir = (
@@ -112,7 +112,7 @@ def create_dataset_specs(
     dataset_specs = []
 
     for campaign, channel in itertools.product(campaigns, channels):
-        # Load the analysis instance
+        # Load the analysis inventory for this campaign and channel
         inventory = load_inventory(
             inventory_factory_fn_path,
             campaign,

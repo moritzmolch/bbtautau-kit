@@ -2,8 +2,11 @@ import itertools
 import logging
 import re
 
-from xyh.core.analysis_config import load_analysis_inst
+from xyh.core.config import load_inventory
 from xyh.core.specs.specs import Histogram
+
+# Get the logger for this module
+logger = logging.getLogger(__name__)
 
 
 def _parse_variable_name(name):
@@ -34,7 +37,7 @@ def _parse_variable_name(name):
 
 
 def create_histogram_spec(
-    config_inst,
+    campaign_inst,
     channel_inst,
     category_inst,
     variable_inst,
@@ -66,7 +69,7 @@ def create_histogram_spec(
     # histogram
 
     return Histogram(
-        campaign=config_inst.campaign.name,
+        campaign=campaign_inst.name,
         channel=channel_inst.name,
         category=category_inst.name,
         variable=variable_inst.name,
@@ -80,10 +83,11 @@ def create_histogram_spec(
 
 
 def create_histogram_specs(
-    analysis,
-    campaigns,
-    categories,
-    variables: dict[str, list[str]],
+    inventory_factory_fn_path: str,
+    campaigns: list[str],
+    channels: list[str],
+    categories: list[str],
+    variables: list[str],
 ):
     """
     Create histogram specs for a given subset of the analysis concerning
@@ -96,11 +100,14 @@ def create_histogram_specs(
 
     Parameters
     ----------
-    analysis : str
-        The python module path to the analysis instance.
+    inventory_factory_fn_path : str
+        The python module path to the inventory factory function.
 
     campaigns : list[str]
         List of campaign names to consider.
+
+    channels : list[str]
+        List of channel names to consider.
 
     categories : list[str]
         List of category names to consider.
@@ -113,26 +120,31 @@ def create_histogram_specs(
     list[Histogram]
         List of histogram specs for the given subset of the analysis.
     """
-    # Load the analysis instance
-    analysis_inst = load_analysis_inst(analysis)
 
     # Container of histogram specs for each variable
     histogram_specs = []
 
-    for campaign, category in itertools.product(campaigns, categories):
-        # Get the configuration, category and channel instances
-        config_inst = analysis_inst.get_config(campaign)
-        category_inst = config_inst.get_category(category)
-        channel_inst = category_inst.channel
+    for campaign, channel in itertools.product(campaigns, channels):
+        # Load the analysis inventory for this campaign and channel
+        inventory = load_inventory(
+            inventory_factory_fn_path,
+            campaign,
+            channel,
+        )
 
-        # Iterate through all selected variables
-        for group, variable_names in variables.items():
-            # Get list of available variables in this group
-            available_variable_insts = config_inst.x.get_variables(
-                category_inst, group
-            )
+        # Get the campaign and channel instances
+        campaign_inst = inventory.campaign
+        channel_inst = inventory.channel
+        variable_insts = inventory.variables
 
-            for variable in variable_names:
+        # Iterate through categories of this channel
+        for category_inst in (
+            channel_inst.get_category(c)
+            for c in categories
+            if channel_inst.has_category(c)
+        ):
+            # Iterate through all selected variables
+            for variable in variables:
                 # Parse the variable name to extract 'pure' name and channels
                 name, channels = _parse_variable_name(variable)
 
@@ -141,30 +153,30 @@ def create_histogram_specs(
                 # whether the variable is assigned to be processed in the
                 # currently considered channel.
                 if channels is not None and channel_inst.name not in channels:
-                    logging.info(
+                    logger.info(
                         f"Skipping variable {name} in channel "
                         + channel_inst.name
                     )
                     continue
 
                 # Get the variable instance
-                variable_inst = available_variable_insts.get(name)
+                variable_inst = variable_insts.get(name)
 
                 # Create the histogram spec
-                logging.info(
+                logger.info(
                     "\n".join(
                         [
                             "Creating histogram specs for",
-                            f"    campaign: {campaign}",
+                            f"    campaign: {campaign_inst.name}",
                             f"    channel:  {channel_inst.name}",
-                            f"    category: {category}",
+                            f"    category: {category_inst.name}",
                             f"    variable: {variable_inst.name}",
                         ],
                     ),
                 )
                 histogram_specs.append(
                     create_histogram_spec(
-                        config_inst,
+                        campaign_inst,
                         channel_inst,
                         category_inst,
                         variable_inst,
