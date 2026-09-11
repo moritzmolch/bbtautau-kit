@@ -1,4 +1,5 @@
 import logging
+from dataclasses import asdict
 from pathlib import Path
 
 from omegaconf import DictConfig
@@ -15,12 +16,17 @@ logger = logging.getLogger(__name__)
 def main(cfg: DictConfig) -> None:
     # Create the filter and weight specs
     filters_and_weights_specs = create_filters_and_weights_specs(
-        campaigns=cfg["analysis_context"]["campaigns"],
-        categories=cfg["analysis_context"]["categories"],
+        inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
+        campaigns=cfg["inventory"]["campaigns"],
+        channels=cfg["inventory"]["channels"],
+        categories=cfg["inventory"]["categories"],
     )
 
     # Dump specs to output file
-    dump_json(filters_and_weights_specs, Path(cfg["output_file"]))
+    dump_json(
+        [asdict(fw) for fw in filters_and_weights_specs],
+        Path(cfg["output_file"]),
+    )
 
 
 if __name__ == "__main__":
