@@ -221,7 +221,7 @@ def get_process_datasets_map(
 
     # Set up the process-datasets map for signals
     xyh_process_datasets_map = {
-        f"xyh_{y_decay_mode}_{h_decay_mode}_{m_x}_{m_y}": [
+        f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}": [
             f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph",
         ]
         for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(

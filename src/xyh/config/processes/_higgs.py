@@ -167,7 +167,7 @@ def get_hh_2b2tau_processes() -> list[Process]:
     # HH -> b b tau tau production, gluon-gluon fusion
     add_process(
         processes,
-        name="gluglu_hh_2b2tau",
+        name="gg_hh_2b2tau",
         id="+",
         is_data=False,
         tags=_default_tags | {"gluglu_hh_2b2tau"},

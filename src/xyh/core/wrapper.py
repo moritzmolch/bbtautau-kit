@@ -51,6 +51,10 @@ class Wrapper(metaclass=WrapperMeta):
         self._args = args
         self._kwargs = kwargs
 
+        # Set each keyword argument as attribute of the instance
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
     @abstractmethod
     def _wrapped_func(self) -> OrderedDict[str, str]:
         """
@@ -89,7 +93,7 @@ class Wrapper(metaclass=WrapperMeta):
         return result
 
     def get_instance(self, cls_name: str):
-        return self.get_class(cls_name)(*self._args, **self._kwargs)
+        return self.__class__.get_class(cls_name)(*self._args, **self._kwargs)
 
     @classmethod
     def wrap(

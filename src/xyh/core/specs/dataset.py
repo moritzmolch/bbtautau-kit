@@ -142,7 +142,7 @@ def create_dataset_specs(
         for dataset in itertools.chain.from_iterable(
             process_datasets_map.values()
         ):
-            dataset_inst = campaign_inst.get_dataset(dataset)
+            dataset_inst = campaign_inst.datasets.get(dataset)
             dataset_specs.append(
                 create_dataset_spec(
                     campaign_inst,

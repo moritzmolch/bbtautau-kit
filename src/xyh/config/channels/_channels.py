@@ -12,6 +12,13 @@ ch_et = Channel(
     name="et",
     id="+",
     label=r"$\text{e}\tau_{\text{h}}$",
+    aux={
+        "tau": {
+            "id_vs_jet_wp": "Medium",
+            "id_vs_e_wp": "Tight",
+            "id_vs_mu_wp": "VLoose",
+        },
+    },
 )
 
 
@@ -20,6 +27,13 @@ ch_mt = Channel(
     name="mt",
     id="+",
     label=r"$\mu\tau_{\text{h}}$",
+    aux={
+        "tau": {
+            "id_vs_jet_wp": "Medium",
+            "id_vs_e_wp": "VVLoose",
+            "id_vs_mu_wp": "Tight",
+        },
+    },
 )
 
 
@@ -28,6 +42,13 @@ ch_tt = Channel(
     name="tt",
     id="+",
     label=r"$\tau_{\text{h}}\tau_{\text{h}}$",
+    aux={
+        "tau": {
+            "id_vs_jet_wp": "Medium",
+            "id_vs_e_wp": "VVLoose",
+            "id_vs_mu_wp": "VLoose",
+        },
+    },
 )
 
 

@@ -37,13 +37,23 @@ def create_inventory(
 
     # Remove signal processes that are not present in the current campaign
     process_insts = processes.copy()
-    for (y_decay_mode, h_decay_mode), (
-        m_x,
-        m_y,
-    ) in get_profile().iterate_signal_parameters(campaign=campaign_inst.name):
-        process_insts.remove(
-            f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"
-        )
+    allowed_signals = list(
+        get_profile().iterate_signal_parameters(campaign=campaign_inst.name)
+    )
+    for process_inst in process_insts.values():
+        if not process_inst.has_tag("signal"):
+            continue
+        if (
+            (
+                process_inst.x.y_decay_mode,
+                process_inst.x.h_decay_mode,
+            ),
+            (
+                process_inst.x.m_x,
+                process_inst.x.m_y,
+            ),
+        ) not in allowed_signals:
+            process_insts.remove(process_inst.name)
 
     # Get variable index for this channel
     variable_insts = get_variables(channel_inst)
