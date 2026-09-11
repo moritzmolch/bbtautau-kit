@@ -6,8 +6,6 @@ import os
 
 import pytest
 
-from xyh.config.campaigns.util import DatasetProxy
-
 # =============================================================================
 # Integration tests for single campaigns
 # =============================================================================
