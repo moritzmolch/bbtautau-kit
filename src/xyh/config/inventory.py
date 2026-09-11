@@ -1,5 +1,7 @@
 from order import Campaign, Channel
 
+from xyh.config.campaigns import campaigns
+from xyh.config.channels import channels
 from xyh.config.process_datasets_map import get_process_datasets_map
 from xyh.config.process_sets import process_sets
 from xyh.config.processes import processes
@@ -9,8 +11,8 @@ from xyh.core.config import Inventory
 
 
 def create_inventory(
-    campaign_inst: Campaign,
-    channel_inst: Channel,
+    campaign: str,
+    channel: str,
 ) -> Inventory:
     """
     Create an inventory of analysis objects for a given campaign and channel.
@@ -28,6 +30,10 @@ def create_inventory(
     Inventory
         The inventory of analysis objects for the given campaign and channel.
     """
+
+    # Get the campaign and the channel objects
+    campaign_inst: Campaign = campaigns.get(campaign)
+    channel_inst: Channel = channels.get(channel)
 
     # Remove signal processes that are not present in the current campaign
     process_insts = processes.copy()
