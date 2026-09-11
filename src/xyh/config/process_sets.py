@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 
 from xyh.config.profiles import get_profile
 
+# Only expose the process sets dictionary and the interface definitions
+__all__ = ["process_sets", "ProcessGroup", "ProcessSet"]
+
 
 @dataclass
 class ProcessGroup:
@@ -131,48 +134,49 @@ jetfakes = ProcessGroup(
 # Process sets
 # -----------------------------------------------------------------------------
 
-default = ProcessSet(
-    name="default",
-    data=[data],
-    signals=[
-        xyh(y_decay_mode, h_decay_mode, m_x, m_y)
-        for (y_decay_mode, h_decay_mode), (
-            m_x,
-            m_y,
-        ) in get_profile().iterate_signal_parameters()
-    ],
-    backgrounds=[
-        tt,
-        dy_2l,
-        w_lnu,
-        single_t,
-        single_h,
-        vv,
-        jetfakes,
-    ],
-)
-
-mc = ProcessSet(
-    name="mc",
-    data=[data],
-    signals=[
-        xyh(y_decay_mode, h_decay_mode, m_x, m_y)
-        for (y_decay_mode, h_decay_mode), (
-            m_x,
-            m_y,
-        ) in get_profile().iterate_signal_parameters()
-    ],
-    backgrounds=[
-        tt,
-        tt_jetfakes,
-        dy_2l,
-        dy_2l_jetfakes,
-        w_lnu,
-        w_lnu_jetfakes,
-        single_t,
-        single_t_jetfakes,
-        single_h,
-        vv,
-        remaining_jetfakes,
-    ],
-)
+process_sets = {
+    "default": ProcessSet(
+        name="default",
+        data=[data],
+        signals=[
+            xyh(y_decay_mode, h_decay_mode, m_x, m_y)
+            for (y_decay_mode, h_decay_mode), (
+                m_x,
+                m_y,
+            ) in get_profile().iterate_signal_parameters()
+        ],
+        backgrounds=[
+            tt,
+            dy_2l,
+            w_lnu,
+            single_t,
+            single_h,
+            vv,
+            jetfakes,
+        ],
+    ),
+    "mc": ProcessSet(
+        name="mc",
+        data=[data],
+        signals=[
+            xyh(y_decay_mode, h_decay_mode, m_x, m_y)
+            for (y_decay_mode, h_decay_mode), (
+                m_x,
+                m_y,
+            ) in get_profile().iterate_signal_parameters()
+        ],
+        backgrounds=[
+            tt,
+            tt_jetfakes,
+            dy_2l,
+            dy_2l_jetfakes,
+            w_lnu,
+            w_lnu_jetfakes,
+            single_t,
+            single_t_jetfakes,
+            single_h,
+            vv,
+            remaining_jetfakes,
+        ],
+    ),
+}
