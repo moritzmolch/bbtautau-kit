@@ -4,7 +4,7 @@ from xyh.core.wrapper import Wrapper
 
 
 @Wrapper.wrap
-def triggers(self) -> OrderedDict[str, str]:
+def trigger_weights(self) -> OrderedDict[str, str]:
     """
     Apply trigger weights depending on the trigger used in the respective
     campaign and analysis channel. The function returns an ordered dictionary
@@ -22,7 +22,12 @@ def triggers(self) -> OrderedDict[str, str]:
     # Trigger weights are summarized in a nested map, where the first key
     # is an era or a tuple of eras, and the second key is the channel.
     trigger_weights = {
-        ("2022preEE", "2022postEE", "2023preBPix", "2023postBPix"): {
+        (
+            "2022_pre_ee_nano_v12",
+            "2022_post_ee_nano_v12",
+            "2023_pre_bpix_nano_v12",
+            "2023_post_bpix_nano_v12",
+        ): {
             "et": "trg_wgt_single_ele30",
             "mt": "trg_wgt_single_mu24",
             "tt": "trg_wgt_double_tau35_mediumdeeptau_leg1 * trg_wgt_double_tau35_mediumdeeptau_leg2",
@@ -30,7 +35,7 @@ def triggers(self) -> OrderedDict[str, str]:
             "ee": "trg_wgt_single_ele30",
             "mm": "trg_wgt_single_mu24",
         },
-        ("2024", "2025"): {
+        ("2024_nano_v15", "2025_nano_v15"): {
             "et": "trg_wgt_single_ele30",
             "mt": "trg_wgt_single_mu24",
             "tt": """

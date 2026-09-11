@@ -38,6 +38,6 @@ def normalization(self) -> OrderedDict[str, str]:
 
 
 @Wrapper.wrap
-def pileup(self) -> OrderedDict[str, str]:
+def pileup_weights(self) -> OrderedDict[str, str]:
     """Add pileup weight."""
     return OrderedDict([("pileup_weight", "puweight")])

@@ -71,7 +71,12 @@ def triggers(self) -> OrderedDict[str, str]:
     # tuple of channels.
     trigger_selections = _unroll(
         {
-            ("2022preEE", "2022postEE", "2023preBPix", "2023postBPix"): {
+            (
+                "2022_pre_ee_nano_v12",
+                "2022_post_ee_nano_v12",
+                "2023_pre_bpix_nano_v12",
+                "2023_post_bpix_nano_v12",
+            ): {
                 ("et", "em", "ee"): "(pt_1 >= 32) && (trg_single_ele30 > 0.5)",
                 ("mt", "mm"): "(pt_1 >= 26) && (trg_single_mu24 > 0.5)",
                 "tt": """
@@ -80,7 +85,7 @@ def triggers(self) -> OrderedDict[str, str]:
                     && (trg_double_tau35_mediumdeeptau > 0.5)
                 """,
             },
-            ("2024", "2025"): {
+            ("2024_nano_v15", "2025_nano_v15"): {
                 ("et", "em", "ee"): "(pt_1 >= 32) && (trg_single_ele30 > 0.5)",
                 ("mt", "mm"): "(pt_1 >= 26) && (trg_single_mu24 > 0.5)",
                 "tt": """
