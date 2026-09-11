@@ -2,7 +2,7 @@ from order import (
     Category,
 )
 
-from xyh.config.campaigns.util import get_format_string_parameters
+from xyh.config.campaigns._util import get_format_string_parameters
 
 
 class CategoryProxy(Category):

@@ -3,58 +3,30 @@ Data-taking campaigns of the analysis, including corresponding data and
 simulation sample metadata.
 """
 
-import importlib
-from functools import cache
-
 from order import Campaign, UniqueObjectIndex
 
+from ._2022_post_ee_nano_v12 import cpn_2022_post_ee_nano_v12
+from ._2022_pre_ee_nano_v12 import cpn_2022_pre_ee_nano_v12
+from ._2023_post_bpix_nano_v12 import cpn_2023_post_bpix_nano_v12
+from ._2023_pre_bpix_nano_v12 import cpn_2023_pre_bpix_nano_v12
+from ._2024_nano_v15 import cpn_2024_nano_v15
+from ._2025_nano_v15 import cpn_2025_nano_v15
 
-@cache
-def load_campaign(campaign_name: str) -> Campaign:
-    """
-    Load a campaign dynamically based on the provided campaign name.
+# Only expose the campaigns index
+__all__ = ["campaigns"]
 
-    Parameters
-    ----------
-    campaign_name : str
-        The name of the campaign to load.
+# ------------------------------------------------------------------------------
+# Index of all campaigns of this analysis
+# ------------------------------------------------------------------------------
 
-    Raises
-    ------
-    ValueError
-        If the campaign module cannot be found or loaded.
-    """
-    try:
-        # Import the campaign module dynamically based on the provided campaign name
-        module = importlib.import_module(f"{campaign_name}", __package__)
-        campaign_inst = getattr(module, campaign_name)
-    except (ImportError, AttributeError) as e:
-        raise ValueError(f"Campaign '{campaign_name}' not found.") from e
-    return campaign_inst
-
-
-@cache
-def campaigns() -> UniqueObjectIndex:
-    """
-    Return a UniqueObjectIndex containing all available campaigns.
-
-    Returns
-    -------
-    UniqueObjectIndex
-        A UniqueObjectIndex of all available `Campaign` objects.
-    """
-
-    return UniqueObjectIndex(
-        Campaign,
-        [
-            load_campaign(campaign_name)
-            for campaign_name in [
-                "cpn_2022_pre_ee_nano_v12",
-                "cpn_2022_post_ee_nano_v12",
-                "cpn_2023_pre_bpix_nano_v12",
-                "cpn_2023_post_bpix_nano_v12",
-                "cpn_2024_nano_v15",
-                "cpn_2025_nano_v15",
-            ]
-        ],
-    )
+campaigns = UniqueObjectIndex(
+    Campaign,
+    [
+        cpn_2022_pre_ee_nano_v12,
+        cpn_2022_post_ee_nano_v12,
+        cpn_2023_pre_bpix_nano_v12,
+        cpn_2023_post_bpix_nano_v12,
+        cpn_2024_nano_v15,
+        cpn_2025_nano_v15,
+    ],
+)

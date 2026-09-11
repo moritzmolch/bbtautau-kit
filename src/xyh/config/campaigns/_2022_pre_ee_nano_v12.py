@@ -4,7 +4,9 @@
 
 from order import Campaign
 
-from .util import add_dataset
+from xyh.config.profiles import get_profile
+
+from ._util import add_dataset
 
 # ------------------------------------------------------------------------------
 # Campaign definition
@@ -36,14 +38,13 @@ cpn_2022_pre_ee_nano_v12 = Campaign(
 
 # Function to derive name of a signal sample from the signal parameters
 def xyh_name(
-    *,
     y_decay_mode: str,
     h_decay_mode: str,
     m_x: int,
     m_y: int,
 ) -> str:
     decay_mode = (
-        f"2{y_decay_mode[2:].capitalize()}{h_decay_mode[2:].capitalize()}"
+        f"2{y_decay_mode[2:].capitalize()}2{h_decay_mode[2:].capitalize()}"
     )
     return f"NMSSM_XtoYHto{decay_mode}_MX-{m_x}_MY-{m_y}_TuneCP5_13p6TeV_madgraph-pythia8_Run3Summer22NanoAODv12-130X"
 
@@ -63,8 +64,18 @@ dataset_nicks = {
         "Tau_Run2022C-22Sep2023-v1",
         "Tau_Run2022D-22Sep2023-v1",
     ],
-    # --- signal ---------------------------------------------------------------
-    "xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name,
+    # --- Signals --------------------------------------------------------------
+    **{
+        f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name(
+            y_decay_mode, h_decay_mode, m_x, m_y
+        )
+        for (y_decay_mode, h_decay_mode), (
+            m_x,
+            m_y,
+        ) in get_profile().iterate_signal_parameters(
+            campaign=cpn_2022_pre_ee_nano_v12.name
+        )
+    },
     # --- Top quark pair production --------------------------------------------
     "tt_4q_powheg": [
         "TTto4Q_TuneCP5_13p6TeV_powheg-pythia8_Run3Summer22NanoAODv12-130X",

@@ -6,8 +6,6 @@ import os
 
 import pytest
 
-from xyh.config.campaigns.util import DatasetProxy
-
 # =============================================================================
 # Integration tests for single campaigns
 # =============================================================================
@@ -106,7 +104,7 @@ class TestCpn2022PreEENanoV12Integration:
         )
 
         for dataset in cpn_2022_pre_ee_nano_v12.datasets.values():
-            if not dataset.is_data and not isinstance(dataset, DatasetProxy):
+            if not dataset.is_data:
                 # Check that cross sections are set to reasonable values (not
                 # None and not 0)
                 assert dataset.x.xsec is not None
@@ -205,7 +203,7 @@ class TestCpn2022PostEENanoV12Integration:
         )
 
         for dataset in cpn_2022_post_ee_nano_v12.datasets.values():
-            if not dataset.is_data and not isinstance(dataset, DatasetProxy):
+            if not dataset.is_data:
                 # Check that cross sections are set to reasonable values (not
                 # None and not 0)
                 assert dataset.x.xsec is not None
@@ -304,7 +302,7 @@ class TestCpn2023PreBPixNanoV12Integration:
         )
 
         for dataset in cpn_2023_pre_bpix_nano_v12.datasets.values():
-            if not dataset.is_data and not isinstance(dataset, DatasetProxy):
+            if not dataset.is_data:
                 # Check that cross sections are set to reasonable values (not
                 # None and not 0)
                 assert dataset.x.xsec is not None
@@ -403,7 +401,7 @@ class TestCpn2023PostBPixNanoV12Integration:
         )
 
         for dataset in cpn_2023_post_bpix_nano_v12.datasets.values():
-            if not dataset.is_data and not isinstance(dataset, DatasetProxy):
+            if not dataset.is_data:
                 # Check that cross sections are set to reasonable values (not
                 # None and not 0)
                 assert dataset.x.xsec is not None
@@ -490,7 +488,7 @@ class TestCpn2024NanoV15Integration:
         from xyh.config.campaigns.cpn_2024_nano_v15 import cpn_2024_nano_v15
 
         for dataset in cpn_2024_nano_v15.datasets.values():
-            if not dataset.is_data and not isinstance(dataset, DatasetProxy):
+            if not dataset.is_data:
                 # Check that cross sections are set to reasonable values (not
                 # None and not 0)
                 assert dataset.x.xsec is not None
@@ -577,7 +575,7 @@ class TestCpn2025NanoV15Integration:
         from xyh.config.campaigns.cpn_2025_nano_v15 import cpn_2025_nano_v15
 
         for dataset in cpn_2025_nano_v15.datasets.values():
-            if not dataset.is_data and not isinstance(dataset, DatasetProxy):
+            if not dataset.is_data:
                 # Check that cross sections are set to reasonable values (not
                 # None and not 0)
                 assert dataset.x.xsec is not None

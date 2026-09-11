@@ -1,5 +1,5 @@
 """
-Unit tests for xyh.config.campaigns.util module.
+Unit tests for xyh.config.campaigns._util module.
 
 These tests are completely isolated and use mocks for all external dependencies.
 """
@@ -79,7 +79,7 @@ class DummyDataset:
 @pytest.fixture
 def mock_settings():
     """Fixture to mock Settings class."""
-    with patch("xyh.config.campaigns.util.Settings") as mock:
+    with patch("xyh.config.campaigns._util.Settings") as mock:
         instance = Mock()
         instance.get.return_value = Path("/mock/sample/database")
         mock.return_value = instance
@@ -147,7 +147,7 @@ class TestSample:
 
     def test_sample_creation_with_all_fields(self):
         """Test creating a Sample with all fields populated."""
-        from xyh.config.campaigns.util import Sample
+        from xyh.config.campaigns._util import Sample
 
         sample = Sample(
             nick="test_nick",
@@ -175,7 +175,7 @@ class TestSample:
 
     def test_sample_creation_with_defaults(self):
         """Test creating a Sample with default values for optional fields."""
-        from xyh.config.campaigns.util import Sample
+        from xyh.config.campaigns._util import Sample
 
         sample = Sample(
             nick="test_nick",
@@ -207,7 +207,7 @@ class TestLoadDatabase:
 
     def test_load_database_success(self, sample_data):
         """Test successful loading of sample database."""
-        from xyh.config.campaigns.util import Sample, load_database
+        from xyh.config.campaigns._util import Sample, load_database
 
         # Clear cache before test
         load_database.cache_clear()
@@ -233,7 +233,7 @@ class TestLoadDatabase:
 
     def test_load_database_uses_cache(self, sample_data):
         """Test that load_database uses caching."""
-        from xyh.config.campaigns.util import load_database
+        from xyh.config.campaigns._util import load_database
 
         # Clear cache before test
         load_database.cache_clear()
@@ -259,7 +259,7 @@ class TestLoadDatabase:
 
     def test_load_database_empty_file(self):
         """Test loading an empty sample database."""
-        from xyh.config.campaigns.util import load_database
+        from xyh.config.campaigns._util import load_database
 
         # Clear cache before test
         load_database.cache_clear()
@@ -277,7 +277,7 @@ class TestLoadDatabase:
 
     def test_load_database_cache_clear(self):
         """Test that cache can be cleared."""
-        from xyh.config.campaigns.util import load_database
+        from xyh.config.campaigns._util import load_database
 
         load_database.cache_clear()
         # Should not raise an error
@@ -294,42 +294,42 @@ class TestGetFormatStringParameters:
 
     def test_extract_single_parameter(self):
         """Test extracting a single parameter from format string."""
-        from xyh.config.campaigns.util import get_format_string_parameters
+        from xyh.config.campaigns._util import get_format_string_parameters
 
         result = get_format_string_parameters("sample_{mass}_test")
         assert result == {"mass"}
 
     def test_extract_multiple_parameters(self):
         """Test extracting multiple parameters from format string."""
-        from xyh.config.campaigns.util import get_format_string_parameters
+        from xyh.config.campaigns._util import get_format_string_parameters
 
         result = get_format_string_parameters("sample_{mass}_{coupling}_test")
         assert result == {"mass", "coupling"}
 
     def test_no_parameters(self):
         """Test format string with no parameters."""
-        from xyh.config.campaigns.util import get_format_string_parameters
+        from xyh.config.campaigns._util import get_format_string_parameters
 
         result = get_format_string_parameters("sample_fixed_name")
         assert result == set()
 
     def test_empty_string(self):
         """Test empty format string."""
-        from xyh.config.campaigns.util import get_format_string_parameters
+        from xyh.config.campaigns._util import get_format_string_parameters
 
         result = get_format_string_parameters("")
         assert result == set()
 
     def test_duplicate_parameters(self):
         """Test format string with duplicate parameters returns unique set."""
-        from xyh.config.campaigns.util import get_format_string_parameters
+        from xyh.config.campaigns._util import get_format_string_parameters
 
         result = get_format_string_parameters("{mass}_{mass}_{mass}")
         assert result == {"mass"}
 
     def test_complex_format_string(self):
         """Test complex format string with various parameter names."""
-        from xyh.config.campaigns.util import get_format_string_parameters
+        from xyh.config.campaigns._util import get_format_string_parameters
 
         result = get_format_string_parameters(
             "signal_m{mass}_pt{pt}_eta{eta}_phi{phi}"
@@ -338,7 +338,7 @@ class TestGetFormatStringParameters:
 
     def test_format_with_literal_braces(self):
         """Test format string with escaped braces."""
-        from xyh.config.campaigns.util import get_format_string_parameters
+        from xyh.config.campaigns._util import get_format_string_parameters
 
         # Double braces represent literal braces in format strings
         result = get_format_string_parameters("{{literal}}_{param}")
@@ -346,7 +346,7 @@ class TestGetFormatStringParameters:
 
     def test_format_with_type_annotation(self):
         """Test format string with type annotations."""
-        from xyh.config.campaigns.util import get_format_string_parameters
+        from xyh.config.campaigns._util import get_format_string_parameters
 
         # Double braces represent literal braces in format strings
         result = get_format_string_parameters("{param_0}_{param1:.2f}")
@@ -365,19 +365,19 @@ class TestAddDatasetStr:
         self, mock_campaign, mock_settings, sample_data
     ):
         """Test adding a dataset with a single nick."""
-        from xyh.config.campaigns.util import add_dataset, load_database
+        from xyh.config.campaigns._util import add_dataset, load_database
 
         # Mock the load_database to return sample data
         with patch.object(load_database, "cache_clear"):
             with patch(
-                "xyh.config.campaigns.util.load_database"
+                "xyh.config.campaigns._util.load_database"
             ) as mock_load_db:
                 mock_load_db.return_value = {
                     "sample1": type("Sample", (), sample_data["sample1"])()
                 }
 
                 # Create proper Sample object
-                from xyh.config.campaigns.util import Sample
+                from xyh.config.campaigns._util import Sample
 
                 mock_sample = Sample(**sample_data["sample1"])
                 mock_load_db.return_value = {"sample1": mock_sample}
@@ -395,7 +395,7 @@ class TestAddDatasetStr:
 
     def test_add_dataset_data_sample(self, mock_campaign, mock_settings):
         """Test adding a data dataset (is_data=True)."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         data_sample = Sample(
             nick="data_sample",
@@ -405,7 +405,7 @@ class TestAddDatasetStr:
             sample_type="data",
         )
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = {"data_sample": data_sample}
 
             dataset = add_dataset(mock_campaign, "data_dataset", "data_sample")
@@ -416,7 +416,7 @@ class TestAddDatasetStr:
 
     def test_add_dataset_none_values(self, mock_campaign, mock_settings):
         """Test adding a dataset with None xsec and generator_weight."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         sample = Sample(
             nick="test_nick",
@@ -428,7 +428,7 @@ class TestAddDatasetStr:
             generator_weight=None,
         )
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = {"test_nick": sample}
 
             dataset = add_dataset(mock_campaign, "test_dataset", "test_nick")
@@ -447,7 +447,7 @@ class TestAddDatasetList:
 
     def test_add_dataset_multiple_nicks(self, mock_campaign, mock_settings):
         """Test adding a dataset with multiple nicks."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -471,7 +471,7 @@ class TestAddDatasetList:
 
         samples = {"sample1": sample1, "sample2": sample2}
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = samples
 
             dataset = add_dataset(
@@ -491,7 +491,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that cross sections within tolerance are accepted."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         # Cross sections differ by less than 1e-3 relative tolerance
         sample1 = Sample(
@@ -516,7 +516,7 @@ class TestAddDatasetList:
 
         samples = {"sample1": sample1, "sample2": sample2}
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = samples
 
             dataset = add_dataset(
@@ -530,7 +530,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched cross sections raise ValueError."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -554,7 +554,7 @@ class TestAddDatasetList:
 
         samples = {"sample1": sample1, "sample2": sample2}
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = samples
 
             with pytest.raises(ValueError, match="Values of 'xsec' not equal"):
@@ -566,7 +566,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched generator weights raise ValueError."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -590,7 +590,7 @@ class TestAddDatasetList:
 
         samples = {"sample1": sample1, "sample2": sample2}
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = samples
 
             with pytest.raises(
@@ -604,7 +604,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched generator weight types raise TypeError."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -628,7 +628,7 @@ class TestAddDatasetList:
 
         samples = {"sample1": sample1, "sample2": sample2}
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = samples
 
             with pytest.raises(
@@ -642,7 +642,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched eras raise ValueError."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -666,7 +666,7 @@ class TestAddDatasetList:
 
         samples = {"sample1": sample1, "sample2": sample2}
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = samples
 
             with pytest.raises(ValueError, match="Values of 'era' not equal"):
@@ -678,7 +678,7 @@ class TestAddDatasetList:
         self, mock_campaign, mock_settings
     ):
         """Test that mismatched sample types raise ValueError."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -702,7 +702,7 @@ class TestAddDatasetList:
 
         samples = {"sample1": sample1, "sample2": sample2}
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = samples
 
             with pytest.raises(
@@ -714,7 +714,7 @@ class TestAddDatasetList:
 
     def test_add_dataset_all_none_xsec(self, mock_campaign, mock_settings):
         """Test adding datasets where all have None xsec."""
-        from xyh.config.campaigns.util import Sample, add_dataset
+        from xyh.config.campaigns._util import Sample, add_dataset
 
         sample1 = Sample(
             nick="sample1",
@@ -738,7 +738,7 @@ class TestAddDatasetList:
 
         samples = {"sample1": sample1, "sample2": sample2}
 
-        with patch("xyh.config.campaigns.util.load_database") as mock_load_db:
+        with patch("xyh.config.campaigns._util.load_database") as mock_load_db:
             mock_load_db.return_value = samples
 
             dataset = add_dataset(
@@ -747,137 +747,3 @@ class TestAddDatasetList:
 
         assert dataset.aux["xsec"] is None
         assert dataset.aux["generator_weight"] is None
-
-
-# =============================================================================
-# Tests for DatasetProxy class
-# =============================================================================
-
-
-class TestDatasetProxy:
-    """Tests for the DatasetProxy class."""
-
-    def test_dataset_proxy_creation_with_string_nicks(self):
-        """Test creating DatasetProxy with string nicks."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        proxy = DatasetProxy(
-            name="signal_mass{mass}", id="+", aux={"nicks": ["nick_{mass}"]}
-        )
-
-        assert proxy.name == "signal_mass{mass}"
-        assert "mass" in proxy._parameters
-
-    def test_dataset_proxy_creation_with_callable_nicks(self):
-        """Test creating DatasetProxy with callable nicks."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        def nick_func(mass):
-            return f"nick_{mass}"
-
-        proxy = DatasetProxy(
-            name="signal_mass{mass}", id="+", aux={"nicks": [nick_func]}
-        )
-
-        assert proxy.name == "signal_mass{mass}"
-        assert "mass" in proxy._parameters
-
-    def test_dataset_proxy_parameter_mismatch_string(self):
-        """Test that parameter mismatch in string nicks raises ValueError."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        # Nick has 'coupling' but name only has 'mass'
-        with pytest.raises(
-            ValueError, match="Nick.*contains parameters.*which are not present"
-        ):
-            DatasetProxy(
-                name="signal_mass{mass}",
-                id="+",
-                aux={"nicks": ["nick_{coupling}"]},
-            )
-
-    def test_dataset_proxy_parameter_mismatch_callable(self):
-        """Test that parameter mismatch in callable nicks raises ValueError."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        def nick_func(coupling):
-            return f"nick_{coupling}"
-
-        # Nick has 'coupling' but name only has 'mass'
-        with pytest.raises(
-            ValueError, match="Nick.*contains parameters.*which are not present"
-        ):
-            DatasetProxy(
-                name="signal_mass{mass}", id="+", aux={"nicks": [nick_func]}
-            )
-
-    def test_dataset_proxy_unsupported_nick_type(self):
-        """Test that unsupported nick type raises TypeError."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        with pytest.raises(TypeError, match="Unsupported type for nick"):
-            DatasetProxy(
-                name="signal_mass{mass}",
-                id="+",
-                aux={"nicks": [123]},  # Integer is not supported
-            )
-
-    def test_dataset_proxy_multiple_parameters(self):
-        """Test DatasetProxy with multiple parameters."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        proxy = DatasetProxy(
-            name="signal_mass{mass}_pt{pt}",
-            id="+",
-            aux={"nicks": ["nick_{mass}_{pt}"]},
-        )
-
-        assert "mass" in proxy._parameters
-        assert "pt" in proxy._parameters
-        assert len(proxy._parameters) == 2
-
-    def test_dataset_proxy_subset_parameters(self):
-        """Test that nick parameters can be a subset of name parameters."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        # Name has mass and pt, nick only uses mass (this is allowed)
-        proxy = DatasetProxy(
-            name="signal_mass{mass}_pt{pt}",
-            id="+",
-            aux={"nicks": ["nick_{mass}"]},
-        )
-
-        assert proxy is not None
-
-    def test_dataset_proxy_empty_nicks(self):
-        """Test DatasetProxy with empty nicks list."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        proxy = DatasetProxy(
-            name="signal_mass{mass}", id="+", aux={"nicks": []}
-        )
-
-        assert proxy is not None
-        assert "mass" in proxy._parameters
-
-    def test_dataset_proxy_no_nicks_in_aux(self):
-        """Test DatasetProxy without nicks in aux."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        proxy = DatasetProxy(name="signal_mass{mass}", id="+", aux={})
-
-        assert proxy is not None
-        assert "mass" in proxy._parameters
-
-    def test_dataset_proxy_inherits_from_dataset(self):
-        """Test that DatasetProxy inherits from Dataset."""
-        from xyh.config.campaigns.util import DatasetProxy
-
-        proxy = DatasetProxy(name="test", id="+", aux={})
-
-        # Should have Dataset attributes
-        assert hasattr(proxy, "name")
-        assert hasattr(proxy, "id")
-        assert hasattr(proxy, "aux")
-        assert hasattr(proxy, "is_data")
-        assert proxy.is_data is False  # Default value

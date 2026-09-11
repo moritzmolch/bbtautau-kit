@@ -1,19 +1,8 @@
-"""
-Analysis instance of the X &rarr; YH &rarr; bb&tau;&tau; search.
-
-Attributes
-----------
-
-DECAY_MODES: list[tuple[str, str]]
-    List of decay mode configurations. The first element defines the Y boson
-    decay, the second one the H boson decay.
-
-XY_MASSES: list[tuple[int, int]]
-    List of mass combinations. The first element defines the X boson mass, the
-    second one the Y boson mass.
-"""
-
-from order import Analysis
+import os
+from collections.abc import Generator
+from dataclasses import dataclass
+from functools import cache
+from itertools import product
 
 # Decay modes of the Y and H bosons
 DECAY_MODES = [
@@ -294,61 +283,115 @@ XY_MASSES = [
 ]
 
 
-def create_xyh_analysis(
-    y_decay_mode: str,
-    h_decay_mode: str,
-    m_x: int,
-    m_y: int,
-) -> Analysis:
+# Missing signal samples
+MISSING_SIGNAL_SAMPLES = {
+    "2024_nano_v15": [
+        # ((y_decay_mode, h_decay_mode), (m_x, m_y))
+        (("y2b", "h2tau"), (2500, 800)),
+        (("y2tau", "h2b"), (2500, 90)),
+    ],
+    "2025_nano_v15": [
+        # ((y_decay_mode, h_decay_mode), (m_x, m_y))
+        (("y2b", "h2tau"), (2500, 800)),
+        (("y2tau", "h2b"), (2500, 90)),
+    ],
+}
+
+
+@dataclass
+class XYHProfile:
+    decay_modes: list[tuple[str, str]]
+    xy_masses: list[tuple[int, int]]
+    missing_signal_samples: dict[
+        str, list[tuple[tuple[str, str], tuple[int, int]]]
+    ]
+    process_set: str
+
+    def iterate_signal_parameters(
+        self,
+        campaign: str | None = None,
+    ) -> Generator[tuple[tuple[str, str], tuple[int, int]], None, None]:
+        """
+        Yield the signal parameters for the given analysis profile.
+
+        If the `campaign` argument is provided, the missing signal samples for
+        the campaign will be excluded from the iteration.
+
+        Parameters
+        ----------
+        campaign : str | None
+            The campaign name. If provided, the missing signal samples for the
+            campaign will be excluded from the iteration.
+
+        Yields
+        ------
+        tuple[tuple[str, str], tuple[int, int]]
+            A tuple of ((y_decay_mode, h_decay_mode), (m_x, m_y)).
+        """
+
+        for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
+            self.decay_modes, self.xy_masses
+        ):
+            # Skip signals which are missing for certain campaigns
+            if campaign is not None:
+                if (
+                    (y_decay_mode, h_decay_mode),
+                    (m_x, m_y),
+                ) in self.missing_signal_samples.get(campaign, []):
+                    continue
+
+            # Yield the signal parameters
+            yield (y_decay_mode, h_decay_mode), (m_x, m_y)
+
+
+FULL = XYHProfile(
+    decay_modes=DECAY_MODES,
+    xy_masses=XY_MASSES,
+    missing_signal_samples=MISSING_SIGNAL_SAMPLES,
+    process_set="default",
+)
+
+
+BENCHMARK = XYHProfile(
+    decay_modes=[("y2b", "h2tau")],
+    xy_masses=[(2000, 500)],
+    missing_signal_samples=MISSING_SIGNAL_SAMPLES,
+    process_set="default",
+)
+
+
+BKG_ONLY = XYHProfile(
+    decay_modes=[],
+    xy_masses=[],
+    missing_signal_samples=MISSING_SIGNAL_SAMPLES,
+    process_set="default",
+)
+
+
+@cache
+def get_profile():
     """
-    Create a new analysis instance of the X &rarr; YH &rarr; bb&tau;&tau;
-    analysis for given signal hypothesis.
+    Get the analysis profile.
 
-    The created analysis instance will have the name
-    `"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"`. The details about
-    the signal hypothesis are stored in the `aux` object.
-
-    Parameters
-    ----------
-
-    y_decay_mode: str
-        Decay mode of the Y boson. Must be `"y2b"` or `"y2tau"`.
-
-    h_decay_mode: str
-        Decay mode of the H boson. Must be `"h2b"` or `"h2tau"`.
-
-    m_x: int
-        X boson mass of the signal hypothesis.
-
-    m_y: int
-        Y boson mass of the signal hypothesis.
+    The analysis profile is inferred from the `XYH_PROFILE` environment
+    variable. The default profile is `BENCHMARK`.
 
     Returns
     -------
-
-    order.Analysis
-        The analysis instance.
+    XYHProfile
+        The analysis profile.
     """
 
-    # Validate decay modes and masses
-    if (y_decay_mode, h_decay_mode) not in DECAY_MODES:
+    # Get the profile name from the environment variable
+    name = os.environ.get("XYH_PROFILE", None)
+    if name is None:
+        name = "BENCHMARK"
+
+    # Load the profile
+    profile = globals().get(name)
+    if not isinstance(profile, XYHProfile):
         raise ValueError(
-            f"{(y_decay_mode, h_decay_mode)} not found in DECAY_MODES"
+            f"Profile {name} not found or not of correct type XYHProfile."
         )
-    # Validate decay modes and masses
-    if (m_x, m_y) not in XY_MASSES:
-        raise ValueError(f"{(m_x, m_y)} not found in XY_MASSES")
 
-    # Create the analysis instance
-    analysis_inst = Analysis(
-        name=f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}",
-        id="+",
-        aux={
-            "y_decay_mode": y_decay_mode,
-            "h_decay_mode": h_decay_mode,
-            "m_x": m_x,
-            "m_y": m_y,
-        },
-    )
-
-    return analysis_inst
+    return profile

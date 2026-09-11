@@ -1,4 +1,3 @@
-import inspect
 import json
 import string
 from dataclasses import dataclass, field, fields
@@ -124,19 +123,6 @@ def add_dataset(
         The created `Dataset` object.
     """
 
-    # First check if the name has a dependency on the parameters of the
-    # analysis, e.g., for a signal sample.
-    if len(get_format_string_parameters(name)) > 0:
-        dataset_inst = campaign_inst.add_dataset(
-            DatasetProxy(
-                name=name,
-                id=campaign_inst.datasets.cls._max_id + 1,
-                aux={"nicks": nicks},
-            )
-        )
-        campaign_inst.datasets.cls._max_id += 1
-        return dataset_inst
-
     # If 'nicks' is a string, convert it to a list of strings
     if isinstance(nicks, str):
         nicks = [nicks]
@@ -214,76 +200,3 @@ def add_dataset(
     )
 
     return dataset_inst
-
-
-class DatasetProxy(Dataset):
-    """
-    Proxy class for a dataset that allows for lazy creation of the dataset
-    instance.
-    """
-
-    def __init__(
-        self,
-        name,
-        id,
-        campaign=None,
-        info=None,
-        processes=None,
-        label=None,
-        label_short=None,
-        is_data=False,
-        tags=None,
-        aux=None,
-        **kwargs,
-    ):
-        # Initialize base class
-        super().__init__(
-            name=name,
-            id=id,
-            campaign=campaign,
-            info=info,
-            processes=processes,
-            label=label,
-            label_short=label_short,
-            is_data=is_data,
-            tags=tags,
-            aux=aux,
-            **kwargs,
-        )
-
-        # Extract parameters from the name
-        self._parameters = get_format_string_parameters(name)
-
-        # Inspect the nicks in the aux dictionary and check whether
-        # they contain the same parameter names as the dataset name.
-        nicks = self.aux.get("nicks", [])
-        if not isinstance(nicks, list):
-            nicks = [nicks]
-        for nick in nicks:
-            nick_parameters = set()
-            if callable(nick):
-                nick_parameters = set(inspect.signature(nick).parameters.keys())
-            elif isinstance(nick, str):
-                nick_parameters = get_format_string_parameters(nick)
-            else:
-                raise TypeError(
-                    f"Unsupported type for nick: {type(nick)}. "
-                    "Expected str or callable."
-                )
-
-            if not nick_parameters.issubset(self._parameters):
-                raise ValueError(
-                    f"Nick '{nick}' contains parameters {nick_parameters} "
-                    f"which are not present in the dataset name '{name}' "
-                    f"with parameters {self._parameters}."
-                )
-
-    def eval(self, **kwargs):
-        # Check if all required parameters are provided
-        missing_parameters = self._parameters - set(kwargs.keys())
-        if missing_parameters:
-            raise ValueError(
-                f"Missing parameters for category '{self.name}': {missing_parameters}"
-            )
-
-        return self.copy(name=self.name.format(**kwargs))
