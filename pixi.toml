@@ -12,6 +12,7 @@ python = "3.12.*"
 pyyaml = ">=6.0.3,<7"
 xrootd = ">=6.1.1,<7"
 numpy = ">=2.5.3,<3"
+networkx = ">=3.6.1,<4"
 
 [pypi-dependencies]
 order = ">=2.1.7, <3"
