@@ -11,7 +11,7 @@ class Dataset:
     files: list[str]
     friend_files: dict[str, list[str]]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         attributes = ", ".join(
             [
                 f"campaign={self.campaign}",
@@ -34,6 +34,19 @@ class Histogram:
     expression: str
     bin_edges: list[int | float]
 
+    def __repr__(self) -> str:
+        attributes = ", ".join(
+            [
+                f"campaign={self.campaign}",
+                f"channel={self.channel}",
+                f"category={self.category}",
+                f"variable={self.variable}",
+                f"expression={self.expression}",
+                f"bin_edges={self.bin_edges}",
+            ]
+        )
+        return f"{self.__class__.__name__}<{attributes}>"
+
 
 @dataclass
 class FiltersAndWeights:
@@ -42,12 +55,19 @@ class FiltersAndWeights:
     category: str
     process: str
     dataset: str
+    variation: str
     filters: OrderedDict[str, str]
     weights: OrderedDict[str, str]
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         attributes = ", ".join(
             [
+                f"campaign={self.campaign}",
+                f"channel={self.channel}",
+                f"category={self.category}",
+                f"process={self.process}",
+                f"dataset={self.dataset}",
+                f"variation={self.variation}",
                 f"filters=<{', '.join(f for f in self.filters)}>",
                 f"weights=<{', '.join(w for w in self.weights)}>",
             ]

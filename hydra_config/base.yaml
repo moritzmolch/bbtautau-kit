@@ -25,6 +25,7 @@ artifacts:
   dataset_specs_file: data/output/${tags.shapes_tag}/specs/datasets.json.gz
   filters_and_weights_specs_file: data/output/${tags.shapes_tag}/specs/filters_and_weights.json.gz
   histogram_specs_file: data/output/${tags.shapes_tag}/specs/histograms.json.gz
+  graph_specs_file: data/output/${tags.shapes_tag}/specs/graphs.json.gz
 
 # Basic information about analysis inventory to be used
 inventory:

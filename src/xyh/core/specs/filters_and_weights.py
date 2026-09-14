@@ -15,6 +15,7 @@ def create_filters_and_weights_spec(
     category_inst,
     dataset_inst,
     process_inst,
+    variation,
 ):
     # Create the filter and weight classes
     filters_wrapper = default_filters(
@@ -55,6 +56,7 @@ def create_filters_and_weights_spec(
         category=category_inst.name,
         process=process_inst.name,
         dataset=dataset_inst.name,
+        variation=variation,
         filters=filters,
         weights=weights,
     )
@@ -122,6 +124,7 @@ def create_filters_and_weights_specs(
                             category_inst,
                             dataset_inst,
                             process_inst,
+                            variation="nominal",
                         )
                     )
 
