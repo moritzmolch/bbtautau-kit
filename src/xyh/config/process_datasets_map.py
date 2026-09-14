@@ -272,7 +272,7 @@ def get_process_datasets_map(
             ("h_2tau_jetfakes", "h_2tau_tautau", "h_2tau_rem"): h_2tau_datasets,
             ("h_2b_jetfakes", "h_2b_tautau", "h_2b_rem"): h_2b_datasets,
             ("tth_jetfakes", "tth_rem", "tth_tautau"): tth_datasets,
-            "gg_hh_2b2tau": hh_2b2tau_datasets,
+            # "gg_hh_2b2tau": hh_2b2tau_datasets,
             "jetfakes": [],  # data-driven estimate, dataset list stays empty
         }
     )

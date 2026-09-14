@@ -21,6 +21,9 @@ def create_dataset_spec(
 ) -> Dataset:
     logger.info(f"Create dataset spec {dataset_inst.name}")
 
+    # Get the campaign's short handle
+    campaign_short = f"{campaign_inst.x.year}{campaign_inst.x.postfix or ''}"
+
     # Create the XRootD file system
     fs = FileSystem(xrootd_server)
 
@@ -28,8 +31,7 @@ def create_dataset_spec(
     # corresponding lists of files. The file lists should be sorted
     # alphabetically to ensure that the correct files are linked together when
     # attaching friends to the main tree.
-    main_files = []
-    friend_files = {}
+    files: dict[str, list[str]] = {}
 
     # Iterate through all nicks of the dataset and concatenate file lists
     for nick in dataset_inst.x.nicks:
@@ -40,11 +42,20 @@ def create_dataset_spec(
             ntuple_base_dir
             / ntuple_tag
             / "CROWNRun"
-            / campaign_inst.name
+            / campaign_short
             / nick
             / channel_inst.name
         )
-        _, listing = fs.dirlist(str(main_files_channel_dir), timeout=30)
+        status, listing = fs.dirlist(str(main_files_channel_dir), timeout=30)
+        if not status.ok:
+            logger.warning(
+                f"Failed to query main files for nick {nick} in dataset "
+                f"{dataset_inst.name} of channel {channel_inst.name} and "
+                f"campaign {campaign_inst.name}: {status}"
+            )
+            continue
+
+        # Iterate through the listing
         _files = []
         for item in listing or []:
             if item.name.endswith(".root"):
@@ -55,7 +66,7 @@ def create_dataset_spec(
                 )
 
         # Extend main file list with files from this nick
-        main_files.extend(_files)
+        files.setdefault("main", []).extend(_files)
 
         # Query friend files
         for friend in ntuple_friends:
@@ -64,14 +75,22 @@ def create_dataset_spec(
                 / ntuple_tag
                 / "CROWNFriends"
                 / friend
-                / campaign_inst.name
+                / campaign_short
                 / nick
                 / channel_inst.name
             )
-            _, listing = fs.dirlist(
+            status, listing = fs.dirlist(
                 str(friend_files_channel_dir),
                 timeout=30,
             )
+            if not status.ok:
+                logger.warning(
+                    f"Failed to query friend files for nick {nick}, friend tag {friend} in dataset "
+                    f"{dataset_inst.name} of channel {channel_inst.name} and "
+                    f"campaign {campaign_inst.name}: {status}"
+                )
+                continue
+
             _files = []
             for item in listing or []:
                 if item.name.endswith(".root"):
@@ -83,7 +102,7 @@ def create_dataset_spec(
             _files.sort()
 
             # Add friend to list of friends
-            friend_files.setdefault(friend, []).extend(_files)
+            files.setdefault(friend, []).extend(_files)
 
     # Create the dataset specs
     dataset_spec = Dataset(
@@ -91,8 +110,7 @@ def create_dataset_spec(
         channel=channel_inst.name,
         dataset=dataset_inst.name,
         nicks=dataset_inst.x.nicks,
-        files=main_files,
-        friend_files=friend_files,
+        files=files,
     )
     logger.debug(f"Created ntuple spec {dataset_spec}")
 

@@ -8,8 +8,7 @@ class Dataset:
     channel: str
     dataset: str
     nicks: list[str]
-    files: list[str]
-    friend_files: dict[str, list[str]]
+    files: dict[str, list[str]]
 
     def __repr__(self) -> str:
         attributes = ", ".join(
@@ -18,8 +17,7 @@ class Dataset:
                 f"channel={self.channel}",
                 f"dataset={self.dataset}",
                 f"nicks=[{', '.join(n for n in self.nicks)}]",
-                f"files=<{len(self.files)} files>",
-                f"friend_files=<{', '.join(f for f in self.friend_files)}>",
+                f"files=<{', '.join(f for f in self.files)}>",
             ]
         )
         return f"{self.__class__.__name__}<{attributes}>"
