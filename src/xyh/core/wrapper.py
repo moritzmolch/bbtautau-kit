@@ -20,7 +20,7 @@ class WrapperMeta(ABCMeta):
 
         return cls
 
-    def get_class(cls, cls_name):
+    def get_class(cls, cls_name) -> type:
         """
         Retrieve a registered Wrapper class by name.
 
@@ -76,7 +76,6 @@ class Wrapper(metaclass=WrapperMeta):
             ]
         )
 
-    @abstractmethod
     def __call__(self) -> OrderedDict[str, str]:
         """
         Abstract method that must be implemented by subclasses.
@@ -126,7 +125,6 @@ class Wrapper(metaclass=WrapperMeta):
         cls_dict = {
             "__module__": module,
             "_wrapped_func": func,
-            "__call__": func,
         }
 
         # Create a new class that inherits from Wrapper
