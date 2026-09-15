@@ -32,6 +32,10 @@ def tautau_from_genuine_tau_selection(self) -> OrderedDict[str, str]:
     # Container for generator-level tau selections
     selections = OrderedDict()
 
+    # Only apply this filter to simulated events
+    if self.process_inst.is_data:
+        return selections
+
     # Select genuine tau pairs based on the generator matching results
     # depending on the channel
     expression = None
@@ -83,6 +87,10 @@ def tautau_from_jet_fake_selection(self) -> OrderedDict[str, str]:
 
     # Container for generator-level tau selections
     selections = OrderedDict()
+
+    # Only apply this filter to simulated events
+    if self.process_inst.is_data:
+        return selections
 
     # Get the selection for genuine tau pairs to veto them here
     genuine_tau_selections = self.get_instance(
@@ -142,6 +150,10 @@ def tautau_from_remaining_selection(self) -> OrderedDict[str, str]:
 
     # Container for generator-level tau selections
     selections = OrderedDict()
+
+    # Only apply this filter to simulated events
+    if self.process_inst.is_data:
+        return selections
 
     # Get the selections for genuine tau pairs and jet -> tau_h fakes to veto
     # them here

@@ -45,21 +45,21 @@ tt_jetfakes = ProcessGroup(
     color="#6da4daff",
 )
 
-dy_2l = ProcessGroup(
-    name="dy_2l",
+z_2l = ProcessGroup(
+    name="z_2l",
     processes=[
-        "dy_2e_2mu_tautau",
-        "dy_2e_2mu_rem",
-        "dy_2tau_tautau",
-        "dy_2tau_rem",
+        "z_2e_2mu_tautau",
+        "z_2e_2mu_rem",
+        "z_2tau_tautau",
+        "z_2tau_rem",
     ],
     label="DY",
     color="#ffa90e",
 )
 
-dy_2l_jetfakes = ProcessGroup(
-    name="dy_2l_jetfakes",
-    processes=["dy_2e_2mu_jetfakes", "dy_2tau_jetfakes"],
+z_2l_jetfakes = ProcessGroup(
+    name="z_2l_jetfakes",
+    processes=["z_2e_2mu_jetfakes", "z_2tau_jetfakes"],
     label="DY ($\\text{j} \\to \\tau_{\\text{h}}$)",
     color="#ffebc0",
 )
@@ -89,7 +89,7 @@ single_t_jetfakes = ProcessGroup(
 )
 single_h = ProcessGroup(
     name="single_h",
-    processes=["single_h_tautau", "single_h_rem"],
+    processes=["h_2tau_tautau", "h_2tau_rem", "h_2b_tautau", "h_2b_rem"],
     label="$\\text{H}$",
     color="#94a4a2",
 )
@@ -129,7 +129,7 @@ process_sets = {
         ],
         backgrounds=[
             tt,
-            dy_2l,
+            z_2l,
             w_lnu,
             single_t,
             single_h,
@@ -150,8 +150,8 @@ process_sets = {
         backgrounds=[
             tt,
             tt_jetfakes,
-            dy_2l,
-            dy_2l_jetfakes,
+            z_2l,
+            z_2l_jetfakes,
             w_lnu,
             w_lnu_jetfakes,
             single_t,
