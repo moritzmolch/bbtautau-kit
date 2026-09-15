@@ -4,6 +4,10 @@ from itertools import groupby
 import ROOT
 
 from xyh.core.config import load_inventory
+from xyh.core.config.util import gen_dataset_insts, gen_process_insts
+
+# TODO make this more generic
+from xyh.variations import default_variations
 
 logger = logging.getLogger(__name__)
 
@@ -91,19 +95,9 @@ def merge_histograms(
             # Load histograms of data and background processes
             histograms = {}
 
-            # Go through processes in the process-dataset map and merge
-            # histograms with the same process
-            for process, datasets in process_datasets_map.items():
-                # Skip processes without any datasets (e.g., data-driven
-                # background processes)
-                if len(datasets) == 0:
-                    continue
-
-                # Get the process instance
-                process_inst = process_insts.get(process)
-                logging.info(f"Handle process {process_inst.name}")
-
-                # Skip signals that are not relevant for classifier categories
+            # Iterate through all processes of a process set
+            for process_inst in gen_process_insts(inventory):
+                # TODO Skip signals that are not relevant for classifier categories
                 # if (
                 #     category_inst.has_tag("clf")
                 #     and process_inst.get_aux("is_signal", False)
@@ -121,48 +115,68 @@ def merge_histograms(
                 #     if process_inst.get_aux("is_signal", False):
                 #         continue
 
-                for variation in ["nominal"]:  # TODO extend
+                for variation_class in ["nominal"] + default_variations:
+                    # Get information from the variation
+                    variation_name = "nominal"
+                    if not isinstance(variation_class, str):
+                        variation = variation_class(
+                            campaign_inst=campaign_inst,
+                            channel_inst=channel_inst,
+                            category_inst=category_inst,
+                            process_inst=process_inst,
+                        )
+                        variation_name = variation_class.name
+
+                        # Check if this process is skipped
+                        if variation.skip():
+                            continue
+
                     # Histograms to be summed together
                     hists = []
 
-                    # if process_inst.name == "jetfakes":  # TODO more generic
-                    #     input_file = (
-                    #         histograms_dir
-                    #         / campaign
-                    #         / f"{channel_inst.name}__{category}"
-                    #         / f"{process_inst.name}__{process_inst.name}__{name}__{variation}.root"
-                    #     )
-                    #     rf = ROOT.TFile.Open(str(input_file), "READ")
-                    #     hists.append(rf.Get(name))
-                    #     rf.Close()
-
-                    # else:
-
-                    for dataset in datasets:
-                        # Get the node spec for this configuration
-                        node_spec = nodes_lookup[
-                            (
-                                process,
-                                dataset,
-                                variation,
-                            )
-                        ]
-
-                        # Construct input file path and obtain the histogram
-                        input_file = histograms_dir / node_spec["output_file"]
+                    if process_inst.name == "jetfakes":  # TODO more generic
+                        input_file = (
+                            histograms_dir
+                            / campaign
+                            / f"{channel_inst.name}__{category_inst.name}"
+                            / f"{process_inst.name}__{process_inst.name}__{variable}__{variation_name}.root"
+                        )
                         rf = ROOT.TFile.Open(str(input_file), "READ")
                         hists.append(rf.Get(variable))
                         rf.Close()
 
+                    else:
+                        for dataset_inst in gen_dataset_insts(
+                            inventory, process=process_inst
+                        ):
+                            # Get the node spec for this configuration
+                            node_spec = nodes_lookup[
+                                (
+                                    process_inst.name,
+                                    dataset_inst.name,
+                                    variation_name,
+                                )
+                            ]
+
+                            # Construct input file path and obtain the histogram
+                            input_file = (
+                                histograms_dir / node_spec["output_file"]
+                            )
+                            rf = ROOT.TFile.Open(str(input_file), "READ")
+                            hists.append(rf.Get(variable))
+                            rf.Close()
+
                     # Add the histograms and add them to the output dictionary
-                    histograms[(process, variation)] = add_histograms(hists)
+                    histograms[(process_inst.name, variation_name)] = (
+                        add_histograms(hists)
+                    )
 
             # Construct output file path and create the directory if it does not
             # exist
             output_file = (
                 output_dir
                 / campaign
-                / f"{channel_inst.name}__{category}"
+                / f"{channel_inst.name}__{category_inst.name}"
                 / f"{variable}.root"
             )
             if not output_file.parent.exists():
@@ -172,9 +186,7 @@ def merge_histograms(
             # Create new ROOT file and write histograms to it
             rf = ROOT.TFile(str(output_file), "RECREATE")
             for (process, variation), hist in histograms.items():
-                dir_name = (
-                    f"{campaign}/{channel_inst.name}/{category}/{process}"
-                )
+                dir_name = f"{campaign}/{channel_inst.name}/{category_inst.name}/{process}"
                 directory = rf.GetDirectory(dir_name)
                 if not directory:
                     directory = rf.mkdir(dir_name)
