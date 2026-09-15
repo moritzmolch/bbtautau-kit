@@ -1,0 +1,9 @@
+# Parameters specific to the `create_histogram_specs` CLI entry point.
+
+# Load base parameters as default
+defaults:
+- base
+
+# Explicitly define input and output files
+graph_specs_file: ${artifacts.graph_specs_file}
+output_dir: ${artifacts.histograms_dir}

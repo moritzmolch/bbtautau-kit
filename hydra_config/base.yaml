@@ -17,7 +17,7 @@
 
 # Tags for input and output artifacts
 tags:
-  ntuple_tag: "ntuple-2026-08-18"
+  ntuple_tag: "ntuples-2026-08-18"
   shapes_tag: "shapes-2026-09-09"
 
 # Artifact paths
@@ -26,11 +26,13 @@ artifacts:
   filters_and_weights_specs_file: data/output/${tags.shapes_tag}/specs/filters_and_weights.json.gz
   histogram_specs_file: data/output/${tags.shapes_tag}/specs/histograms.json.gz
   graph_specs_file: data/output/${tags.shapes_tag}/specs/graphs.json.gz
+  histograms_dir: data/output/${tags.shapes_tag}/histograms
+  merged_histograms_dir: data/output/${tags.shapes_tag}/merged_histograms
 
 # Basic information about analysis inventory to be used
 inventory:
   factory_fn: "xyh.config.inventory.create_inventory"
-  campaigns: ["2024_nano_v15", "2025_nano_v15"]
+  campaigns: ["2025_nano_v15"]
   channels: ["mt"]
   categories: ["mt_base"]
   variables:
@@ -72,6 +74,11 @@ ntuples:
   base_dir: "/store/user/mmolch/CROWN/ntuples"
   friends: [] # "fake-factors-2026-06-10", "pnn-2026-07-10"
 
+# Settings for multi-threaded graph processing
+graph_processing:
+  num_workers: 8
+  num_threads: 8
+
 # Logging
 log_level: INFO
 
@@ -84,4 +91,4 @@ hydra:
     chdir: false
     env_set:
       XYH_SAMPLE_DATABASE: "/work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database"
-      XYH_PROFILE: "BENCHMARK"
+      XYH_PROFILE: "BKG_ONLY"
