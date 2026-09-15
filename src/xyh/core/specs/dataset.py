@@ -4,6 +4,7 @@ import logging
 from XRootD.client import FileSystem
 
 from xyh.core.config import load_inventory
+from xyh.core.config.util import gen_dataset_insts
 from xyh.core.specs.specs import Dataset
 
 # Get the logger for this module
@@ -19,7 +20,7 @@ def create_dataset_spec(
     ntuple_tag,
     ntuple_friends,
 ) -> Dataset:
-    logger.info(f"Create dataset spec {dataset_inst.name}")
+    logger.debug(f"Create dataset spec {dataset_inst.name}")
 
     # Get the campaign's short handle
     campaign_short = f"{campaign_inst.x.year}{campaign_inst.x.postfix or ''}"
@@ -35,7 +36,7 @@ def create_dataset_spec(
 
     # Iterate through all nicks of the dataset and concatenate file lists
     for nick in dataset_inst.x.nicks:
-        logger.info(f"Query files for nick {nick}")
+        logger.debug(f"Query files for nick {nick}")
 
         # Query main files
         main_files_channel_dir = (
@@ -45,6 +46,9 @@ def create_dataset_spec(
             / campaign_short
             / nick
             / channel_inst.name
+        )
+        logger.warning(
+            f"Query main files in directory {main_files_channel_dir}"
         )
         status, listing = fs.dirlist(str(main_files_channel_dir), timeout=30)
         if not status.ok:
@@ -141,7 +145,7 @@ def create_dataset_specs(
         # map
         campaign_inst = inventory.campaign
         channel_inst = inventory.channel
-        process_datasets_map = inventory.process_datasets_map
+
         logger.info(
             "\n".join(
                 [
@@ -157,10 +161,7 @@ def create_dataset_specs(
         )
 
         # Create a dataset specification for each dataset
-        for dataset in itertools.chain.from_iterable(
-            process_datasets_map.values()
-        ):
-            dataset_inst = campaign_inst.datasets.get(dataset)
+        for dataset_inst in gen_dataset_insts(inventory):
             dataset_specs.append(
                 create_dataset_spec(
                     campaign_inst,
@@ -172,5 +173,10 @@ def create_dataset_specs(
                     ntuple_friends,
                 )
             )
+
+        logger.info(
+            f"Created {len(dataset_specs)} dataset specs for campaign "
+            f"{campaign_inst.name} and channel {channel_inst.name}"
+        )
 
     return dataset_specs
