@@ -32,14 +32,20 @@ def default_filters(self) -> OrderedDict[str, str]:
     selections = OrderedDict(
         chain(
             # Reconstruction-level selections
-            self.get_instance("triggers")().items(),
-            self.get_instance("jet_vetomap")().items(),
-            self.get_instance("ll_pair")().items(),
-            self.get_instance("bb_pair")().items(),
+            self.get_instance("triggers").nominal().items(),
+            self.get_instance("jet_vetomap").nominal().items(),
+            self.get_instance("ll_pair").nominal().items(),
+            self.get_instance("bb_pair").nominal().items(),
             # Generator-level selections: taus origin
-            self.get_instance("tautau_from_genuine_tau_selection")().items(),
-            self.get_instance("tautau_from_jet_fake_selection")().items(),
-            self.get_instance("tautau_from_remaining_selection")().items(),
+            self.get_instance("tautau_from_genuine_tau_selection")
+            .nominal()
+            .items(),
+            self.get_instance("tautau_from_jet_fake_selection")
+            .nominal()
+            .items(),
+            self.get_instance("tautau_from_remaining_selection")
+            .nominal()
+            .items(),
         )
     )
 

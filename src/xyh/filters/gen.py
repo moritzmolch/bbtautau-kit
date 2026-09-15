@@ -95,7 +95,7 @@ def tautau_from_jet_fake_selection(self) -> OrderedDict[str, str]:
     # Get the selection for genuine tau pairs to veto them here
     genuine_tau_selections = self.get_instance(
         "tautau_from_genuine_tau_selection"
-    )()
+    ).nominal()
 
     # Select jet -> tau_h  fakes based on the generator matching results
     # depending on the channel. For channels without hadronic taus, no jet ->
@@ -159,8 +159,10 @@ def tautau_from_remaining_selection(self) -> OrderedDict[str, str]:
     # them here
     genuine_tau_selections = self.get_instance(
         "tautau_from_genuine_tau_selection"
-    )()
-    jet_fake_selections = self.get_instance("tautau_from_jet_fake_selection")()
+    ).nominal()
+    jet_fake_selections = self.get_instance(
+        "tautau_from_jet_fake_selection"
+    ).nominal()
     expression_tautau = " && ".join(genuine_tau_selections.values())
     expression_jet_fake = " && ".join(jet_fake_selections.values())
 

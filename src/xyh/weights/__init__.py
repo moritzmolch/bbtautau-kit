@@ -17,18 +17,18 @@ def default_weights(self) -> OrderedDict[str, str]:
     weights = OrderedDict(
         chain(
             # Experimental weights
-            self.get_instance("trigger_weights")().items(),
-            self.get_instance("electron_weights")().items(),
-            self.get_instance("muon_weights")().items(),
-            self.get_instance("hadronic_tau_weights")().items(),
-            self.get_instance("b_jet_weights")().items(),
-            self.get_instance("pileup_weights")().items(),
+            self.get_instance("trigger_weights").nominal().items(),
+            self.get_instance("electron_weights").nominal().items(),
+            self.get_instance("muon_weights").nominal().items(),
+            self.get_instance("hadronic_tau_weights").nominal().items(),
+            self.get_instance("b_jet_weights").nominal().items(),
+            self.get_instance("pileup_weights").nominal().items(),
             # Theory weights
-            self.get_instance("top_pt_reweighting")().items(),
-            self.get_instance("z_pt_reweighting")().items(),
+            self.get_instance("top_pt_reweighting").nominal().items(),
+            self.get_instance("z_pt_reweighting").nominal().items(),
             # Normalization weights
-            self.get_instance("normalization")().items(),
-            self.get_instance("tt_normalization")().items(),
+            self.get_instance("normalization").nominal().items(),
+            self.get_instance("tt_normalization").nominal().items(),
         )
     )
 
