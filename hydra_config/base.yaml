@@ -17,8 +17,8 @@
 
 # Tags for input and output artifacts
 tags:
-  ntuple_tag: "ntuples-2026-08-18"
-  shapes_tag: "shapes-2026-09-09"
+  ntuple_tag: "ntuples-2026-06-10"
+  shapes_tag: "shapes-2026-09-15"
 
 # Artifact paths
 artifacts:
@@ -32,7 +32,7 @@ artifacts:
 # Basic information about analysis inventory to be used
 inventory:
   factory_fn: "xyh.config.inventory.create_inventory"
-  campaigns: ["2025_nano_v15"]
+  campaigns: ["2024_nano_v15"]
   channels: ["mt"]
   categories: ["mt_base"]
   variables:
@@ -72,7 +72,7 @@ inventory:
 ntuples:
   xrootd_server: "root://cmsdcache-kit-disk.gridka.de:1094"
   base_dir: "/store/user/mmolch/CROWN/ntuples"
-  friends: [] # "fake-factors-2026-06-10", "pnn-2026-07-10"
+  friends: ["fake-factors-2026-06-10"] # "fake-factors-2026-06-10", "pnn-2026-07-10"
 
 # Settings for multi-threaded graph processing
 graph_processing:
