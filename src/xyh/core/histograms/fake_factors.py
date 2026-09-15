@@ -5,7 +5,7 @@ from pathlib import Path
 import ROOT
 
 from xyh.core.config import load_inventory
-from xyh.core.config.util import gen_dataset_insts_for_process
+from xyh.core.config.util import gen_dataset_insts
 from xyh.core.histograms.util import add_histograms
 
 logger = logging.getLogger(__name__)
@@ -122,8 +122,8 @@ def run_fake_factor_histograms(
             # and `False` for background processes.
             histograms = {}
             for process in data_processes + bkg_processes:
-                for dataset_inst in gen_dataset_insts_for_process(
-                    inventory, process
+                for dataset_inst in gen_dataset_insts(
+                    inventory, process=process
                 ):
                     # Get the node spec for this configuration
                     node_spec = nodes_lookup[
