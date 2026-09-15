@@ -2,10 +2,12 @@ import itertools
 import logging
 
 from xyh.core.config import load_inventory
+from xyh.core.config.util import gen_process_and_dataset_insts
 from xyh.core.specs.specs import FiltersAndWeights
 
 # TODO Dynamically load selection
 from xyh.filters import default_filters
+from xyh.variations import default_variations
 from xyh.weights import default_weights
 
 
@@ -15,17 +17,19 @@ def create_filters_and_weights_spec(
     category_inst,
     dataset_inst,
     process_inst,
-    variation,
 ):
+    # List of all specs for this context
+    filters_and_weights_specs = []
+
     # Create the filter and weight classes
-    filters_wrapper = default_filters(
+    filters_class = default_filters(
         campaign_inst=campaign_inst,
         channel_inst=channel_inst,
         category_inst=category_inst,
         dataset_inst=dataset_inst,
         process_inst=process_inst,
     )
-    weights_wrapper = default_weights(
+    weights_class = default_weights(
         campaign_inst=campaign_inst,
         channel_inst=channel_inst,
         category_inst=category_inst,
@@ -33,13 +37,13 @@ def create_filters_and_weights_spec(
         process_inst=process_inst,
     )
 
-    # Get the filter and weight expression dictionaries
-    filters = filters_wrapper()
-    weights = weights_wrapper()
+    # Get the nominal filter and weight expression dictionaries
+    filters = filters_class.nominal()
+    weights = weights_class.nominal()
 
     # Create the selection and weight specs and append them to the
     # global list
-    logging.info(
+    logging.debug(
         "\n".join(
             [
                 "Created filters and weights",
@@ -49,19 +53,56 @@ def create_filters_and_weights_spec(
         ),
     )
 
-    # Create the spec object
-    filters_and_weights_spec = FiltersAndWeights(
-        campaign=campaign_inst.name,
-        channel=channel_inst.name,
-        category=category_inst.name,
-        process=process_inst.name,
-        dataset=dataset_inst.name,
-        variation=variation,
-        filters=filters,
-        weights=weights,
+    # Shared arguments between all variations
+    shared_kwargs = {
+        "campaign": campaign_inst.name,
+        "channel": channel_inst.name,
+        "category": category_inst.name,
+        "process": process_inst.name,
+        "dataset": dataset_inst.name,
+    }
+
+    # Add nominal specs
+    filters_and_weights_specs.append(
+        FiltersAndWeights(
+            **shared_kwargs,
+            variation="nominal",
+            filters=filters,
+            weights=weights,
+        )
     )
 
-    return filters_and_weights_spec
+    for variation_class in default_variations:
+        # Create the variation object for this context
+        variation = variation_class(
+            campaign_inst=campaign_inst,
+            channel_inst=channel_inst,
+            category_inst=category_inst,
+            dataset_inst=dataset_inst,
+            process_inst=process_inst,
+        )
+
+        # Check if this variation is applicable for this context
+        if variation.skip():
+            logging.debug(
+                f"Skipping variation {variation.name} for this context"
+            )
+            continue
+
+        # Create varied filter and weight expressions
+        varied_filters, varied_weights = variation.apply(filters, weights)
+
+        # Add the varied specs to the global list
+        filters_and_weights_specs.append(
+            FiltersAndWeights(
+                **shared_kwargs,
+                variation=variation.name,
+                filters=varied_filters,
+                weights=varied_weights,
+            )
+        )
+
+    return filters_and_weights_specs
 
 
 def create_filters_and_weights_specs(
@@ -84,8 +125,6 @@ def create_filters_and_weights_specs(
         # Get analysis config objects
         campaign_inst = inventory.campaign
         channel_inst = inventory.channel
-        process_insts = inventory.processes
-        process_datasets_map = inventory.process_datasets_map
 
         # Iterate through categories of this channel
         for category_inst in (
@@ -93,39 +132,32 @@ def create_filters_and_weights_specs(
             for c in categories
             if channel_inst.has_category(c)
         ):
-            # Iterate through all processes and datasets
-            for process, datasets in process_datasets_map.items():
-                # Load the process instance
-                process_inst = process_insts.get(process)
-
-                # Iterate through datasets associated with the process
-                for dataset in datasets:
-                    # Load the dataset instance
-                    dataset_inst = campaign_inst.datasets.get(dataset)
-
-                    # Create the selection and weight specs and append them to the
-                    # global list
-                    logging.info(
-                        "\n".join(
-                            [
-                                "Creating selection specs for",
-                                f"    campaign: {campaign_inst.name}",
-                                f"    channel:  {channel_inst.name}",
-                                f"    category: {category_inst.name}",
-                                f"    dataset:  {dataset_inst.name}",
-                                f"    process:  {process_inst.name}",
-                            ],
-                        ),
+            # Iterate through all processes and datasets of a process set
+            for process_inst, dataset_inst in gen_process_and_dataset_insts(
+                inventory
+            ):
+                # Create the selection and weight specs and append them to the
+                # global list
+                logging.info(
+                    "\n".join(
+                        [
+                            "Creating selection specs for",
+                            f"    campaign: {campaign_inst.name}",
+                            f"    channel:  {channel_inst.name}",
+                            f"    category: {category_inst.name}",
+                            f"    dataset:  {dataset_inst.name}",
+                            f"    process:  {process_inst.name}",
+                        ],
+                    ),
+                )
+                filters_and_weights_specs.extend(
+                    create_filters_and_weights_spec(
+                        campaign_inst,
+                        channel_inst,
+                        category_inst,
+                        dataset_inst,
+                        process_inst,
                     )
-                    filters_and_weights_specs.append(
-                        create_filters_and_weights_spec(
-                            campaign_inst,
-                            channel_inst,
-                            category_inst,
-                            dataset_inst,
-                            process_inst,
-                            variation="nominal",
-                        )
-                    )
+                )
 
     return filters_and_weights_specs
