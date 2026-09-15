@@ -1,8 +1,24 @@
-from xyh.core.variations import append, replace
+from collections import OrderedDict
+
+from xyh.core.variations import append, replace, variation
 
 
-@variation
-def fake_factors(self, filters, weights):
+def _skip_fake_factors(self) -> bool:
+    return (
+        self.process_inst.has_tag({"signal"})
+        or self.process_inst.name == "jetfakes"
+        or self.channel_inst.name not in ["et", "mt", "tt"]
+    )
+
+
+@variation(
+    skip_fn=_skip_fake_factors,  # skip signals, jetfakes process and non-tau channels
+)
+def fake_factors(
+    self,
+    filters: OrderedDict[str, str],
+    weights: OrderedDict[str, str],
+) -> tuple[OrderedDict[str, str], OrderedDict[str, str]]:
     # Variation is not applied to signal samples
     if self.process_inst.has_tag({"signal"}):
         return filters, weights
@@ -53,7 +69,7 @@ def fake_factors(self, filters, weights):
         """
 
     # Replace the tau ID selection with the anti-ID selection
-    replace(
+    filters = replace(
         filters,
         key_to_replace="tau_id_vs_jet",
         key="tau_antiid_vs_jet",
@@ -61,6 +77,6 @@ def fake_factors(self, filters, weights):
     )
 
     # Add the fake factor weight to the weight dictionary
-    append(weights, key="fake_factor", expression=ff_weight)
+    weights = append(weights, key="fake_factor", expression=ff_weight)
 
     return filters, weights
