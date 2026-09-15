@@ -55,6 +55,10 @@ class Wrapper(metaclass=WrapperMeta):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+        # Execute the wrapped function and sanitize expressions, store the
+        # result in an attribute
+        self._cached = self._evaluate()
+
     @abstractmethod
     def _wrapped_func(self) -> OrderedDict[str, str]:
         """
@@ -66,6 +70,20 @@ class Wrapper(metaclass=WrapperMeta):
             "Subclasses must implement the __wrapped_func__ method."
         )
 
+    def skip(self) -> bool:
+        return False
+
+    def nominal(self) -> OrderedDict[str, str]:
+        """
+        Return the nominal expressions from the wrapped function.
+
+        Returns
+        -------
+        OrderedDict[str, str]
+            The nominal expressions.
+        """
+        return self._cached.copy()
+
     def _sanitize_expression(self, expression: str):
         # Strip spaces and remove '\n' characters
         return " ".join(
@@ -76,7 +94,7 @@ class Wrapper(metaclass=WrapperMeta):
             ]
         )
 
-    def __call__(self) -> OrderedDict[str, str]:
+    def _evaluate(self) -> OrderedDict[str, str]:
         """
         Abstract method that must be implemented by subclasses.
         This method will be called when the wrapper instance is invoked.
