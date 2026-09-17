@@ -175,7 +175,7 @@ def plot_shapes(
                 lumi=campaign_inst.x.lumi,
                 era=None,
                 sqrt_s=campaign_inst.ecm,
-                fit_ratio=False,
+                fit_ratio=True,
             )
 
             # Save the file
@@ -183,7 +183,7 @@ def plot_shapes(
                 output_file = (
                     output_dir
                     / campaign
-                    / f"{channel_inst.name}__ {category}"
+                    / f"{channel_inst.name}__{category_inst.name}"
                     / f"{variable_inst.name}.{ext}"
                 )
                 if not output_file.parent.exists():

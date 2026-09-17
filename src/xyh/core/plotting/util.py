@@ -225,18 +225,24 @@ def fit_hist_ratio(
 ):
     # get (x, y) points and the uncertainties in y
     x, y, y_err = (
-        [
-            hist_ratio.GetXaxis().GetBinCenter(i)
-            for i in range(1, hist_ratio.GetNbinsX() + 1)
-        ],
-        [
-            hist_ratio.GetBinContent(i)
-            for i in range(1, hist_ratio.GetNbinsX() + 1)
-        ],
-        [
-            hist_ratio.GetBinError(i)
-            for i in range(1, hist_ratio.GetNbinsX() + 1)
-        ],
+        np.array(
+            [
+                hist_ratio.GetXaxis().GetBinCenter(i)
+                for i in range(1, hist_ratio.GetNbinsX() + 1)
+            ]
+        ),
+        np.array(
+            [
+                hist_ratio.GetBinContent(i)
+                for i in range(1, hist_ratio.GetNbinsX() + 1)
+            ]
+        ),
+        np.array(
+            [
+                hist_ratio.GetBinError(i)
+                for i in range(1, hist_ratio.GetNbinsX() + 1)
+            ]
+        ),
     )
 
     # remove data points with nan values
