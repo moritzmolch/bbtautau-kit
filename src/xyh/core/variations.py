@@ -54,7 +54,10 @@ def append(
         The new expression to be appended.
     """
 
+    # Copy to prevent modifying the original dictionary
+    expression_dict = expression_dict.copy()
     expression_dict[key] = expression
+
     return expression_dict
 
 
