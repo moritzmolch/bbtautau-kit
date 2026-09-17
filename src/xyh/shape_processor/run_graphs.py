@@ -14,7 +14,9 @@ def main(cfg: DictConfig):
     graph_specs = load_json(Path(cfg["graph_specs_file"]))
 
     # Set number of threads in ROOT parallel processing
-    ROOT.EnableImplicitMT(cfg["graph_processing"]["num_threads"])
+    num_threads = cfg["graph_processing"]["num_threads"]
+    if num_threads > 1:
+        ROOT.EnableImplicitMT(num_threads)
 
     # Run graph processing and production of output files
     run_graph(

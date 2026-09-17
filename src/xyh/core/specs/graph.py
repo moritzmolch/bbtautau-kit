@@ -102,7 +102,9 @@ class HistogramNode(GraphNode):
 
 def cat_weights(weights: OrderedDict[str, str]) -> str:
     # Concatenate all weights into a single expression
-    return " * ".join(w for w in weights.values())
+    if len(weights) == 0:
+        return "1.0"
+    return " * ".join(f"({w})" for w in weights.values())
 
 
 def _get_dataset_spec(
@@ -420,16 +422,12 @@ def _filter(node: FilterNode, artifacts: dict[str, Any]) -> dict[str, Any]:
 
 def _weights(node: WeightsNode, artifacts: dict[str, Any]) -> dict[str, Any]:
     # Set the expression
-    expression = ""
-    if node.expression != "":
-        expression = "1.0"
-    else:
-        expression = node.expression
+    expression = node.expression
     logging.info(
         "\n".join(
             [
                 "Declare weights on data frame",
-                "    expression: '1'",
+                f"    expression: '{expression}'",
             ]
         )
     )
@@ -524,7 +522,6 @@ def _histogram(
     # Load output data frame from predecessor node
     artifacts = next(iter(artifacts.values()))
     data_frame = artifacts["data_frame"]
-    data_frame.Report()
     rh = data_frame.Histo1D(
         (
             node.variable,
