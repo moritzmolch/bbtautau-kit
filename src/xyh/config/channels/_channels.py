@@ -15,7 +15,7 @@ ch_et = Channel(
     aux={
         "tau": {
             "id_vs_jet_wp": "Medium",
-            "antiid_vs_jet_wp": "VVLoose",
+            "antiid_vs_jet_wp": "VVVLoose",
             "id_vs_e_wp": "Tight",
             "id_vs_mu_wp": "VLoose",
         },
@@ -31,7 +31,7 @@ ch_mt = Channel(
     aux={
         "tau": {
             "id_vs_jet_wp": "Medium",
-            "antiid_vs_jet_wp": "VVLoose",
+            "antiid_vs_jet_wp": "VVVLoose",
             "id_vs_e_wp": "VVLoose",
             "id_vs_mu_wp": "Tight",
         },
