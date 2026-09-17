@@ -21,6 +21,7 @@ def main(cfg: DictConfig):
     # Create the dataset specs
     dataset_specs = create_dataset_specs(
         inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
+        inventory_factory_kwargs=cfg["inventory"]["factory_fn_kwargs"],
         campaigns=cfg["inventory"]["campaigns"],
         channels=cfg["inventory"]["channels"],
         xrootd_server=cfg["ntuples"]["xrootd_server"],

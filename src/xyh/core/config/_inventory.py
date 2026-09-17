@@ -24,6 +24,7 @@ def load_inventory(
     factory_fn_path: str,
     campaign: str,
     channel: str,
+    **kwargs,
 ) -> Inventory:
     """
     Load the inventory of analysis objects for a given campaign and channel.
@@ -56,6 +57,6 @@ def load_inventory(
     factory_fn = getattr(module_str, inst_str)
 
     # Execute the inventory factory function to get the inventory
-    inventory = factory_fn(campaign, channel)
+    inventory = factory_fn(campaign, channel, **kwargs)
 
     return inventory

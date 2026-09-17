@@ -13,6 +13,8 @@ import networkx
 import numpy as np
 import ROOT
 
+from .specs import Dataset, FiltersAndWeights, Histogram
+
 # ------------------------------------------------------------------------------
 # Graph node classes
 # ------------------------------------------------------------------------------
@@ -108,7 +110,7 @@ def cat_weights(weights: OrderedDict[str, str]) -> str:
 
 
 def _get_dataset_spec(
-    dataset_specs,
+    dataset_specs: list[Dataset],
     campaign,
     channel,
     dataset,
@@ -121,9 +123,9 @@ def _get_dataset_spec(
                 ds
                 for ds in dataset_specs
                 if (
-                    ds["campaign"] == campaign
-                    and ds["channel"] == channel
-                    and ds["dataset"] == dataset
+                    ds.campaign == campaign
+                    and ds.channel == channel
+                    and ds.dataset == dataset
                 )
             ),
         ),
@@ -145,18 +147,18 @@ def _get_histogram_specs(
     campaign,
     channel,
     category,
-):
+) -> list[Histogram]:
     # Return all histogram specs matching the names of the campaign, channel,
     # and category
-    histogram_specs = list(
+    histogram_specs = [
         hs
         for hs in histogram_specs
         if (
-            hs["campaign"] == campaign
-            and hs["channel"] == channel
-            and hs["category"] == category
+            hs.campaign == campaign
+            and hs.channel == channel
+            and hs.category == category
         )
-    )
+    ]
 
     # Raise an exception if no spec has been found
     if len(histogram_specs) == 0:
@@ -199,12 +201,12 @@ class GraphBuilder:
         self.last_node = None
 
 
-def build_graph(
-    dataset_specs,
-    histogram_specs,
-    filters_and_weights_specs,
+def create_graph_specs(
+    dataset_specs: list[Dataset],
+    histogram_specs: list[Histogram],
+    filters_and_weights_specs: list[FiltersAndWeights],
     mode,
-):
+) -> dict[str, Any]:
     # Check if 'mode' has valid value
     modes = ["snapshot", "histogram"]
     if mode not in modes:
@@ -219,12 +221,12 @@ def build_graph(
         graph_builder.clear_last_node()
 
         # Get spec attributes
-        campaign = fw_spec["campaign"]
-        channel = fw_spec["channel"]
-        category = fw_spec["category"]
-        dataset = fw_spec["dataset"]
-        process = fw_spec["process"]
-        variation = fw_spec["variation"]
+        campaign = fw_spec.campaign
+        channel = fw_spec.channel
+        category = fw_spec.category
+        dataset = fw_spec.dataset
+        process = fw_spec.process
+        variation = fw_spec.variation
 
         # --- Input files ------------------------------------------------------
 
@@ -240,14 +242,14 @@ def build_graph(
             campaign=campaign,
             channel=channel,
             dataset=dataset,
-            files=dataset_spec["files"],
+            files=dataset_spec.files,
         )
         graph_builder.add_node(input_files_node)
 
         # --- Filters ----------------------------------------------------------
 
         # Chain filters
-        for name, expression in fw_spec["filters"].items():
+        for name, expression in fw_spec.filters.items():
             filter_node = FilterNode(
                 name=name,
                 expression=expression,
@@ -259,7 +261,7 @@ def build_graph(
 
         # Create weights node with all weights concatenated into a single
         # expression
-        weights = cat_weights(OrderedDict(fw_spec["weights"]))
+        weights = cat_weights(OrderedDict(fw_spec.weights))
         weights_node = WeightsNode(
             name="weights",
             expression=weights,
@@ -306,7 +308,7 @@ def build_graph(
                     Path(
                         campaign,
                         f"{channel}__{category}",
-                        f"{process}__{dataset}__{histogram_spec['variable']}__{variation}.root",
+                        f"{process}__{dataset}__{histogram_spec.variable}__{variation}.root",
                     )
                 )
 
@@ -319,9 +321,9 @@ def build_graph(
                     dataset=dataset,
                     process=process,
                     variation=variation,
-                    variable=histogram_spec["variable"],
-                    expression=histogram_spec["expression"],
-                    bin_edges=histogram_spec["bin_edges"],
+                    variable=histogram_spec.variable,
+                    expression=histogram_spec.expression,
+                    bin_edges=histogram_spec.bin_edges,
                     output_file=histogram_output_file,
                 )
                 graph_builder.add_node(histogram_node, last_node=last_node)
@@ -334,7 +336,10 @@ def build_graph(
         graph.add_node(node.hash, type=node.type, spec=asdict(node))
     graph.add_edges_from(graph_builder.edges)
 
-    return graph
+    # Convert the graph into a JSON-serializable format
+    graph_specs = networkx.readwrite.json_graph.node_link_data(graph)
+
+    return graph_specs
 
 
 # ------------------------------------------------------------------------------

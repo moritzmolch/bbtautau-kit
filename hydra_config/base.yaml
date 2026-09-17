@@ -33,9 +33,8 @@ artifacts:
 # Basic information about analysis inventory to be used
 inventory:
   factory_fn: "xyh.config.inventory.create_inventory"
-  campaigns: ["2024_nano_v15"]
-  channels: ["mt"]
-  categories: ["mt_base"]
+  factory_fn_kwargs:
+    process_set: "default"
   variables:
   - "pt_1"
   - "eta_1"
@@ -77,8 +76,8 @@ ntuples:
 
 # Settings for multi-threaded graph processing
 graph_processing:
-  num_workers: 8
-  num_threads: 8
+  num_workers: 16
+  num_threads: 2
 
 # Control plot settings
 control_plots:

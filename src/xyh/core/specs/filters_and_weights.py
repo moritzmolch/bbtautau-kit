@@ -1,5 +1,6 @@
 import itertools
 import logging
+from typing import Any
 
 from xyh.core.config import load_inventory
 from xyh.core.config.util import gen_process_and_dataset_insts
@@ -107,6 +108,7 @@ def create_filters_and_weights_spec(
 
 def create_filters_and_weights_specs(
     inventory_factory_fn_path: str,
+    inventory_factory_kwargs: dict[str, Any],
     campaigns: list[str],
     channels: list[str],
     categories: list[str],
@@ -120,6 +122,7 @@ def create_filters_and_weights_specs(
             inventory_factory_fn_path,
             campaign,
             channel,
+            **inventory_factory_kwargs,
         )
 
         # Get analysis config objects

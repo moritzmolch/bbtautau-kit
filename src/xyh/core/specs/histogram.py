@@ -1,6 +1,7 @@
 import itertools
 import logging
 import re
+from typing import Any
 
 from xyh.core.config import load_inventory
 from xyh.core.specs.specs import Histogram
@@ -84,11 +85,12 @@ def create_histogram_spec(
 
 def create_histogram_specs(
     inventory_factory_fn_path: str,
+    inventory_factory_kwargs: dict[str, Any],
     campaigns: list[str],
     channels: list[str],
     categories: list[str],
     variables: list[str],
-):
+) -> list[Histogram]:
     """
     Create histogram specs for a given subset of the analysis concerning
     campaigns, categories and variables.
@@ -130,6 +132,7 @@ def create_histogram_specs(
             inventory_factory_fn_path,
             campaign,
             channel,
+            **inventory_factory_kwargs,
         )
 
         # Get the campaign and channel instances
