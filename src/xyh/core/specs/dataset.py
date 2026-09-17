@@ -1,5 +1,6 @@
 import itertools
 import logging
+from typing import Any
 
 from XRootD.client import FileSystem
 
@@ -47,9 +48,7 @@ def create_dataset_spec(
             / nick
             / channel_inst.name
         )
-        logger.warning(
-            f"Query main files in directory {main_files_channel_dir}"
-        )
+        logger.debug(f"Query main files in directory {main_files_channel_dir}")
         status, listing = fs.dirlist(str(main_files_channel_dir), timeout=30)
         if not status.ok:
             logger.warning(
@@ -123,6 +122,7 @@ def create_dataset_spec(
 
 def create_dataset_specs(
     inventory_factory_fn_path: str,
+    inventory_factory_kwargs: dict[str, Any],
     campaigns: list[str],
     channels: list[str],
     xrootd_server,
@@ -139,6 +139,7 @@ def create_dataset_specs(
             inventory_factory_fn_path,
             campaign,
             channel,
+            **inventory_factory_kwargs,
         )
 
         # Get the campaign and channel instances, and load the process-datasets
