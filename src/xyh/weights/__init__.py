@@ -13,6 +13,10 @@ from .triggers import trigger_weights
 
 @Wrapper.wrap
 def default_weights(self) -> OrderedDict[str, str]:
+    # For data, do not apply any weights
+    if self.process_inst.is_data:
+        return OrderedDict([])
+
     # Chain the reconstruction-level selections from filter submodules
     weights = OrderedDict(
         chain(

@@ -7,6 +7,9 @@ from xyh.core.wrapper import Wrapper
 def z_pt_reweighting(self) -> OrderedDict[str, str]:
     """Apply the Z boson $p_{\\text{T}}$ reweighting."""
 
+    if not self.process_inst.has_tag("z"):
+        return OrderedDict([])
+
     return OrderedDict(
         [
             (
@@ -20,6 +23,9 @@ def z_pt_reweighting(self) -> OrderedDict[str, str]:
 @Wrapper.wrap
 def top_pt_reweighting(self) -> OrderedDict[str, str]:
     """Apply the top quark $p_{\\text{T}}$ reweighting."""
+
+    if not self.process_inst.has_tag("tt"):
+        return OrderedDict([])
 
     return OrderedDict(
         [
@@ -38,6 +44,9 @@ def tt_normalization(self) -> OrderedDict[str, str]:
     has been observed in an $\\text{e}\\mu$ control region.
     """
 
+    if not self.process_inst.has_tag("tt"):
+        return OrderedDict([])
+
     # tt normalization factors per era
     normalization_factor = {
         "2022_pre_ee_nano_v12": 0.91,
@@ -45,7 +54,7 @@ def tt_normalization(self) -> OrderedDict[str, str]:
         "2023_pre_bpix_nano_v12": 0.85,
         "2023_post_bpix_nano_v12": 0.83,
         "2024_nano_v15": 0.90,
-        "2025_nano_v15": 1.0,  # TODO determine scale factor
+        "2025_nano_v15": 0.88,
     }[self.campaign_inst.name]
 
     # Do not apply a correction factor in the em channel, as this channel is
