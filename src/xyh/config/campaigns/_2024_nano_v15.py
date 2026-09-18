@@ -84,7 +84,6 @@ dataset_nicks = {
         "Muon0_Run2024F-MINIv6NANOv15-v1",
         "Muon0_Run2024G-MINIv6NANOv15-v1",
         "Muon0_Run2024H-MINIv6NANOv15-v1",
-        "Muon0_Run2024I-MINIv6NANOv15",
         "Muon0_Run2024I-MINIv6NANOv15-v1",
         "Muon0_Run2024I-MINIv6NANOv15_v2-v1",
         "Muon1_Run2024C-MINIv6NANOv15-v1",
@@ -93,7 +92,6 @@ dataset_nicks = {
         "Muon1_Run2024F-MINIv6NANOv15-v1",
         "Muon1_Run2024G-MINIv6NANOv15-v2",
         "Muon1_Run2024H-MINIv6NANOv15-v2",
-        "Muon1_Run2024I-MINIv6NANOv15",
         "Muon1_Run2024I-MINIv6NANOv15-v1",
         "Muon1_Run2024I-MINIv6NANOv15_v2-v1",
     ],
@@ -177,7 +175,7 @@ dataset_nicks = {
     ],
     "vbf_h_2b_powheg": [
         "VBFH-Hto2B_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X",
-        "VBFH-Hto2B_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X_ext1",
+        # "VBFH-Hto2B_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X_ext1",
     ],
     # --- ttH production -------------------------------------------------------
     "tth_h_2b_powheg": "TTH-Hto2B_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X",

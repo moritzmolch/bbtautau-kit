@@ -30,10 +30,8 @@ def get_variables(
     # Create the variable index
     variable_insts = UniqueObjectIndex(
         Variable,
-        [
-            # Control plot variables
-            get_control_plot_variables(channel_inst),
-        ],
+        # Control plot variables
+        get_control_plot_variables(channel_inst),
     )
 
     return variable_insts

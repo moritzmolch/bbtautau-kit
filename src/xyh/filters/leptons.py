@@ -202,6 +202,7 @@ def hadronic_taus(self) -> OrderedDict[str, str]:
     return selections
 
 
+@Wrapper.wrap
 def ll_pair(self) -> OrderedDict[str, str]:
     """
     Full selection of the dilepton candidates.
@@ -215,10 +216,10 @@ def ll_pair(self) -> OrderedDict[str, str]:
     # Collect electron, muon, and tau selection
     selections = OrderedDict(
         chain(
-            self.get_instance("lepton_vetoes")().items(),
-            self.get_instance("electrons")().items(),
-            self.get_instance("muons")().items(),
-            self.get_instance("hadronic_taus")().items(),
+            self.get_instance("lepton_vetoes").nominal().items(),
+            self.get_instance("electrons").nominal().items(),
+            self.get_instance("muons").nominal().items(),
+            self.get_instance("hadronic_taus").nominal().items(),
         )
     )
 

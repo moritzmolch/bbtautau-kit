@@ -17,59 +17,71 @@
 
 # Tags for input and output artifacts
 tags:
-  ntuple_tag: "ntuple-2026-08-18"
-  shapes_tag: "shapes-2026-09-09"
+  ntuple_tag: "ntuples-2026-06-10"
+  shapes_tag: "shapes-2026-09-15"
 
 # Artifact paths
 artifacts:
   dataset_specs_file: data/output/${tags.shapes_tag}/specs/datasets.json.gz
   filters_and_weights_specs_file: data/output/${tags.shapes_tag}/specs/filters_and_weights.json.gz
   histogram_specs_file: data/output/${tags.shapes_tag}/specs/histograms.json.gz
+  graph_specs_file: data/output/${tags.shapes_tag}/specs/graphs.json.gz
+  histograms_dir: data/output/${tags.shapes_tag}/histograms
+  merged_histograms_dir: data/output/${tags.shapes_tag}/merged_histograms
+  control_plots_dir: data/output/${tags.shapes_tag}/control_plots
 
-# Basic information about part of the analysis which is considered
-analysis_context:
-  analysis: xyh.config.analysis.analysis_inst
-  campaigns: ["2024_nano_v15", "2025_nano_v15"]
-  channels: ["mt"]
-  categories: ["mt_base_sr"]
+# Basic information about analysis inventory to be used
+inventory:
+  factory_fn: "xyh.config.inventory.create_inventory"
+  factory_fn_kwargs:
+    process_set: "default"
   variables:
-    - "pt_1"
-    - "eta_1"
-    - "phi_1"
-    - "mass_1[tt]"
-    - "iso_1"
-    - "tau_decaymode_1[tt]"
-    - "pt_2"
-    - "eta_2"
-    - "phi_2"
-    - "mass_2[et,mt,tt]"
-    - "iso_2"
-    - "tau_decaymode_2[tt]"
-    - "m_vis"
-    - "pt_vis"
-    - "deltaR_ditaupair"
-    - "bpair_pt_1"
-    - "bpair_eta_1"
-    - "bpair_phi_1"
-    - "bpair_pt_2"
-    - "bpair_eta_2"
-    - "bpair_phi_2"
-    - "bpair_m_inv"
-    - "bpair_pt_dijet"
-    - "bpair_deltaR"
-    - "met"
-    - "metphi"
-    - "mt_1[et,mt,tt]"
-    - "mt_2[et,mt,tt]"
-    - "mt_tot[et,mt,tt]"
-    - "n_jets"
-    - "n_bjets"
+  - "pt_1"
+  - "eta_1"
+  - "phi_1"
+  - "mass_1[tt]"
+  - "iso_1"
+  - "tau_decaymode_1[tt]"
+  - "pt_2"
+  - "eta_2"
+  - "phi_2"
+  - "mass_2[et,mt,tt]"
+  - "iso_2"
+  - "tau_decaymode_2[tt]"
+  - "m_vis"
+  - "pt_vis"
+  - "deltaR_ditaupair"
+  - "bpair_pt_1"
+  - "bpair_eta_1"
+  - "bpair_phi_1"
+  - "bpair_pt_2"
+  - "bpair_eta_2"
+  - "bpair_phi_2"
+  - "bpair_m_inv"
+  - "bpair_pt_dijet"
+  - "bpair_deltaR"
+  - "met"
+  - "metphi"
+  - "mt_1[et,mt,tt]"
+  - "mt_2[et,mt,tt]"
+  - "mt_tot[et,mt,tt]"
+  - "n_jets"
+  - "n_bjets"
 
 # NTuple information
 ntuples:
   xrootd_server: "root://cmsdcache-kit-disk.gridka.de:1094"
   base_dir: "/store/user/mmolch/CROWN/ntuples"
-  friends: [] # "fake-factors-2026-06-10", "pnn-2026-07-10"
+  friends: ["fake-factors-2026-06-10"] # "fake-factors-2026-06-10", "pnn-2026-07-10"
+
+# Settings for multi-threaded graph processing
+graph_processing:
+  num_workers: 16
+  num_threads: 2
+
+# Control plot settings
+control_plots:
+  extensions: ["png", "pdf"]
 
 # Logging
 log_level: INFO
@@ -83,4 +95,4 @@ hydra:
     chdir: false
     env_set:
       XYH_SAMPLE_DATABASE: "/work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database"
-      XYH_PROFILE: "BENCHMARK"
+      XYH_PROFILE: "BKG_ONLY"

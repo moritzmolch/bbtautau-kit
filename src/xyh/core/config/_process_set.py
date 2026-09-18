@@ -16,3 +16,15 @@ class ProcessSet:
     data: list[ProcessGroup] = field(default_factory=list)
     signals: list[ProcessGroup] = field(default_factory=list)
     backgrounds: list[ProcessGroup] = field(default_factory=list)
+
+    @property
+    def process_groups(self) -> list[ProcessGroup]:
+        """
+        Return a list of all process groups in the process set.
+
+        Returns
+        -------
+        list[ProcessGroup]
+            A list of all process groups in the process set.
+        """
+        return self.data + self.signals + self.backgrounds

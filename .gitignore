@@ -222,3 +222,9 @@ __marimo__/
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+
+# output artifacts
+data/
+
+# IDE configuration
+.vscode/

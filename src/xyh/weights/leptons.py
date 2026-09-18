@@ -4,7 +4,7 @@ from xyh.core.wrapper import Wrapper
 
 
 @Wrapper.wrap
-def electrons(self) -> OrderedDict[str, str]:
+def electron_weights(self) -> OrderedDict[str, str]:
     """Add electron ID weights in channels with electrons."""
 
     # Empty storage for new weights
@@ -25,7 +25,7 @@ def electrons(self) -> OrderedDict[str, str]:
 
 
 @Wrapper.wrap
-def muons(self) -> OrderedDict[str, str]:
+def muon_weights(self) -> OrderedDict[str, str]:
     """Add muon isolation and ID weights in channels with electrons."""
 
     # Empty storage for new weights
@@ -53,7 +53,7 @@ def muons(self) -> OrderedDict[str, str]:
 
 
 @Wrapper.wrap
-def hadronic_taus(self) -> OrderedDict[str, str]:
+def hadronic_tau_weights(self) -> OrderedDict[str, str]:
     """Add hadronic tau ID weights in channels with hadronic taus."""
 
     # Empty storage for tau weights

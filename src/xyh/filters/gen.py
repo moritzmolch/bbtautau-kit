@@ -4,7 +4,22 @@ from xyh.core.wrapper import Wrapper
 
 
 @Wrapper.wrap
-def tautau_from_genuine_tau_selection(self) -> OrderedDict[str, str]:
+def tautau_gen_selection(self) -> OrderedDict[str, str]:
+    # Container for generator-level tau selections
+    selections = OrderedDict()
+
+    # Only apply this filter to simulated events of the correct class
+    if self.process_inst.has_tag("tautau_genuine"):
+        selections = _tautau_from_genuine_tau_selection(self)
+    elif self.process_inst.has_tag("tautau_jetfakes"):
+        selections = _tautau_from_jet_fake_selection(self)
+    elif self.process_inst.has_tag("tautau_remaining"):
+        selections = _tautau_from_remaining_selection(self)
+
+    return selections
+
+
+def _tautau_from_genuine_tau_selection(wrapper) -> OrderedDict[str, str]:
     """
     Select events with genuine tau lepton pairs at generator level based on the
     matching of the di-tau pair candidates to generator-level particles.
@@ -35,17 +50,17 @@ def tautau_from_genuine_tau_selection(self) -> OrderedDict[str, str]:
     # Select genuine tau pairs based on the generator matching results
     # depending on the channel
     expression = None
-    if self.channel_inst.name == "et":
+    if wrapper.channel_inst.name == "et":
         expression = "(gen_match_1 == 3) && (gen_match_2 == 5)"
-    elif self.channel_inst.name == "mt":
+    elif wrapper.channel_inst.name == "mt":
         expression = "(gen_match_1 == 4) && (gen_match_2 == 5)"
-    elif self.channel_inst.name == "tt":
+    elif wrapper.channel_inst.name == "tt":
         expression = "(gen_match_1 == 5) && (gen_match_2 == 5)"
-    if self.channel_inst.name == "em":
+    if wrapper.channel_inst.name == "em":
         expression = "(gen_match_1 == 3) && (gen_match_2 == 4)"
-    elif self.channel_inst.name == "ee":
+    elif wrapper.channel_inst.name == "ee":
         expression = "(gen_match_1 == 3) && (gen_match_2 == 3)"
-    elif self.channel_inst.name == "mm":
+    elif wrapper.channel_inst.name == "mm":
         expression = "(gen_match_1 == 4) && (gen_match_2 == 4)"
 
     # Add selection to dictionary
@@ -54,8 +69,7 @@ def tautau_from_genuine_tau_selection(self) -> OrderedDict[str, str]:
     return selections
 
 
-@Wrapper.wrap
-def tautau_from_jet_fake_selection(self) -> OrderedDict[str, str]:
+def _tautau_from_jet_fake_selection(wrapper) -> OrderedDict[str, str]:
     """
     Select events with at least one $\\text{jet} \\to \\tau_{\\text{h}}$ fake
     at generator level based on the matching of the di-tau pair candidates to
@@ -85,21 +99,19 @@ def tautau_from_jet_fake_selection(self) -> OrderedDict[str, str]:
     selections = OrderedDict()
 
     # Get the selection for genuine tau pairs to veto them here
-    genuine_tau_selections = self.get_instance(
-        "tautau_from_genuine_tau_selection"
-    )()
+    genuine_tau_selections = _tautau_from_genuine_tau_selection(wrapper)
 
     # Select jet -> tau_h  fakes based on the generator matching results
     # depending on the channel. For channels without hadronic taus, no jet ->
     # tau_h fakes can occur.
     expression = ""
     expression_tautau = " && ".join(genuine_tau_selections.values())
-    if self.channel_inst.name in ["et", "mt"]:
+    if wrapper.channel_inst.name in ["et", "mt"]:
         expression = f"""
             !({expression_tautau})
             && (gen_match_2 == 6)
         """
-    elif self.channel_inst.name == "tt":
+    elif wrapper.channel_inst.name == "tt":
         expression = f"""
             !({expression_tautau})
             && ( (gen_match_1 == 6) || (gen_match_2 == 6) )
@@ -113,8 +125,7 @@ def tautau_from_jet_fake_selection(self) -> OrderedDict[str, str]:
     return selections
 
 
-@Wrapper.wrap
-def tautau_from_remaining_selection(self) -> OrderedDict[str, str]:
+def _tautau_from_remaining_selection(wrapper) -> OrderedDict[str, str]:
     """
     Select events with $\\ell \\to \\tau_{\\text{h}}$ fakes or lepton fakes at
     generator level based on the matching of the di-tau pair candidates to
@@ -145,10 +156,8 @@ def tautau_from_remaining_selection(self) -> OrderedDict[str, str]:
 
     # Get the selections for genuine tau pairs and jet -> tau_h fakes to veto
     # them here
-    genuine_tau_selections = self.get_instance(
-        "tautau_from_genuine_tau_selection"
-    )()
-    jet_fake_selections = self.get_instance("tautau_from_jet_fake_selection")()
+    genuine_tau_selections = _tautau_from_genuine_tau_selection(wrapper)
+    jet_fake_selections = _tautau_from_jet_fake_selection(wrapper)
     expression_tautau = " && ".join(genuine_tau_selections.values())
     expression_jet_fake = " && ".join(jet_fake_selections.values())
 

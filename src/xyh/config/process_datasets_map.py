@@ -100,10 +100,10 @@ def get_process_datasets_map(
             "tb_lnub_tbar_schannel_4fs_amcatnlo",
             "tw_2l2nu_t_powheg",
             "tw_lnu2q_t_powheg",
-            "tw_4q_t_powheg",
+            # "tw_4q_t_powheg",
             "tw_2l2nu_tbar_powheg",
             "tw_lnu2q_tbar_powheg",
-            "tw_4q_tbar_powheg",
+            # "tw_4q_tbar_powheg",
         ]
     elif campaign_inst.x.year in [2024, 2025]:
         single_t_datasets = [
@@ -210,18 +210,18 @@ def get_process_datasets_map(
     ]
 
     # HH -> bbtautau datasets
-    hh_2b2tau_datasets = []
-    if campaign_inst.x.year == 2022:
-        hh_2b2tau_datasets = [
-            "gg_hh_2b2tau_powheg",
-            "vbf_hh_2b2tau_powheg",
-        ]
-    elif campaign_inst.x.year in [2023, 2024, 2025]:
-        hh_2b2tau_datasets = ["gg_hh_2b2tau_powheg"]
+    # hh_2b2tau_datasets = []
+    # if campaign_inst.x.year == 2022:
+    #     hh_2b2tau_datasets = [
+    #         "gg_hh_2b2tau_powheg",
+    #         "vbf_hh_2b2tau_powheg",
+    #     ]
+    # elif campaign_inst.x.year in [2023, 2024, 2025]:
+    #     hh_2b2tau_datasets = ["gg_hh_2b2tau_powheg"]
 
     # Set up the process-datasets map for signals
     xyh_process_datasets_map = {
-        f"xyh_{y_decay_mode}_{h_decay_mode}_{m_x}_{m_y}": [
+        f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}": [
             f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph",
         ]
         for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
@@ -272,7 +272,7 @@ def get_process_datasets_map(
             ("h_2tau_jetfakes", "h_2tau_tautau", "h_2tau_rem"): h_2tau_datasets,
             ("h_2b_jetfakes", "h_2b_tautau", "h_2b_rem"): h_2b_datasets,
             ("tth_jetfakes", "tth_rem", "tth_tautau"): tth_datasets,
-            "gg_hh_2b2tau": hh_2b2tau_datasets,
+            # "gg_hh_2b2tau": hh_2b2tau_datasets,
             "jetfakes": [],  # data-driven estimate, dataset list stays empty
         }
     )

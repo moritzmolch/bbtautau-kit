@@ -1,5 +1,7 @@
 from order import Campaign, Channel
 
+from xyh.config.campaigns import campaigns
+from xyh.config.channels import channels
 from xyh.config.process_datasets_map import get_process_datasets_map
 from xyh.config.process_sets import process_sets
 from xyh.config.processes import processes
@@ -9,8 +11,8 @@ from xyh.core.config import Inventory
 
 
 def create_inventory(
-    campaign_inst: Campaign,
-    channel_inst: Channel,
+    campaign: str,
+    channel: str,
 ) -> Inventory:
     """
     Create an inventory of analysis objects for a given campaign and channel.
@@ -29,15 +31,29 @@ def create_inventory(
         The inventory of analysis objects for the given campaign and channel.
     """
 
+    # Get the campaign and the channel objects
+    campaign_inst: Campaign = campaigns.get(campaign)
+    channel_inst: Channel = channels.get(channel)
+
     # Remove signal processes that are not present in the current campaign
     process_insts = processes.copy()
-    for (y_decay_mode, h_decay_mode), (
-        m_x,
-        m_y,
-    ) in get_profile().iterate_signal_parameters(campaign=campaign_inst.name):
-        process_insts.remove(
-            f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"
-        )
+    allowed_signals = list(
+        get_profile().iterate_signal_parameters(campaign=campaign_inst.name)
+    )
+    for process_inst in process_insts.values():
+        if not process_inst.has_tag("signal"):
+            continue
+        if (
+            (
+                process_inst.x.y_decay_mode,
+                process_inst.x.h_decay_mode,
+            ),
+            (
+                process_inst.x.m_x,
+                process_inst.x.m_y,
+            ),
+        ) not in allowed_signals:
+            process_insts.remove(process_inst.name)
 
     # Get variable index for this channel
     variable_insts = get_variables(channel_inst)

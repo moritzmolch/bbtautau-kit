@@ -45,66 +45,74 @@ tt_jetfakes = ProcessGroup(
     color="#6da4daff",
 )
 
-dy_2l = ProcessGroup(
-    name="dy_2l",
+z_2l = ProcessGroup(
+    name="z_2l",
     processes=[
-        "dy_2e_2mu_tautau",
-        "dy_2e_2mu_rem",
-        "dy_2tau_tautau",
-        "dy_2tau_rem",
+        "z_2e_2mu_tautau",
+        "z_2e_2mu_rem",
+        "z_2tau_tautau",
+        "z_2tau_rem",
     ],
     label="DY",
     color="#ffa90e",
 )
 
-dy_2l_jetfakes = ProcessGroup(
-    name="dy_2l_jetfakes",
-    processes=["dy_2e_2mu_jetfakes", "dy_2tau_jetfakes"],
+z_2l_jetfakes = ProcessGroup(
+    name="z_2l_jetfakes",
+    processes=["z_2e_2mu_jetfakes", "z_2tau_jetfakes"],
     label="DY ($\\text{j} \\to \\tau_{\\text{h}}$)",
     color="#ffebc0",
 )
+
 w_lnu = ProcessGroup(
     name="w_lnu",
     processes=["w_lnu_tautau", "w_lnu_rem"],
     label="W",
     color="#92dadd",
 )
+
 w_lnu_jetfakes = ProcessGroup(
     name="w_lnu_jetfakes",
     processes=["w_lnu_jetfakes"],
     label="W ($\\text{j} \\to \\tau_{\\text{h}}$)",
     color="#92dadd",
 )
+
 single_t = ProcessGroup(
     name="single_t",
     processes=["single_t_tautau", "single_t_rem"],
     label="Single $\\text{t}$",
     color="#e86300",
 )
+
 single_t_jetfakes = ProcessGroup(
     name="single_t_jetfakes",
     processes=["single_t_jetfakes"],
     label="Single $\\text{t}$ ($\\text{j} \\to \\tau_{\\text{h}}$)",
     color="#e86300",
 )
+
 single_h = ProcessGroup(
     name="single_h",
-    processes=["single_h_tautau", "single_h_rem"],
+    processes=["h_2tau_tautau", "h_2tau_rem", "h_2b_tautau", "h_2b_rem"],
     label="$\\text{H}$",
     color="#94a4a2",
 )
+
 vv = ProcessGroup(
     name="vv",
     processes=["vv_tautau", "vv_rem"],
     label="$\\text{V}\\text{V}$",
     color="#b9ac70",
 )
+
 remaining_jetfakes = ProcessGroup(
     name="remaining_jetfakes",
-    processes=["single_h_jetfakes", "vv_jetfakes"],
+    processes=["h_2tau_jetfakes", "h_2b_jetfakes", "vv_jetfakes"],
     label="$\\text{H}$, $\\text{V}\\text{V}$ ($\\text{j} \\to \\tau_{\\text{h}}$)",
     color="#a96b59",
 )
+
 jetfakes = ProcessGroup(
     name="jetfakes",
     processes=["jetfakes"],
@@ -129,7 +137,7 @@ process_sets = {
         ],
         backgrounds=[
             tt,
-            dy_2l,
+            z_2l,
             w_lnu,
             single_t,
             single_h,
@@ -150,8 +158,8 @@ process_sets = {
         backgrounds=[
             tt,
             tt_jetfakes,
-            dy_2l,
-            dy_2l_jetfakes,
+            z_2l,
+            z_2l_jetfakes,
             w_lnu,
             w_lnu_jetfakes,
             single_t,

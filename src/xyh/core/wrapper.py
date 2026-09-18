@@ -7,7 +7,6 @@ class WrapperMeta(ABCMeta):
     _register = {}
 
     def __new__(meta_cls, cls_name, bases, cls_dict):
-
         # Check if a Wrapper class with the same name has already been
         # registered
         if cls_name in meta_cls._register:
@@ -21,7 +20,7 @@ class WrapperMeta(ABCMeta):
 
         return cls
 
-    def get_class(cls, cls_name):
+    def get_class(cls, cls_name) -> type:
         """
         Retrieve a registered Wrapper class by name.
 
@@ -52,18 +51,66 @@ class Wrapper(metaclass=WrapperMeta):
         self._args = args
         self._kwargs = kwargs
 
+        # Set each keyword argument as attribute of the instance
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        # Execute the wrapped function and sanitize expressions, store the
+        # result in an attribute
+        self._cached = self._evaluate()
+
     @abstractmethod
-    def __call__(self) -> OrderedDict[str, str]:
+    def _wrapped_func(self) -> OrderedDict[str, str]:
+        """
+        Abstract method that must be implemented by subclasses.
+        This method will be used in `__call__` when the wrapper instance is
+        invoked.
+        """
+        raise NotImplementedError(
+            "Subclasses must implement the __wrapped_func__ method."
+        )
+
+    def skip(self) -> bool:
+        return False
+
+    def nominal(self) -> OrderedDict[str, str]:
+        """
+        Return the nominal expressions from the wrapped function.
+
+        Returns
+        -------
+        OrderedDict[str, str]
+            The nominal expressions.
+        """
+        return self._cached.copy()
+
+    def _sanitize_expression(self, expression: str):
+        # Strip spaces and remove '\n' characters
+        return " ".join(
+            [
+                line.strip()
+                for line in expression.split("\n")
+                if len(line.strip()) > 0
+            ]
+        )
+
+    def _evaluate(self) -> OrderedDict[str, str]:
         """
         Abstract method that must be implemented by subclasses.
         This method will be called when the wrapper instance is invoked.
         """
-        raise NotImplementedError(
-            "Subclasses must implement the __call__ method."
-        )
+
+        # Get the 'raw' result from the __wrapped_func method
+        result = self._wrapped_func()
+
+        # Sanitize the expressions (remove linebreaks and extra whitespace)
+        for key, value in result.copy().items():
+            result[key] = self._sanitize_expression(value)
+
+        return result
 
     def get_instance(self, cls_name: str):
-        return self.get_class(cls_name)(*self._args, **self._kwargs)
+        return self.__class__.get_class(cls_name)(*self._args, **self._kwargs)
 
     @classmethod
     def wrap(
@@ -95,7 +142,7 @@ class Wrapper(metaclass=WrapperMeta):
         # Construct the class dictionary with the function as the 'run' method
         cls_dict = {
             "__module__": module,
-            "__call__": func,
+            "_wrapped_func": func,
         }
 
         # Create a new class that inherits from Wrapper

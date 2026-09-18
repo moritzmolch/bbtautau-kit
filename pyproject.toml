@@ -79,6 +79,12 @@ ignore = [
     "E501",  # line too long (handled by formatter)
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Filters and weights modules define several helpers that are re-exported via
+# the package's __init__ (so imported-for-side-effect imports are intentional).
+"src/xyh/filters/*.py" = ["F401"]
+"src/xyh/weights/*.py" = ["F401"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["xyh"]
 
