@@ -15,6 +15,10 @@ import ROOT
 
 from .specs import Dataset, FiltersAndWeights, Histogram
 
+# Set up logger
+logger = logging.getLogger(__name__)
+
+
 # ------------------------------------------------------------------------------
 # Graph node classes
 # ------------------------------------------------------------------------------
@@ -356,7 +360,7 @@ def _input_files(
     node: InputFilesNode,
     artifacts: dict[str, Any],
 ) -> dict[str, Any]:
-    logging.info(
+    logger.debug(
         "\n".join(
             [
                 "Initialize data frame from input files for",
@@ -389,7 +393,7 @@ def _input_files(
     stop = time()
 
     delta = round(stop - start, 2)
-    logging.info(
+    logger.debug(
         "\n".join(
             [
                 f"Initialized data frame in {delta} s",
@@ -405,7 +409,7 @@ def _input_files(
 
 
 def _filter(node: FilterNode, artifacts: dict[str, Any]) -> dict[str, Any]:
-    logging.info(
+    logger.debug(
         "\n".join(
             [
                 "Declare selection on data frame",
@@ -428,7 +432,7 @@ def _filter(node: FilterNode, artifacts: dict[str, Any]) -> dict[str, Any]:
 def _weights(node: WeightsNode, artifacts: dict[str, Any]) -> dict[str, Any]:
     # Set the expression
     expression = node.expression
-    logging.info(
+    logger.debug(
         "\n".join(
             [
                 "Declare weights on data frame",
@@ -455,7 +459,7 @@ def _weights(node: WeightsNode, artifacts: dict[str, Any]) -> dict[str, Any]:
 def _snapshot(
     node: SnapshotNode, artifacts: dict[str, Any], output_dir: Path
 ) -> dict[str, Any]:
-    logging.info(
+    logger.debug(
         "\n".join(
             [
                 "Declare data frame snapshot",
@@ -482,7 +486,7 @@ def _snapshot(
     output_file = output_dir / Path(node.output_file)
     if not output_file.parent.exists():
         output_file.parent.mkdir(parents=True)
-        logging.info(f"Created directory {output_file.parent}")
+        logger.debug(f"Created directory {output_file.parent}")
 
     # Trigger snapshot creation
     snapshot = data_frame.Snapshot(
@@ -504,7 +508,7 @@ def _histogram(
     artifacts: dict[str, Any],
     output_dir: Path,
 ) -> dict[str, Any]:
-    logging.info(
+    logger.debug(
         "\n".join(
             [
                 "Declare histogram",
@@ -527,6 +531,14 @@ def _histogram(
     # Load output data frame from predecessor node
     artifacts = next(iter(artifacts.values()))
     data_frame = artifacts["data_frame"]
+
+    # Define custom expression if needed
+    column = node.variable
+    if node.variable != node.expression:
+        column = f"__{node.variable}"
+        data_frame = data_frame.Define(column, node.expression)
+
+    # Get the histogram
     rh = data_frame.Histo1D(
         (
             node.variable,
@@ -534,7 +546,7 @@ def _histogram(
             len(node.bin_edges) - 1,
             np.array(node.bin_edges),
         ),
-        node.expression,
+        column,
         "__total_weight",
     )
 
@@ -578,6 +590,10 @@ def run_subgraph(
     # to the node hash and the value to an output dictionary.
     artifacts = {}
 
+    logger.info(f"Running subgraph {hash(subgraph)}")
+
+    start = time()
+
     # Declare actions
     for node_hash in networkx.topological_sort(subgraph):
         # Get the node's spec and sanitize output files
@@ -602,26 +618,22 @@ def run_subgraph(
     for leaf_node in list(networkx.topological_generations(subgraph))[-1]:
         output_file = artifacts[leaf_node]["output_file"]
         if output_file.exists():
-            logging.info(f"Skipping already existing target {output_file}")
+            logger.debug(f"Skipping already existing target {output_file}")
             continue
         leaf_nodes.append(leaf_node)
 
     if len(leaf_nodes) == 0:
-        logging.info("No lead nodes left to process")
+        logger.debug("No leaf nodes left to process")
         return
 
     # Run all RDataFrame graphs coming from this subgraph. This program only
     # triggers the production of artifacts that are not available yet as output
     # file.
-    logging.info("Processing RDataFrame graphs")
-    start = time()
+    logger.debug("Processing RDataFrame graphs")
     graph_elements = [
         artifacts[leaf_node]["lazy_object"] for leaf_node in leaf_nodes
     ]
     ROOT.RDF.RunGraphs(graph_elements)
-    stop = time()
-    delta = round(stop - start, 3)
-    logging.info(f"Ran RDataFrame graphs in {delta} s")
 
     # Create the output files from materialized objects
     for leaf_node in leaf_nodes:
@@ -632,7 +644,7 @@ def run_subgraph(
 
         # Check that the output file exists
         # if output_file.exists():
-        #     logging.info(f"Skipping already existing target {output_file}")
+        #     logger.info(f"Skipping already existing target {output_file}")
         #     continue
 
         # Check if the lazy object has already been computed
@@ -643,19 +655,24 @@ def run_subgraph(
             )
 
         if object_type == "snapshot":
-            logging.info(f"Wrote snapshot to {output_file}")
+            logger.debug(f"Wrote snapshot to {output_file}")
 
         if object_type == "histogram":
             # Create the output file's parent directory
             if not output_file.parent.exists():
                 output_file.parent.mkdir(parents=True)
-                logging.info(f"Created directory {output_file.parent}")
+                logger.debug(f"Created directory {output_file.parent}")
 
             # Dump histogram to output file
             f = ROOT.TFile.Open(str(output_file), "UPDATE")
             output_object.Write()
             f.Close()
-            logging.info(f"Wrote histogram to {output_file}")
+            logger.debug(f"Wrote histogram to {output_file}")
+
+    stop = time()
+
+    delta = round(stop - start, 3)
+    logger.info(f"Finished running subgraph {hash(subgraph)} in {delta} s")
 
 
 def run_graph(
@@ -671,6 +688,8 @@ def run_graph(
         graph.subgraph(c).copy()
         for c in networkx.weakly_connected_components(graph)
     ]
+    n_subgraphs = len(subgraphs)
+    logger.info(f"Found {n_subgraphs} independent subgraphs")
 
     # Check that all subgraphs are directed acyclic graphs
     for subgraph in subgraphs:
@@ -682,8 +701,9 @@ def run_graph(
     if num_workers == 1:
         # If number of workers is 1, set up primitive single-threaded
         # processing logic
-        for subgraph in subgraphs:
+        for i, subgraph in enumerate(subgraphs):
             run_subgraph(subgraph, output_dir)
+            logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
 
     else:
         with ProcessPoolExecutor(max_workers=num_workers) as pool:
@@ -691,7 +711,8 @@ def run_graph(
             futures = []
             for subgraph in subgraphs:
                 pool.submit(run_subgraph, subgraph, output_dir)
-            for future in as_completed(futures):
-                future.result()
+            for i, future in enumerate(as_completed(futures)):
+                _ = future.result()
+                logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
 
-    logging.info("Finished processing all graphs")
+    logger.info("Finished processing all graphs")

@@ -5,11 +5,17 @@ from typing import Any
 from xyh.core.config import load_inventory
 from xyh.core.config.util import gen_process_and_dataset_insts
 from xyh.core.specs.specs import FiltersAndWeights
+from xyh.filters import default_filters_without_bjets  # TODO load dynamically
+from xyh.variations import default_variations  # TODO load dynamically
+from xyh.weights import (
+    default_weights as default_weights,  # TODO load dynamically
+)
+from xyh.weights import (
+    default_weights_without_bjet_weights as default_weights_without_bjet_weights,  # TODO load dynamically
+)
 
-# TODO Dynamically load selection
-from xyh.filters import default_filters
-from xyh.variations import default_variations
-from xyh.weights import default_weights
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 
 def create_filters_and_weights_spec(
@@ -23,7 +29,7 @@ def create_filters_and_weights_spec(
     filters_and_weights_specs = []
 
     # Create the filter and weight classes
-    filters_class = default_filters(
+    filters_class = default_filters_without_bjets(
         campaign_inst=campaign_inst,
         channel_inst=channel_inst,
         category_inst=category_inst,
@@ -44,7 +50,7 @@ def create_filters_and_weights_spec(
 
     # Create the selection and weight specs and append them to the
     # global list
-    logging.debug(
+    logger.debug(
         "\n".join(
             [
                 "Created filters and weights",
@@ -85,7 +91,7 @@ def create_filters_and_weights_spec(
 
         # Check if this variation is applicable for this context
         if variation.skip():
-            logging.debug(
+            logger.debug(
                 f"Skipping variation {variation.name} for this context"
             )
             continue
@@ -135,25 +141,27 @@ def create_filters_and_weights_specs(
             for c in categories
             if channel_inst.has_category(c)
         ):
+            # Create the selection and weight specs and append them to the
+            # global list
+            logger.debug(
+                "\n".join(
+                    [
+                        "Creating selection specs for",
+                        f"    campaign: {campaign_inst.name}",
+                        f"    channel:  {channel_inst.name}",
+                        f"    category: {category_inst.name}",
+                    ],
+                ),
+            )
+
+            # List of all specs for this context
+            filters_and_weights_specs_category = []
+
             # Iterate through all processes and datasets of a process set
             for process_inst, dataset_inst in gen_process_and_dataset_insts(
                 inventory
             ):
-                # Create the selection and weight specs and append them to the
-                # global list
-                logging.info(
-                    "\n".join(
-                        [
-                            "Creating selection specs for",
-                            f"    campaign: {campaign_inst.name}",
-                            f"    channel:  {channel_inst.name}",
-                            f"    category: {category_inst.name}",
-                            f"    dataset:  {dataset_inst.name}",
-                            f"    process:  {process_inst.name}",
-                        ],
-                    ),
-                )
-                filters_and_weights_specs.extend(
+                filters_and_weights_specs_category.extend(
                     create_filters_and_weights_spec(
                         campaign_inst,
                         channel_inst,
@@ -162,5 +170,11 @@ def create_filters_and_weights_specs(
                         process_inst,
                     )
                 )
+            filters_and_weights_specs.extend(filters_and_weights_specs_category)
+
+        logger.info(
+            f"Added {len(filters_and_weights_specs_category)} filters and "
+            + "weights specs"
+        )
 
     return filters_and_weights_specs

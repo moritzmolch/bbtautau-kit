@@ -162,8 +162,9 @@ def create_dataset_specs(
         )
 
         # Create a dataset specification for each dataset
+        dataset_specs_campaign_channel = []
         for dataset_inst in gen_dataset_insts(inventory):
-            dataset_specs.append(
+            dataset_specs_campaign_channel.append(
                 create_dataset_spec(
                     campaign_inst,
                     channel_inst,
@@ -174,10 +175,10 @@ def create_dataset_specs(
                     ntuple_friends,
                 )
             )
+        dataset_specs.extend(dataset_specs_campaign_channel)
 
         logger.info(
-            f"Created {len(dataset_specs)} dataset specs for campaign "
-            f"{campaign_inst.name} and channel {channel_inst.name}"
+            f"Created {len(dataset_specs_campaign_channel)} dataset specs"
         )
 
     return dataset_specs

@@ -146,6 +146,18 @@ def create_histogram_specs(
             for c in categories
             if channel_inst.has_category(c)
         ):
+            logger.debug(
+                "\n".join(
+                    [
+                        "Creating histogram specs for",
+                        f"    campaign: {campaign_inst.name}",
+                        f"    channel:  {channel_inst.name}",
+                        f"    category: {category_inst.name}",
+                        f"    variables: <{len(variables)} items>",
+                    ],
+                ),
+            )
+
             # Iterate through all selected variables
             for variable in variables:
                 # Parse the variable name to extract 'pure' name and channels
@@ -156,7 +168,7 @@ def create_histogram_specs(
                 # whether the variable is assigned to be processed in the
                 # currently considered channel.
                 if channels is not None and channel_inst.name not in channels:
-                    logger.info(
+                    logger.debug(
                         f"Skipping variable {name} in channel "
                         + channel_inst.name
                     )
@@ -164,19 +176,6 @@ def create_histogram_specs(
 
                 # Get the variable instance
                 variable_inst = variable_insts.get(name)
-
-                # Create the histogram spec
-                logger.info(
-                    "\n".join(
-                        [
-                            "Creating histogram specs for",
-                            f"    campaign: {campaign_inst.name}",
-                            f"    channel:  {channel_inst.name}",
-                            f"    category: {category_inst.name}",
-                            f"    variable: {variable_inst.name}",
-                        ],
-                    ),
-                )
                 histogram_specs.append(
                     create_histogram_spec(
                         campaign_inst,
