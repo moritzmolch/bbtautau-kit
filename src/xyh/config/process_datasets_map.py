@@ -100,10 +100,10 @@ def get_process_datasets_map(
             "tb_lnub_tbar_schannel_4fs_amcatnlo",
             "tw_2l2nu_t_powheg",
             "tw_lnu2q_t_powheg",
-            "tw_4q_t_powheg",
+            # "tw_4q_t_powheg",
             "tw_2l2nu_tbar_powheg",
             "tw_lnu2q_tbar_powheg",
-            "tw_4q_tbar_powheg",
+            # "tw_4q_tbar_powheg",
         ]
     elif campaign_inst.x.year in [2024, 2025]:
         single_t_datasets = [
@@ -210,14 +210,14 @@ def get_process_datasets_map(
     ]
 
     # HH -> bbtautau datasets
-    hh_2b2tau_datasets = []
-    if campaign_inst.x.year == 2022:
-        hh_2b2tau_datasets = [
-            "gg_hh_2b2tau_powheg",
-            "vbf_hh_2b2tau_powheg",
-        ]
-    elif campaign_inst.x.year in [2023, 2024, 2025]:
-        hh_2b2tau_datasets = ["gg_hh_2b2tau_powheg"]
+    # hh_2b2tau_datasets = []
+    # if campaign_inst.x.year == 2022:
+    #     hh_2b2tau_datasets = [
+    #         "gg_hh_2b2tau_powheg",
+    #         "vbf_hh_2b2tau_powheg",
+    #     ]
+    # elif campaign_inst.x.year in [2023, 2024, 2025]:
+    #     hh_2b2tau_datasets = ["gg_hh_2b2tau_powheg"]
 
     # Set up the process-datasets map for signals
     xyh_process_datasets_map = {

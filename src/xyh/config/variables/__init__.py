@@ -2,8 +2,6 @@
 Variables relevant for this analysis.
 """
 
-from itertools import chain
-
 from order import Channel, UniqueObjectIndex, Variable
 
 from ._control_plots import get_control_plot_variables
