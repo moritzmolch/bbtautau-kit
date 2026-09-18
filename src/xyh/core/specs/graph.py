@@ -383,7 +383,7 @@ def _input_files(
 
     # Add friends to main chain
     main_chain = chains.pop("main")
-    for key, chain in chains.items():
+    for chain in chains.values():
         if chain.GetListOfFiles().GetEntries() > 0:
             main_chain.AddFriend(chain)
 

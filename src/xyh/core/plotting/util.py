@@ -473,7 +473,6 @@ def plot(
         hist_list,
         custom_y_limits=y_limits_top,
     )
-    hist_list_ratio = [hist_backgrounds_total_ratio]
     if hist_data is not None:
         hist_list.append(hist_data_ratio)
     set_axes_limits_ratio(

@@ -59,8 +59,6 @@ def merge_histograms(
         # Get analysis config objects
         campaign_inst = inventory.campaign
         channel_inst = inventory.channel
-        process_insts = inventory.processes
-        process_datasets_map = inventory.process_datasets_map
 
         def key_fn_category_variable(x):
             return (x["category"], x["variable"])

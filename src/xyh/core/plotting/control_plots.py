@@ -52,7 +52,7 @@ def plot_shapes(
         def key_fn_category_variable(x):
             return (x["category"], x["variable"])
 
-        for (category, variable), nodes_category_variable in groupby(
+        for (category, variable), _ in groupby(
             sorted(nodes_campaign_channel, key=key_fn_category_variable),
             key=key_fn_category_variable,
         ):
