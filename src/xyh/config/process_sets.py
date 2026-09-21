@@ -3,11 +3,13 @@ Process sets that define groups of processes for plots and for statistical
 inference.
 """
 
+from order import Channel
+
 from xyh.config.profiles import get_profile
 from xyh.core.config import ProcessGroup, ProcessSet
 
-# Only expose the process sets dictionary and the interface definitions
-__all__ = ["process_sets"]
+# Only expose the process sets function
+__all__ = ["get_process_set"]
 
 
 # ------------------------------------------------------------------------------
@@ -124,8 +126,11 @@ jetfakes = ProcessGroup(
 # Process sets
 # -----------------------------------------------------------------------------
 
-process_sets = {
-    "default": ProcessSet(
+
+def get_process_set(name: str, channel_inst: Channel) -> ProcessSet:
+    # Process set for et, mt, and tt scopes; jet -> tau_h fakes are estimated
+    # from data
+    process_set_jetfakes = ProcessSet(
         name="default",
         data=[data],
         signals=[
@@ -144,8 +149,10 @@ process_sets = {
             vv,
             jetfakes,
         ],
-    ),
-    "mc": ProcessSet(
+    )
+
+    # Process set with all processes modelled using MC
+    process_set_mc = ProcessSet(
         name="mc",
         data=[data],
         signals=[
@@ -168,5 +175,33 @@ process_sets = {
             vv,
             remaining_jetfakes,
         ],
-    ),
-}
+    )
+
+    process_sets = {
+        "default": {
+            "et": process_set_jetfakes,
+            "mt": process_set_jetfakes,
+            "tt": process_set_jetfakes,
+            "em": process_set_mc,
+            "ee": process_set_mc,
+            "mm": process_set_mc,
+        },
+        "mc": {
+            "et": process_set_jetfakes,
+            "mt": process_set_jetfakes,
+            "tt": process_set_jetfakes,
+            "em": process_set_mc,
+            "ee": process_set_mc,
+            "mm": process_set_mc,
+        },
+    }
+
+    # Get the process set for the given name and channel
+    if name not in process_sets:
+        raise ValueError(f"Process set '{name}' not found.")
+    if channel_inst.name not in process_sets[name]:
+        raise ValueError(
+            f"Channel '{channel_inst.name}' not found in process set '{name}'."
+        )
+
+    return process_sets[name][channel_inst.name]
