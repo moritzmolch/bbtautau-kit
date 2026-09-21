@@ -1,0 +1,35 @@
+#!/usr/bin/env zsh
+
+set -eu -o pipefail
+
+main () {
+    local this_file="${(%):-%x}"
+    local this_dir="$( cd "$( dirname "${this_file}" )" && pwd)"
+
+    local shapes_tag="shapes-2026-09-21-no-bjet-filters-with-bjet-weights"
+    local campaigns=("2024_nano_v15" "2025_nano_v15")
+    local variables=("yield" "pt_1" "pt_2" "m_vis")
+
+    for channel in ee mm em; do
+        for category in eq0j eq1j eq2j eq3j geq4j; do
+            echo "Processing category ${category}"
+            for variable in "${variables[@]}"; do
+                for process in data z_2l tt; do
+                    output_dir="${this_dir}/../data/output_compare_campaigns/${shapes_tag}/${channel}__${channel}_${category}/${process}"
+                    if [[ ! -d "${output_dir}" ]]; then
+                        mkdir -p "${output_dir}"
+                    fi
+                    python3 -m xyh.scripts.compare_campaigns \
+                        --shapes-tag "${shapes_tag}" \
+                        --process-set "default" \
+                        --campaigns "${campaigns[@]}" \
+                        --process-group "${process}" --channel "${channel}" --category "${channel}_${category}" \
+                        --variable "${variable}" --output "${output_dir}/${variable}.png"
+                done
+            done
+        done
+    done
+}
+
+
+main "${@}"
