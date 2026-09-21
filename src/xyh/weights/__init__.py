@@ -37,3 +37,14 @@ def default_weights(self) -> OrderedDict[str, str]:
     )
 
     return weights
+
+
+@Wrapper.wrap
+def default_weights_without_bjet_weights(self) -> OrderedDict[str, str]:
+    # Get the default weights
+    weights = self.get_instance("default_weights").nominal()
+
+    # Remove the b jet weight
+    weights.pop("id_wgt_bjet_shape", None)
+
+    return weights
