@@ -41,3 +41,28 @@ def default_filters(self) -> OrderedDict[str, str]:
     )
 
     return selections
+
+
+@Wrapper.wrap
+def default_filters_without_bjets(self) -> OrderedDict[str, str]:
+    """
+    Default filter selection for the analysis.
+
+    This includes the following selections:
+
+    - Trigger selection
+    - Jet vetomap veto
+    - bb pair selection
+    - Dilepton pair selection
+    - Generator-level tau pair selections
+    """
+
+    # Get the default filters
+    filters = self.get_instance("default_filters").nominal()
+
+    # Drop b jet-related selections
+    filters.pop("nbtag_selection", None)
+    filters.pop("bb_pair_kinematics", None)
+    filters.pop("bb_pair_delta_r", None)
+
+    return filters
