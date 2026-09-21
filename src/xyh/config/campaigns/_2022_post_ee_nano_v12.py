@@ -54,19 +54,13 @@ def xyh_name(
 dataset_nicks = {
     # --- Data -----------------------------------------------------------------
     "egamma_2022_efg": [
-        "EGamma_Run2022E-16Dec2023-v1",
         "EGamma_Run2022E-22Sep2023-v1",
-        "EGamma_Run2022F-19Dec2023-v1",
         "EGamma_Run2022F-22Sep2023-v1",
-        "EGamma_Run2022G-16Dec2023-v1",
         "EGamma_Run2022G-22Sep2023-v2",
     ],
     "muon_2022_efg": [
-        "Muon_Run2022E-16Dec2023-v1",
         "Muon_Run2022E-22Sep2023-v1",
-        "Muon_Run2022F-19Dec2023-v1",
         "Muon_Run2022F-22Sep2023-v2",
-        "Muon_Run2022G-19Dec2023-v2",
         "Muon_Run2022G-22Sep2023-v1",
     ],
     "tau_2022_efg": [
@@ -91,7 +85,7 @@ dataset_nicks = {
         "TTto4Q_TuneCP5_13p6TeV_powheg-pythia8_Run3Summer22EENanoAODv12-130X",
         "TTto4Q_TuneCP5_13p6TeV_powheg-pythia8_Run3Summer22EENanoAODv12-130X_ext1",
     ],
-    "tt_2l2q_powheg": [
+    "tt_lnu2q_powheg": [
         "TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8_Run3Summer22EENanoAODv12-130X",
         "TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8_Run3Summer22EENanoAODv12-130X_ext1",
     ],
