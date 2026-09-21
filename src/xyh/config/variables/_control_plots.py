@@ -10,6 +10,9 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
 
     # Define the variable labels for each channel
     labels = {
+        "yield": dict.fromkeys(
+            ["et", "mt", "tt", "em", "ee", "mm"], "Event yield"
+        ),
         "pt_1": {
             "et": r"Electron $p_{\text{T}}$",
             "mt": r"Muon $p_{\text{T}}$",
@@ -280,7 +283,14 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
         ),
     }
 
+    expressions = {
+        "yield": dict.fromkeys(["et", "mt", "tt", "em", "ee", "mm"], "0.5")
+    }
+
     binnings = {
+        "yield": dict.fromkeys(
+            ["et", "mt", "tt", "em", "ee", "mm"], binning(0, 1, 1)
+        ),
         "pt_1": {
             "et": cat([0, 32], arange(35, 185, 5)),
             "mt": cat([0, 26], arange(30, 185, 5)),
@@ -656,6 +666,7 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
     }
 
     units = {
+        "yield": None,
         "pt_1": "GeV",
         "pt_2": "GeV",
         "eta_1": None,
@@ -715,6 +726,10 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
         if len(binnings[name][channel_inst.name]) == 0:
             continue
 
+        # If the variable defines an expression, use it instead of the variable
+        # name
+        expression = expressions.get(name, {}).get(channel_inst.name, None)
+
         # Add variable with values given in the dictionaries above.
         add_variable(
             variables,
@@ -724,6 +739,7 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             unit=units[name],
             unit_format="{title} ({unit})",
             binning=binnings[name][channel_inst.name],
+            expression=expression,
         )
 
     return variables
