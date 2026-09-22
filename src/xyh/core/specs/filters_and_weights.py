@@ -5,7 +5,12 @@ from typing import Any
 from xyh.core.config import load_inventory
 from xyh.core.config.util import gen_process_and_dataset_insts
 from xyh.core.specs.specs import FiltersAndWeights
-from xyh.filters import default_filters_without_bjets  # TODO load dynamically
+from xyh.filters import (
+    default_filters as default_filters,  # TODO load dynamically
+)
+from xyh.filters import (
+    default_filters_without_bjets as default_filters_without_bjets,  # TODO load dynamically
+)
 from xyh.variations import default_variations  # TODO load dynamically
 from xyh.weights import (
     default_weights as default_weights,  # TODO load dynamically
@@ -29,7 +34,7 @@ def create_filters_and_weights_spec(
     filters_and_weights_specs = []
 
     # Create the filter and weight classes
-    filters_class = default_filters_without_bjets(
+    filters_class = default_filters(
         campaign_inst=campaign_inst,
         channel_inst=channel_inst,
         category_inst=category_inst,

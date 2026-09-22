@@ -79,7 +79,7 @@ def triggers(self) -> OrderedDict[str, str]:
             ): {
                 ("et", "em", "ee"): "(pt_1 >= 32) && (trg_single_ele30 > 0.5)",
                 ("mt", "mm"): "(pt_1 >= 26) && (trg_single_mu24 > 0.5)",
-                "tt": """
+                ("tt",): """
                     (pt_1 >= 40)
                     && (pt_2 >= 40)
                     && (trg_double_tau35_mediumdeeptau > 0.5)
@@ -88,7 +88,7 @@ def triggers(self) -> OrderedDict[str, str]:
             ("2024_nano_v15", "2025_nano_v15"): {
                 ("et", "em", "ee"): "(pt_1 >= 32) && (trg_single_ele30 > 0.5)",
                 ("mt", "mm"): "(pt_1 >= 26) && (trg_single_mu24 > 0.5)",
-                "tt": """
+                ("tt",): """
                     (pt_1 >= 35)
                     && (pt_2 >= 35)
                     && (trg_double_tau30_mediumpnet > 0.5)
