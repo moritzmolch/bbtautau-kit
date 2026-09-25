@@ -72,7 +72,7 @@ def electrons(self) -> OrderedDict[str, str]:
     if self.channel_inst.name in indices:
         for i in indices[self.channel_inst.name]:
             selections[f"electron{i}_eta"] = electron_eta_tpl.format(index=i)
-            selections[f"electron{i}_iso"] = electron_iso_tpl.format(index=i)
+            # selections[f"electron{i}_iso"] = electron_iso_tpl.format(index=i)
 
     return selections
 
