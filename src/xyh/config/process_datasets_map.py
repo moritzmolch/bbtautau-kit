@@ -193,9 +193,7 @@ def get_process_datasets_map(
             "vbf_h_2tau_powheg",
         ]
     elif campaign_inst.x.year in [2024, 2025]:
-        h_2tau_datasets = [
-            "gg_h_2tau_powheg",
-        ]
+        h_2tau_datasets = ["gg_h_2tau_powheg"]
 
     # H -> bb datasets
     h_2b_datasets = [
