@@ -70,7 +70,7 @@ def create_inventory(
     )
 
     # Add the process set
-    _process_set = get_process_set(process_set, channel_inst)
+    _process_set = get_process_set(process_set, campaign_inst, channel_inst)
 
     # Create the inventory
     inventory = Inventory(

@@ -3,7 +3,7 @@ Process sets that define groups of processes for plots and for statistical
 inference.
 """
 
-from order import Channel
+from order import Campaign, Channel
 
 from xyh.config.profiles import get_profile
 from xyh.core.config import ProcessGroup, ProcessSet
@@ -26,8 +26,8 @@ data = ProcessGroup(
 
 def xyh(y_decay_mode, h_decay_mode, m_x, m_y) -> ProcessGroup:
     return ProcessGroup(
-        name=f"xyh_y{y_decay_mode}_h{h_decay_mode}_mx{m_x}_my{m_y}",
-        processes=[f"xyh_y{y_decay_mode}_h{h_decay_mode}_mx{m_x}_my{m_y}"],
+        name=f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}",
+        processes=[f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"],
         label="X $\\to$ HY",
         color="#bd1f01",
     )
@@ -96,7 +96,12 @@ single_t_jetfakes = ProcessGroup(
 
 single_h = ProcessGroup(
     name="single_h",
-    processes=["h_2tau_tautau", "h_2tau_rem", "h_2b_tautau", "h_2b_rem"],
+    processes=[
+        # "h_2tau_tautau",
+        # "h_2tau_rem",
+        "h_2b_tautau",
+        "h_2b_rem",
+    ],
     label="$\\text{H}$",
     color="#94a4a2",
 )
@@ -127,7 +132,9 @@ jetfakes = ProcessGroup(
 # -----------------------------------------------------------------------------
 
 
-def get_process_set(name: str, channel_inst: Channel) -> ProcessSet:
+def get_process_set(
+    name: str, campaign_inst: Campaign, channel_inst: Channel
+) -> ProcessSet:
     # Process set for et, mt, and tt scopes; jet -> tau_h fakes are estimated
     # from data
     process_set_jetfakes = ProcessSet(
@@ -138,7 +145,9 @@ def get_process_set(name: str, channel_inst: Channel) -> ProcessSet:
             for (y_decay_mode, h_decay_mode), (
                 m_x,
                 m_y,
-            ) in get_profile().iterate_signal_parameters()
+            ) in get_profile().iterate_signal_parameters(
+                campaign=campaign_inst.name
+            )
         ],
         backgrounds=[
             tt,
@@ -167,13 +176,13 @@ def get_process_set(name: str, channel_inst: Channel) -> ProcessSet:
             tt_jetfakes,
             z_2l,
             z_2l_jetfakes,
-            w_lnu,
-            w_lnu_jetfakes,
+            # w_lnu,
+            # w_lnu_jetfakes,
             single_t,
             single_t_jetfakes,
-            single_h,
-            vv,
-            remaining_jetfakes,
+            # single_h,
+            # vv,
+            # remaining_jetfakes,
         ],
     )
 

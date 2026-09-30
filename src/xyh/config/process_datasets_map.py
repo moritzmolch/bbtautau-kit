@@ -3,8 +3,6 @@ Dataset-process maps that map a physics process of the analysis to a list of
 datasets that the events are sourced from.
 """
 
-from itertools import product
-
 from order import Campaign, Channel
 
 from xyh.config.profiles import get_profile
@@ -222,11 +220,12 @@ def get_process_datasets_map(
         f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}": [
             f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph",
         ]
-        for (y_decay_mode, h_decay_mode), (m_x, m_y) in product(
-            get_profile().decay_modes, get_profile().xy_masses
+        for (y_decay_mode, h_decay_mode), (
+            m_x,
+            m_y,
+        ) in get_profile().iterate_signal_parameters(
+            campaign=campaign_inst.name,
         )
-        if ((y_decay_mode, h_decay_mode), (m_x, m_y))
-        not in get_profile().missing_signal_samples[campaign_inst.name]
     }
 
     # Helper function to unroll dictionary keys and clone corresponding
