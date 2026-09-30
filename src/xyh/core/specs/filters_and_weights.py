@@ -2,22 +2,10 @@ import itertools
 import logging
 from typing import Any
 
-from xyh.core.config import load_inventory
+from xyh.core.config import load_fn, load_inventory
 from xyh.core.config.util import gen_process_and_dataset_insts
 from xyh.core.specs.specs import FiltersAndWeights
-from xyh.filters import (
-    default_filters as default_filters,  # TODO load dynamically
-)
-from xyh.filters import (
-    default_filters_without_bjets as default_filters_without_bjets,  # TODO load dynamically
-)
 from xyh.variations import default_variations  # TODO load dynamically
-from xyh.weights import (
-    default_weights as default_weights,  # TODO load dynamically
-)
-from xyh.weights import (
-    default_weights_without_bjet_weights as default_weights_without_bjet_weights,  # TODO load dynamically
-)
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -29,19 +17,21 @@ def create_filters_and_weights_spec(
     category_inst,
     dataset_inst,
     process_inst,
+    filters_fn,
+    weights_fn,
 ):
     # List of all specs for this context
     filters_and_weights_specs = []
 
     # Create the filter and weight classes
-    filters_class = default_filters(
+    filters_class = filters_fn(
         campaign_inst=campaign_inst,
         channel_inst=channel_inst,
         category_inst=category_inst,
         dataset_inst=dataset_inst,
         process_inst=process_inst,
     )
-    weights_class = default_weights(
+    weights_class = weights_fn(
         campaign_inst=campaign_inst,
         channel_inst=channel_inst,
         category_inst=category_inst,
@@ -120,10 +110,16 @@ def create_filters_and_weights_spec(
 def create_filters_and_weights_specs(
     inventory_factory_fn_path: str,
     inventory_factory_kwargs: dict[str, Any],
+    filters_fn_path: str,
+    weights_fn_path: str,
     campaigns: list[str],
     channels: list[str],
     categories: list[str],
 ):
+    # Load the filter and weight functions dynamically
+    filters_fn = load_fn(filters_fn_path)
+    weights_fn = load_fn(weights_fn_path)
+
     # Container of  filters and weights specs for each context
     filters_and_weights_specs = []
 
@@ -173,6 +169,8 @@ def create_filters_and_weights_specs(
                         category_inst,
                         dataset_inst,
                         process_inst,
+                        filters_fn,
+                        weights_fn,
                     )
                 )
             filters_and_weights_specs.extend(filters_and_weights_specs_category)

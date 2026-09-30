@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from importlib import import_module
+from typing import Any
 
 from order import Campaign, Channel, UniqueObjectIndex
 
@@ -60,3 +61,16 @@ def load_inventory(
     inventory = factory_fn(campaign, channel, **kwargs)
 
     return inventory
+
+
+def load_fn(
+    fn_path: str,
+    **kwargs,
+) -> Any:
+    # Import the factory function
+    parts = fn_path.split(".")
+    module_str, inst_str = ".".join(parts[:-1]), parts[-1]
+    module_str = import_module(module_str)
+    fn = getattr(module_str, inst_str)
+
+    return fn

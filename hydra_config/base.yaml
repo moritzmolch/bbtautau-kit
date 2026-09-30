@@ -35,6 +35,8 @@ inventory:
   factory_fn: "xyh.config.inventory.create_inventory"
   factory_fn_kwargs:
     process_set: "default"
+  filters_fn: "xyh.filters.default_filters"
+  weights_fn: "xyh.weights.default_weights"
   variables:
   - "pt_1"
   - "eta_1"

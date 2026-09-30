@@ -47,6 +47,8 @@ def main(cfg: DictConfig):
         campaigns=cfg["inventory"]["campaigns"],
         channels=cfg["inventory"]["channels"],
         categories=cfg["inventory"]["categories"],
+        filters_fn_path=cfg["inventory"]["filters_fn"],
+        weights_fn_path=cfg["inventory"]["weights_fn"],
     )
 
     # Build the graph from the individual specs
@@ -54,7 +56,7 @@ def main(cfg: DictConfig):
         dataset_specs,
         histogram_specs,
         filters_and_weights_specs,
-        "histogram",  # TODO also enable 'snapshot' mode
+        cfg["graph_processing"]["mode"],  # TODO also enable 'snapshot' mode
     )
 
     # Dump specs to output file
@@ -77,10 +79,21 @@ def main(cfg: DictConfig):
     if num_threads > 1:
         ROOT.EnableImplicitMT(num_threads)
 
+    # Set output dir based on mode
+    output_dir = None
+    if cfg["graph_processing"]["mode"] == "histogram":
+        output_dir = cfg["histograms_output_dir"]
+    elif cfg["graph_processing"]["mode"] == "snapshot":
+        output_dir = cfg["snapshots_output_dir"]
+    else:
+        raise ValueError(
+            f"Invalid graph processing mode: {cfg['graph_processing']['mode']}"
+        )
+
     # Run graph processing and production of output files
     run_graph(
         graph_specs,
-        Path(cfg["output_dir"]),
+        Path(output_dir),
         cfg["graph_processing"]["num_workers"],
     )
 
