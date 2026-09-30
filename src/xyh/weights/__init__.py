@@ -29,10 +29,10 @@ def default_weights(self) -> OrderedDict[str, str]:
             self.get_instance("pileup_weights").nominal().items(),
             # Theory weights
             self.get_instance("top_pt_reweighting").nominal().items(),
-            self.get_instance("z_pt_reweighting").nominal().items(),
+            # self.get_instance("z_pt_reweighting").nominal().items(),
             # Normalization weights
             self.get_instance("normalization").nominal().items(),
-            self.get_instance("tt_normalization").nominal().items(),
+            # self.get_instance("tt_normalization").nominal().items(),
         )
     )
 
