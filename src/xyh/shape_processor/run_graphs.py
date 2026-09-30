@@ -201,7 +201,9 @@ def _run_with_cprofile(cfg: DictConfig, profiling_cfg: DictConfig):
     stats.strip_dirs()
     stats.sort_stats("cumulative")
     stats.print_stats(30)
-    logger.info("cProfile summary (top 30, cumulative):\n%s", summary.getvalue())
+    logger.info(
+        "cProfile summary (top 30, cumulative):\n%s", summary.getvalue()
+    )
 
     if report is not None:
         report["python"]["cprofile_file"] = str(cprofile_file)

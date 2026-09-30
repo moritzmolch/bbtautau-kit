@@ -725,7 +725,9 @@ def run_subgraph(
     stages = bool(profiling.get("stages", True)) if profiling else False
     rdataframe = bool(profiling.get("rdataframe", True)) if profiling else False
     memory = bool(profiling.get("memory", True)) if profiling else False
-    profile = _new_subgraph_profile(profiling) if profiling is not None else None
+    profile = (
+        _new_subgraph_profile(profiling) if profiling is not None else None
+    )
 
     logger.info(f"Running subgraph {hash(subgraph)}")
 
@@ -864,7 +866,9 @@ def run_subgraph(
                     elif object_type == "snapshot":
                         try:
                             f = ROOT.TFile.Open(str(output_file), "READ")
-                            leaf_entry["events"] = f.Get("ntuple").GetEntriesFast()
+                            leaf_entry["events"] = f.Get(
+                                "ntuple"
+                            ).GetEntriesFast()
                             f.Close()
                         except Exception:
                             leaf_entry["events"] = -1
