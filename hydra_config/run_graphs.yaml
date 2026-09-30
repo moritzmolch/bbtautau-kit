@@ -11,3 +11,7 @@ filters_and_weights_specs_file: ${artifacts.filters_and_weights_specs_file}
 graph_specs_file: ${artifacts.graph_specs_file}
 histograms_output_dir: ${artifacts.histograms_dir}
 snapshots_output_dir: ${artifacts.snapshots_dir}
+
+# Output files for the profiling report
+profiling_report_file: data/output/${tags.shapes_tag}/profiling_report.json.gz
+cprofile_file: data/output/${tags.shapes_tag}/specs/profile_output.prof

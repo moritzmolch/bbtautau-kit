@@ -125,6 +125,14 @@ graph_processing:
   num_workers: 16
   num_threads: 2
 
+# Settings for profiling the graph processing in `run_graphs`
+profiling:
+  enabled: false      # Master switch for all profiling output
+  cprofile: true      # Whole-run cProfile of the Python entry point
+  stages: true        # Per-node and per-subgraph wall-time instrumentation
+  rdataframe: true    # ROOT RDataFrame report (filter efficiencies, events)
+  memory: true        # Memory usage / peak RSS tracking
+
 # Control plot settings
 control_plots:
   extensions: ["png", "pdf"]
