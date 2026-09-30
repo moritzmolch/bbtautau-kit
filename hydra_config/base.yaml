@@ -74,7 +74,10 @@ inventory:
 ntuples:
   xrootd_server: "root://cmsdcache-kit-disk.gridka.de:1094"
   base_dir: "/store/user/mmolch/CROWN/ntuples"
-  friends: ["fake-factors-2026-06-10"] # "fake-factors-2026-06-10", "pnn-2026-07-10"
+  friends:
+  - name: "fake-factors-2026-09-26" # "fake-factors-2026-06-10", "pnn-2026-07-10"
+    channels: ["et", "mt", "tt"]
+    exclude_datasets: ["^xyh_.*$"]
 
 # Settings for multi-threaded graph processing
 graph_processing:
