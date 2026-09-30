@@ -582,6 +582,31 @@ def action(
 # -----------------------------------------------------------------------------
 
 
+def _list_leaf_nodes(
+    subgraph: networkx.DiGraph,
+    artifacts: dict[str, Any],
+) -> list[str]:
+    # Get the hashes of leaf nodes. Only keep leafs, for which output files
+    # do not exist yet. Note that leaf nodes are identified by their
+    # out-degree being zero and not by the last topological generation, since
+    # the latter only contains the sinks of the deepest branches. Branches
+    # with fewer nodes (e.g. categories with a different number of filters
+    # sharing the same input node) would otherwise put their sinks in earlier
+    # generations and they would be skipped silently.
+    leaf_nodes = []
+    for node_hash in subgraph.nodes:
+        if subgraph.out_degree(node_hash) != 0:
+            continue
+
+        output_file = artifacts[node_hash]["output_file"]
+        if output_file.exists():
+            logger.debug(f"Skipping already existing target {output_file}")
+            continue
+        leaf_nodes.append(node_hash)
+
+    return leaf_nodes
+
+
 def run_subgraph(
     subgraph: networkx.DiGraph,
     output_dir: Path,
@@ -614,13 +639,7 @@ def run_subgraph(
 
     # Get the hashes of leaf nodes. Only keep leafs, for which output files
     # do not exist yet
-    leaf_nodes = []
-    for leaf_node in list(networkx.topological_generations(subgraph))[-1]:
-        output_file = artifacts[leaf_node]["output_file"]
-        if output_file.exists():
-            logger.debug(f"Skipping already existing target {output_file}")
-            continue
-        leaf_nodes.append(leaf_node)
+    leaf_nodes = _list_leaf_nodes(subgraph, artifacts)
 
     if len(leaf_nodes) == 0:
         logger.debug("No leaf nodes left to process")
