@@ -176,6 +176,31 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
     return report
 
 
+def _summarize_cprofile_stats(cprofile_file: Path) -> str | None:
+    """Return a text summary of a cProfile statistics file.
+
+    The summary is generated from the marshalled statistics file on disk
+    rather than from a `cProfile.Profile` instance, so it does not depend
+    on the internal state of the profiler object. All failures are
+    swallowed and `None` is returned, such that profiling output can never
+    break the processing.
+    """
+    try:
+        summary = io.StringIO()
+        stats = pstats.Stats(str(cprofile_file), stream=summary)
+        stats.strip_dirs()
+        stats.sort_stats("cumulative")
+        stats.print_stats(30)
+        return summary.getvalue()
+    except Exception:
+        logger.warning(
+            "Failed to summarize cProfile output %s",
+            cprofile_file,
+            exc_info=True,
+        )
+        return None
+
+
 def _run_with_cprofile(cfg: DictConfig, profiling_cfg: DictConfig):
     """Run `_run` under `cProfile` and store the profiling data.
 
@@ -185,6 +210,7 @@ def _run_with_cprofile(cfg: DictConfig, profiling_cfg: DictConfig):
     the per-subgraph profiling report.
     """
     profiler = cProfile.Profile()
+    profiler.enable()
     try:
         report = _run(cfg, profiling_cfg, cprofile=True)
     finally:
@@ -195,19 +221,14 @@ def _run_with_cprofile(cfg: DictConfig, profiling_cfg: DictConfig):
     cprofile_file.parent.mkdir(parents=True, exist_ok=True)
     profiler.dump_stats(str(cprofile_file))
 
-    # Summarize the most time-consuming functions
-    summary = io.StringIO()
-    stats = pstats.Stats(profiler, stream=summary)
-    stats.strip_dirs()
-    stats.sort_stats("cumulative")
-    stats.print_stats(30)
-    logger.info(
-        "cProfile summary (top 30, cumulative):\n%s", summary.getvalue()
-    )
+    # Summarize the most time-consuming functions from the dumped file
+    summary_text = _summarize_cprofile_stats(cprofile_file)
+    if summary_text is not None:
+        logger.info("cProfile summary (top 30, cumulative):\n%s", summary_text)
 
     if report is not None:
         report["python"]["cprofile_file"] = str(cprofile_file)
-        report["python"]["cprofile_summary"] = summary.getvalue()
+        report["python"]["cprofile_summary"] = summary_text
 
     return report
 

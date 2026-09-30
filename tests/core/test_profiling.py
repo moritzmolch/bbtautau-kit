@@ -175,6 +175,60 @@ def test_run_graph_returns_report_with_profiling(tmp_path):
 
 
 # -----------------------------------------------------------------------------
+# cProfile report summarization
+# -----------------------------------------------------------------------------
+
+
+def test_summarize_cprofile_stats_from_dumped_file(tmp_path):
+    import cProfile
+
+    from xyh.shape_processor.run_graphs import _summarize_cprofile_stats
+
+    profiler = cProfile.Profile()
+    profiler.enable()
+    _ = sum(range(1000))  # noqa: F841 - profiled work
+    profiler.disable()
+
+    cprofile_file = tmp_path / "profile_output.prof"
+    profiler.dump_stats(str(cprofile_file))
+
+    text = _summarize_cprofile_stats(cprofile_file)
+
+    assert text is not None
+    assert "sum" in text  # the profiled function appears in the summary
+
+
+def test_summarize_cprofile_stats_returns_none_for_missing_file(tmp_path):
+    from xyh.shape_processor.run_graphs import _summarize_cprofile_stats
+
+    assert _summarize_cprofile_stats(tmp_path / "missing.prof") is None
+
+
+def test_run_with_cprofile_produces_summary(tmp_path, monkeypatch):
+    """The profiler must be enabled so that profiling data is collected and
+    summarized (regression test for a missing `profiler.enable()` call)."""
+    from unittest.mock import Mock
+
+    from omegaconf import OmegaConf
+
+    from xyh.shape_processor.run_graphs import _run_with_cprofile
+
+    cprofile_file = tmp_path / "profile_output.prof"
+    cfg = OmegaConf.create({"cprofile_file": str(cprofile_file)})
+    report = {"python": {"cprofile": True}, "totals": {}}
+
+    monkeypatch.setattr(
+        "xyh.shape_processor.run_graphs._run", Mock(return_value=report)
+    )
+
+    result = _run_with_cprofile(cfg, OmegaConf.create({"enabled": True}))
+
+    assert result["python"]["cprofile_summary"] is not None
+    assert cprofile_file.exists()
+    assert result["python"]["cprofile_file"] == str(cprofile_file)
+
+
+# -----------------------------------------------------------------------------
 # ROOT RDataFrame report
 # -----------------------------------------------------------------------------
 
