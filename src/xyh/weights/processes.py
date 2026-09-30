@@ -49,12 +49,12 @@ def tt_normalization(self) -> OrderedDict[str, str]:
 
     # tt normalization factors per era
     normalization_factor = {
-        "2022_pre_ee_nano_v12": 0.91,
-        "2022_post_ee_bpix_nano_v12": 0.89,
-        "2023_pre_bpix_nano_v12": 0.85,
-        "2023_post_bpix_nano_v12": 0.83,
-        "2024_nano_v15": 0.90,
-        "2025_nano_v15": 0.88,
+        "2022_pre_ee_nano_v12": 1.0,  # 0.91,
+        "2022_post_ee_nano_v12": 1.0,  # 0.89,
+        "2023_pre_bpix_nano_v12": 1.0,  # 0.85,
+        "2023_post_bpix_nano_v12": 1.0,  # 0.83,
+        "2024_nano_v15": 1.0,  # 0.90,
+        "2025_nano_v15": 1.0,  # 0.88,
     }[self.campaign_inst.name]
 
     # Do not apply a correction factor in the em channel, as this channel is

@@ -1,0 +1,16 @@
+#!/usr/bin/env zsh
+
+set -eu -o pipefail
+
+main () {
+    local this_file="${(%):-%x}"
+    local this_dir="$( cd "$( dirname "${this_file}" )" && pwd)"
+
+    python3 -m xyh.shape_processor.run_graphs
+    python3 -m xyh.shape_processor.run_fake_factor_histograms
+    python3 -m xyh.shape_processor.merge_histograms
+    python3 -m xyh.shape_processor.plot_shapes
+}
+
+
+main "${@}"

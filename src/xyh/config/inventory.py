@@ -3,7 +3,7 @@ from order import Campaign, Channel
 from xyh.config.campaigns import campaigns
 from xyh.config.channels import channels
 from xyh.config.process_datasets_map import get_process_datasets_map
-from xyh.config.process_sets import process_sets
+from xyh.config.process_sets import get_process_set
 from xyh.config.processes import processes
 from xyh.config.profiles import get_profile
 from xyh.config.variables import get_variables
@@ -13,6 +13,8 @@ from xyh.core.config import Inventory
 def create_inventory(
     campaign: str,
     channel: str,
+    *,
+    process_set: str = "default",
 ) -> Inventory:
     """
     Create an inventory of analysis objects for a given campaign and channel.
@@ -24,6 +26,9 @@ def create_inventory(
 
     channel_inst : Channel
         The channel for which to create the inventory.
+
+    process_set: str | None (optional)
+        Name of the process set.
 
     Returns
     -------
@@ -65,7 +70,7 @@ def create_inventory(
     )
 
     # Add the process set
-    process_set = process_sets[get_profile().process_set]
+    _process_set = get_process_set(process_set, campaign_inst, channel_inst)
 
     # Create the inventory
     inventory = Inventory(
@@ -74,7 +79,7 @@ def create_inventory(
         processes=process_insts,
         variables=variable_insts,
         process_datasets_map=process_datasets_map,
-        process_set=process_set,
+        process_set=_process_set,
     )
 
     return inventory

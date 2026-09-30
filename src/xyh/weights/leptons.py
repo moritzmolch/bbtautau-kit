@@ -13,11 +13,13 @@ def electron_weights(self) -> OrderedDict[str, str]:
     # The weight of the first lepton must be used in the et and em channels
     if self.channel_inst.name in ["et", "em"]:
         weights["electron_id_weight"] = "id_wgt_ele_1"
+        weights["electron_reco_weight"] = "reco_wgt_ele_1"
 
     # The combined weight of the first and the second lepton must be used in
     # the ee channel
     if self.channel_inst.name in ["ee"]:
         weights["electron_id_weight"] = "id_wgt_ele_1 * id_wgt_ele_2"
+        weights["electron_reco_weight"] = "reco_wgt_ele_1 * reco_wgt_ele_2"
 
     # For all other channels, the weight dictionary for electrons stays empty
 
@@ -33,18 +35,18 @@ def muon_weights(self) -> OrderedDict[str, str]:
 
     # The weights of the first lepton must be used in the mt channel
     if self.channel_inst.name == "mt":
-        weights["muon_id_weight"] = "id_wgt_mu_1"
+        weights["muon_id_weight"] = "((pt_1 >= 30) && id_wgt_mu_1) || (pt_1 < 30 && id_lowpt_wgt_mu_1)"
         weights["muon_iso_weight"] = "iso_wgt_mu_1"
 
     # The weights of the second lepton must be used in the em channel
     if self.channel_inst.name == "em":
-        weights["muon_id_weight"] = "id_wgt_mu_2"
+        weights["muon_id_weight"] = "((pt_2 >= 30) && id_wgt_mu_2) || (pt_2 < 30 && id_lowpt_wgt_mu_2)"
         weights["muon_iso_weight"] = "iso_wgt_mu_2"
 
     # The combined weights of the first and the second lepton must be used in
     # the mm channel
     if self.channel_inst.name == "mm":
-        weights["muon_id_weight"] = "id_wgt_mu_1 * id_wgt_mu_2"
+        weights["muon_id_weight"] = "(((pt_2 >= 30) && id_wgt_mu_1) || (pt_2 < 30 && id_lowpt_wgt_mu_1)) * (((pt_2 >= 30) && id_wgt_mu_2) || (pt_2 < 30 && id_lowpt_wgt_mu_2))"
         weights["muon_iso_weight"] = "iso_wgt_mu_1 * iso_wgt_mu_2"
 
     # For all other channels, the weight dictionary for muons stays empty

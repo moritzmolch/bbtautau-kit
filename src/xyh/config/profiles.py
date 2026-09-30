@@ -305,7 +305,6 @@ class XYHProfile:
     missing_signal_samples: dict[
         str, list[tuple[tuple[str, str], tuple[int, int]]]
     ]
-    process_set: str
 
     def iterate_signal_parameters(
         self,
@@ -348,7 +347,6 @@ FULL = XYHProfile(
     decay_modes=DECAY_MODES,
     xy_masses=XY_MASSES,
     missing_signal_samples=MISSING_SIGNAL_SAMPLES,
-    process_set="default",
 )
 
 
@@ -356,7 +354,6 @@ BENCHMARK = XYHProfile(
     decay_modes=[("y2b", "h2tau")],
     xy_masses=[(2000, 500)],
     missing_signal_samples=MISSING_SIGNAL_SAMPLES,
-    process_set="default",
 )
 
 
@@ -364,7 +361,6 @@ BKG_ONLY = XYHProfile(
     decay_modes=[],
     xy_masses=[],
     missing_signal_samples=MISSING_SIGNAL_SAMPLES,
-    process_set="default",
 )
 
 

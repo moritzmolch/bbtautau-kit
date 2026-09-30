@@ -9,4 +9,5 @@ dataset_specs_file: ${artifacts.dataset_specs_file}
 histogram_specs_file: ${artifacts.histogram_specs_file}
 filters_and_weights_specs_file: ${artifacts.filters_and_weights_specs_file}
 graph_specs_file: ${artifacts.graph_specs_file}
-output_dir: ${artifacts.histograms_dir}
+histograms_output_dir: ${artifacts.histograms_dir}
+snapshots_output_dir: ${artifacts.snapshots_dir}

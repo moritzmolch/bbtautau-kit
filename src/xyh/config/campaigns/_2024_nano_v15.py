@@ -21,7 +21,7 @@ cpn_2024_nano_v15 = Campaign(
     aux={
         "year": 2024,
         "postfix": None,
-        "lumi": 109.816515335,  # fb^-1
+        "lumi": 109.815611863,  # fb^-1
         "runs": {
             "C": [378971, 379411],
             "D": [379412, 380252],
@@ -64,7 +64,6 @@ dataset_nicks = {
         "EGamma0_Run2024F-MINIv6NANOv15-v1",
         "EGamma0_Run2024G-MINIv6NANOv15-v2",
         "EGamma0_Run2024H-MINIv6NANOv15-v2",
-        "EGamma0_Run2024I-MINIv6NANOv15",
         "EGamma0_Run2024I-MINIv6NANOv15-v1",
         "EGamma0_Run2024I-MINIv6NANOv15_v2-v1",
         "EGamma1_Run2024C-MINIv6NANOv15-v1",
@@ -73,7 +72,6 @@ dataset_nicks = {
         "EGamma1_Run2024F-MINIv6NANOv15-v1",
         "EGamma1_Run2024G-MINIv6NANOv15-v2",
         "EGamma1_Run2024H-MINIv6NANOv15-v1",
-        "EGamma1_Run2024I-MINIv6NANOv15",
         "EGamma1_Run2024I-MINIv6NANOv15-v1",
         "EGamma1_Run2024I-MINIv6NANOv15_v2-v1",
     ],
@@ -102,7 +100,6 @@ dataset_nicks = {
         "Tau_Run2024F-MINIv6NANOv15-v1",
         "Tau_Run2024G-MINIv6NANOv15-v1",
         "Tau_Run2024H-MINIv6NANOv15-v1",
-        "Tau_Run2024I-MINIv6NANOv15",
         "Tau_Run2024I-MINIv6NANOv15-v1",
         "Tau_Run2024I-MINIv6NANOv15_v2-v1",
     ],

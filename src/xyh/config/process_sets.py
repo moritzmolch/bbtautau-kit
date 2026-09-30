@@ -3,11 +3,13 @@ Process sets that define groups of processes for plots and for statistical
 inference.
 """
 
+from order import Campaign, Channel
+
 from xyh.config.profiles import get_profile
 from xyh.core.config import ProcessGroup, ProcessSet
 
-# Only expose the process sets dictionary and the interface definitions
-__all__ = ["process_sets"]
+# Only expose the process sets function
+__all__ = ["get_process_set"]
 
 
 # ------------------------------------------------------------------------------
@@ -24,8 +26,8 @@ data = ProcessGroup(
 
 def xyh(y_decay_mode, h_decay_mode, m_x, m_y) -> ProcessGroup:
     return ProcessGroup(
-        name=f"xyh_y{y_decay_mode}_h{h_decay_mode}_mx{m_x}_my{m_y}",
-        processes=[f"xyh_y{y_decay_mode}_h{h_decay_mode}_mx{m_x}_my{m_y}"],
+        name=f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}",
+        processes=[f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"],
         label="X $\\to$ HY",
         color="#bd1f01",
     )
@@ -94,7 +96,12 @@ single_t_jetfakes = ProcessGroup(
 
 single_h = ProcessGroup(
     name="single_h",
-    processes=["h_2tau_tautau", "h_2tau_rem", "h_2b_tautau", "h_2b_rem"],
+    processes=[
+        # "h_2tau_tautau",
+        # "h_2tau_rem",
+        "h_2b_tautau",
+        "h_2b_rem",
+    ],
     label="$\\text{H}$",
     color="#94a4a2",
 )
@@ -124,8 +131,13 @@ jetfakes = ProcessGroup(
 # Process sets
 # -----------------------------------------------------------------------------
 
-process_sets = {
-    "default": ProcessSet(
+
+def get_process_set(
+    name: str, campaign_inst: Campaign, channel_inst: Channel
+) -> ProcessSet:
+    # Process set for et, mt, and tt scopes; jet -> tau_h fakes are estimated
+    # from data
+    process_set_jetfakes = ProcessSet(
         name="default",
         data=[data],
         signals=[
@@ -133,7 +145,9 @@ process_sets = {
             for (y_decay_mode, h_decay_mode), (
                 m_x,
                 m_y,
-            ) in get_profile().iterate_signal_parameters()
+            ) in get_profile().iterate_signal_parameters(
+                campaign=campaign_inst.name
+            )
         ],
         backgrounds=[
             tt,
@@ -144,8 +158,10 @@ process_sets = {
             vv,
             jetfakes,
         ],
-    ),
-    "mc": ProcessSet(
+    )
+
+    # Process set with all processes modelled using MC
+    process_set_mc = ProcessSet(
         name="mc",
         data=[data],
         signals=[
@@ -160,13 +176,41 @@ process_sets = {
             tt_jetfakes,
             z_2l,
             z_2l_jetfakes,
-            w_lnu,
-            w_lnu_jetfakes,
+            # w_lnu,
+            # w_lnu_jetfakes,
             single_t,
             single_t_jetfakes,
-            single_h,
-            vv,
-            remaining_jetfakes,
+            # single_h,
+            # vv,
+            # remaining_jetfakes,
         ],
-    ),
-}
+    )
+
+    process_sets = {
+        "default": {
+            "et": process_set_jetfakes,
+            "mt": process_set_jetfakes,
+            "tt": process_set_jetfakes,
+            "em": process_set_mc,
+            "ee": process_set_mc,
+            "mm": process_set_mc,
+        },
+        "mc": {
+            "et": process_set_jetfakes,
+            "mt": process_set_jetfakes,
+            "tt": process_set_jetfakes,
+            "em": process_set_mc,
+            "ee": process_set_mc,
+            "mm": process_set_mc,
+        },
+    }
+
+    # Get the process set for the given name and channel
+    if name not in process_sets:
+        raise ValueError(f"Process set '{name}' not found.")
+    if channel_inst.name not in process_sets[name]:
+        raise ValueError(
+            f"Channel '{channel_inst.name}' not found in process set '{name}'."
+        )
+
+    return process_sets[name][channel_inst.name]

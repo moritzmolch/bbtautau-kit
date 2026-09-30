@@ -1,7 +1,9 @@
 import itertools
 import logging
+import re
 from typing import Any
 
+from omegaconf import DictConfig
 from XRootD.client import FileSystem
 
 from xyh.core.config import load_inventory
@@ -19,7 +21,7 @@ def create_dataset_spec(
     xrootd_server,
     ntuple_base_dir,
     ntuple_tag,
-    ntuple_friends,
+    ntuple_friends: list[str | dict[str, Any]],
 ) -> Dataset:
     logger.debug(f"Create dataset spec {dataset_inst.name}")
 
@@ -73,10 +75,32 @@ def create_dataset_spec(
 
         # Query friend files
         for friend in ntuple_friends:
+            # Check if the friend is a dict with a name and channels
+            if isinstance(friend, (dict, DictConfig)):
+                friend_name = friend.get("name")
+                friend_channels = friend.get("channels", [])
+                friend_exclude_datasets = friend.get("exclude_datasets", [])
+                if channel_inst.name not in friend_channels:
+                    logger.debug(
+                        f"Skipping friend {friend_name} for channel {channel_inst.name}"
+                    )
+                    continue
+                skip_friend = False
+                for exclude_dataset in friend_exclude_datasets:
+                    if re.match(exclude_dataset, dataset_inst.name):
+                        logger.debug(
+                            f"Skipping friend {friend_name} for dataset {dataset_inst.name}"
+                        )
+                        skip_friend = True
+                        continue
+                if skip_friend:
+                    continue
+                friend = friend_name
+
             friend_files_channel_dir = (
                 ntuple_base_dir
                 / ntuple_tag
-                / "CROWNFriends"
+                / "CROWNFriend"
                 / friend
                 / campaign_short
                 / nick
@@ -151,12 +175,12 @@ def create_dataset_specs(
             "\n".join(
                 [
                     "Creating dataset specs",
-                    f"    campaign:         {campaign_inst.name}",
-                    f"    channel:          {channel_inst.name}",
-                    f"    XRootD server:    {xrootd_server}",
-                    f"    ntuple base dir:  {ntuple_base_dir}",
-                    f"    ntuple tag:       {ntuple_tag}",
-                    f"    ntuple friends:   {ntuple_friends}",
+                    f"    campaign:        {campaign_inst.name}",
+                    f"    channel:         {channel_inst.name}",
+                    f"    XRootD server:   {xrootd_server}",
+                    f"    ntuple base dir: {ntuple_base_dir}",
+                    f"    ntuple tag:      {ntuple_tag}",
+                    f"    ntuple friends:  {ntuple_friends}",
                 ],
             ),
         )

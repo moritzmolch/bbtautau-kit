@@ -22,7 +22,7 @@ def main(cfg: DictConfig) -> None:
         dataset_specs,
         histogram_specs,
         filters_and_weights_specs,
-        "histogram",  # TODO also enable 'snapshot' mode
+        mode=cfg["graph_processing"]["mode"],
     )
 
     # Convert the graph into a JSON-serializable format
