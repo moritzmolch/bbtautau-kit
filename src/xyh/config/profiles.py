@@ -381,7 +381,7 @@ def get_profile():
     # Get the profile name from the environment variable
     name = os.environ.get("XYH_PROFILE", None)
     if name is None:
-        name = "BKG_ONLY"
+        name = "BENCHMARK"
 
     # Load the profile
     profile = globals().get(name)
