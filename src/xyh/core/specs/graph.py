@@ -1,12 +1,15 @@
 import hashlib
 import json
 import logging
+import os
+import resource
+import tempfile
 from collections import OrderedDict
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from functools import cached_property
 from pathlib import Path
-from time import time
+from time import monotonic, time
 from typing import Any
 
 import networkx
@@ -578,6 +581,108 @@ def action(
 
 
 # -----------------------------------------------------------------------------
+# Profiling helpers
+# -----------------------------------------------------------------------------
+
+
+def _rss_mb() -> float:
+    """Return the current resident set size of this process in megabyte."""
+    # Prefer the VmRSS entry of `/proc/self/status` on Linux. Fall back to the
+    # peak RSS reported by `resource.getrusage` otherwise (a rough estimate).
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return float(line.split()[1]) / 1024.0
+    except OSError:
+        pass
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+
+
+def _peak_rss_mb() -> float:
+    """Return the peak resident set size of this process in megabyte."""
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmHWM:"):
+                    return float(line.split()[1]) / 1024.0
+    except OSError:
+        pass
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
+
+
+def _new_subgraph_profile(options: dict[str, bool]) -> dict[str, Any]:
+    """Create an empty per-subgraph profile for the enabled components.
+
+    The profile is returned as a plain dictionary so that it can be pickled
+    and shipped back from worker processes.
+    """
+    profile = {"times_s": {"total": 0.0}, "nodes": {}, "leaf_nodes": []}
+    if options.get("stages", True):
+        profile["times_s"].update({"declare": 0.0, "run": 0.0, "write": 0.0})
+    if options.get("rdataframe", True):
+        profile["events_processed"] = 0
+        profile["rdf_report"] = ""
+    if options.get("memory", True):
+        profile["memory"] = {
+            "rss_mb_start": _rss_mb(),
+            "rss_mb_end": None,
+            "peak_rss_mb": _peak_rss_mb(),
+        }
+    return profile
+
+
+def _capture_rdf_report(report) -> str:
+    """Print an RDataFrame report and return the printed text.
+
+    The report is printed to the C++ standard output stream, which is not
+    captured by Python's `io.StringIO`. Use ROOT's output redirection into a
+    temporary file instead. Returns an empty string on failure so that
+    profiling never breaks the processing.
+    """
+    try:
+        fd, path = tempfile.mkstemp(prefix="rdf_report_", suffix=".txt")
+        os.close(fd)
+        ROOT.gSystem.RedirectOutput(path, "w")
+        try:
+            report.Print()
+        finally:
+            ROOT.gROOT.ProcessLine("gSystem->RedirectOutput(0);")
+        with open(path) as f:
+            text = f.read()
+        os.remove(path)
+        return text
+    except Exception:
+        logger.debug("Failed to capture RDataFrame report", exc_info=True)
+        return ""
+
+
+def _summarize_profiles(profiles: list[dict[str, Any]]) -> dict[str, Any]:
+    """Aggregate the per-subgraph profiles into a single summary."""
+    totals = {
+        "subgraphs": len(profiles),
+        "nodes_declared": 0,
+        "leaf_nodes": 0,
+        "events_processed": 0,
+        "declare_s": 0.0,
+        "run_s": 0.0,
+        "write_s": 0.0,
+    }
+    for profile in profiles:
+        totals["declare_s"] += profile["times_s"].get("declare", 0.0)
+        totals["run_s"] += profile["times_s"].get("run", 0.0)
+        totals["write_s"] += profile["times_s"].get("write", 0.0)
+        totals["events_processed"] += profile.get("events_processed", 0)
+        totals["leaf_nodes"] += len(profile["leaf_nodes"])
+        for stats in profile["nodes"].values():
+            totals["nodes_declared"] += stats["count"]
+    return {
+        key: (round(value, 3) if isinstance(value, float) else value)
+        for key, value in totals.items()
+    }
+
+
+# -----------------------------------------------------------------------------
 # Graph processing
 # -----------------------------------------------------------------------------
 
@@ -610,10 +715,17 @@ def _list_leaf_nodes(
 def run_subgraph(
     subgraph: networkx.DiGraph,
     output_dir: Path,
-):
+    profiling: dict[str, bool] | None = None,
+) -> dict[str, Any] | None:
     # Store for all artifacts of actions on graph nodes. The key corresponds
     # to the node hash and the value to an output dictionary.
     artifacts = {}
+
+    # Determine which profiling components are activated
+    stages = bool(profiling.get("stages", True)) if profiling else False
+    rdataframe = bool(profiling.get("rdataframe", True)) if profiling else False
+    memory = bool(profiling.get("memory", True)) if profiling else False
+    profile = _new_subgraph_profile(profiling) if profiling is not None else None
 
     logger.info(f"Running subgraph {hash(subgraph)}")
 
@@ -634,71 +746,155 @@ def run_subgraph(
         predecessors = subgraph.predecessors(node_hash)
         input_artifacts = {k: artifacts[k] for k in predecessors}
 
-        # Execute the action on the node
+        if not stages:
+            # Execute the action on the node
+            artifacts[node_hash] = action(node, input_artifacts, output_dir)
+            continue
+
+        # Execute the action on the node and time the declaration
+        node_start = monotonic()
         artifacts[node_hash] = action(node, input_artifacts, output_dir)
+        delta = monotonic() - node_start
+        node_type = subgraph.nodes[node_hash]["type"]
+        node_stats = profile["nodes"].setdefault(
+            node_type, {"count": 0, "declare_s": 0.0}
+        )
+        node_stats["count"] += 1
+        node_stats["declare_s"] += delta
+        profile["times_s"]["declare"] += delta
 
     # Get the hashes of leaf nodes. Only keep leafs, for which output files
     # do not exist yet
     leaf_nodes = _list_leaf_nodes(subgraph, artifacts)
 
-    if len(leaf_nodes) == 0:
-        logger.debug("No leaf nodes left to process")
-        return
+    if len(leaf_nodes) > 0:
+        # Run all RDataFrame graphs coming from this subgraph. This program
+        # only triggers the production of artifacts that are not available yet
+        # as output file.
+        logger.debug("Processing RDataFrame graphs")
+        graph_elements = [
+            artifacts[leaf_node]["lazy_object"] for leaf_node in leaf_nodes
+        ]
 
-    # Run all RDataFrame graphs coming from this subgraph. This program only
-    # triggers the production of artifacts that are not available yet as output
-    # file.
-    logger.debug("Processing RDataFrame graphs")
-    graph_elements = [
-        artifacts[leaf_node]["lazy_object"] for leaf_node in leaf_nodes
-    ]
-    ROOT.RDF.RunGraphs(graph_elements)
-
-    # Create the output files from materialized objects
-    for leaf_node in leaf_nodes:
-        a = artifacts[leaf_node]
-        output_object = a["lazy_object"]
-        object_type = a["lazy_object_type"]
-        output_file = a["output_file"]
-
-        # Check that the output file exists
-        # if output_file.exists():
-        #     logger.info(f"Skipping already existing target {output_file}")
-        #     continue
-
-        # Check if the lazy object has already been computed
-        if not output_object.IsReady():
-            raise RuntimeError(
-                "Lazy object has not been materialized before writing it to a "
-                + "file, processing is corrupted"
+        # In profiling mode, attach an RDataFrame report and an event counter
+        # to the subgraph's computation and run them together with the lazy
+        # objects.
+        rdf_report = None
+        events_processed = None
+        if rdataframe:
+            predecessor = next(
+                (
+                    pred
+                    for pred in subgraph.predecessors(leaf_nodes[0])
+                    if "data_frame" in artifacts[pred]
+                ),
+                None,
             )
+            if predecessor is not None:
+                data_frame = artifacts[predecessor]["data_frame"]
+                rdf_report = data_frame.Report()
+                events_processed = data_frame.Count()
+                graph_elements.append(rdf_report)
+                graph_elements.append(events_processed)
 
-        if object_type == "snapshot":
-            logger.debug(f"Wrote snapshot to {output_file}")
+        # Trigger the RDataFrame event loop and time it
+        run_start = monotonic()
+        ROOT.RDF.RunGraphs(graph_elements)
+        if stages:
+            profile["times_s"]["run"] = monotonic() - run_start
 
-        if object_type == "histogram":
-            # Create the output file's parent directory
-            if not output_file.parent.exists():
-                output_file.parent.mkdir(parents=True)
-                logger.debug(f"Created directory {output_file.parent}")
+        if rdataframe:
+            if events_processed is not None:
+                profile["events_processed"] = events_processed.GetValue()
+            if rdf_report is not None:
+                profile["rdf_report"] = _capture_rdf_report(rdf_report)
 
-            # Dump histogram to output file
-            f = ROOT.TFile.Open(str(output_file), "UPDATE")
-            output_object.Write()
-            f.Close()
-            logger.debug(f"Wrote histogram to {output_file}")
+        # Create the output files from materialized objects
+        write_start = monotonic()
+        for leaf_node in leaf_nodes:
+            a = artifacts[leaf_node]
+            output_object = a["lazy_object"]
+            object_type = a["lazy_object_type"]
+            output_file = a["output_file"]
+
+            # Check if the lazy object has already been computed
+            if not output_object.IsReady():
+                raise RuntimeError(
+                    "Lazy object has not been materialized before writing it to a "
+                    + "file, processing is corrupted"
+                )
+
+            if object_type == "snapshot":
+                logger.debug(f"Wrote snapshot to {output_file}")
+
+            if object_type == "histogram":
+                # Create the output file's parent directory
+                if not output_file.parent.exists():
+                    output_file.parent.mkdir(parents=True)
+                    logger.debug(f"Created directory {output_file.parent}")
+
+                # Dump histogram to output file
+                f = ROOT.TFile.Open(str(output_file), "UPDATE")
+                output_object.Write()
+                f.Close()
+                logger.debug(f"Wrote histogram to {output_file}")
+
+            # Collect the metadata of the produced leaf output file
+            if profile is not None:
+                leaf_entry = {
+                    "type": subgraph.nodes[leaf_node]["type"],
+                    "output_file": str(output_file),
+                }
+                spec = subgraph.nodes[leaf_node]["spec"]
+                for key in (
+                    "campaign",
+                    "channel",
+                    "category",
+                    "dataset",
+                    "process",
+                    "variation",
+                ):
+                    if key in spec:
+                        leaf_entry[key] = spec[key]
+
+                # Count the number of events in the produced output
+                if rdataframe:
+                    if object_type == "histogram":
+                        leaf_entry["events"] = output_object.GetEntries()
+                    elif object_type == "snapshot":
+                        try:
+                            f = ROOT.TFile.Open(str(output_file), "READ")
+                            leaf_entry["events"] = f.Get("ntuple").GetEntriesFast()
+                            f.Close()
+                        except Exception:
+                            leaf_entry["events"] = -1
+
+                profile["leaf_nodes"].append(leaf_entry)
+
+        if stages:
+            profile["times_s"]["write"] = monotonic() - write_start
 
     stop = time()
 
     delta = round(stop - start, 3)
     logger.info(f"Finished running subgraph {hash(subgraph)} in {delta} s")
 
+    if profile is None:
+        return None
+
+    profile["times_s"]["total"] = delta
+    if memory:
+        profile["memory"]["rss_mb_end"] = round(_rss_mb(), 3)
+        profile["memory"]["peak_rss_mb"] = round(_peak_rss_mb(), 3)
+    return profile
+
 
 def run_graph(
     graph_specs,
     output_dir,
     num_workers,
-):
+    profiling: dict[str, bool] | None = None,
+) -> dict[str, Any] | None:
     # Turn graph specs into a networkx graph object
     graph = networkx.readwrite.node_link_graph(graph_specs)
 
@@ -717,21 +913,49 @@ def run_graph(
                 "Found subgraph that is not a directed acyclic graph"
             )
 
+    # Initialize the profiling report and record the initial memory usage
+    if profiling is not None:
+        report = {"subgraphs": [], "memory": {}, "wall_s": 0.0, "totals": {}}
+        rss_start = _rss_mb()
+    else:
+        report = None
+
+    wall_start = time()
+
     if num_workers == 1:
         # If number of workers is 1, set up primitive single-threaded
         # processing logic
         for i, subgraph in enumerate(subgraphs):
-            run_subgraph(subgraph, output_dir)
+            subgraph_profile = run_subgraph(subgraph, output_dir, profiling)
+            if report is not None and subgraph_profile is not None:
+                report["subgraphs"].append(subgraph_profile)
             logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
 
     else:
         with ProcessPoolExecutor(max_workers=num_workers) as pool:
-            # Distribute subgraphs across workers
-            futures = []
-            for subgraph in subgraphs:
-                pool.submit(run_subgraph, subgraph, output_dir)
+            # Distribute subgraphs across workers. The profiling information of
+            # each subgraph is collected from the completed future.
+            futures = {
+                pool.submit(run_subgraph, subgraph, output_dir, profiling): i
+                for i, subgraph in enumerate(subgraphs)
+            }
             for i, future in enumerate(as_completed(futures)):
-                _ = future.result()
+                subgraph_profile = future.result()
+                if report is not None and subgraph_profile is not None:
+                    report["subgraphs"].append(subgraph_profile)
                 logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
 
     logger.info("Finished processing all graphs")
+
+    if report is None:
+        return None
+
+    # Finalize the profiling report
+    report["wall_s"] = round(time() - wall_start, 3)
+    report["memory"] = {
+        "rss_mb_start": round(rss_start, 3),
+        "rss_mb_end": round(_rss_mb(), 3),
+        "peak_rss_mb": round(_peak_rss_mb(), 3),
+    }
+    report["totals"] = _summarize_profiles(report["subgraphs"])
+    return report
