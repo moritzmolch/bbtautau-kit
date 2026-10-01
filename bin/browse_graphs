@@ -1,0 +1,10 @@
+#!/usr/bin/env zsh
+
+set -eu -o pipefail
+
+main () {
+    python3 -m xyh.scripts.browse_graphs "${@}"
+}
+
+
+main "${@}"

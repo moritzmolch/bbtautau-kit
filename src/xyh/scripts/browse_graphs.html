@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graph Browser</title>
+<style>
+:root {
+  --bg: #ffffff; --panel: #f6f7f9; --fg: #1d2330; --muted: #667085;
+  --border: #d9dde5; --sel: #dbe7ff; --accent: #2f5fd0;
+  --t-InputFilesNode: #2b7bb9; --t-FilterNode: #2e9d5b; --t-WeightsNode: #c28a0e;
+  --t-HistogramNode: #a8479b; --t-SnapshotNode: #d2691e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171d; --panel: #1b1f27; --fg: #e3e7ef; --muted: #8f98a8;
+    --border: #2b313c; --sel: #27395f; --accent: #7aa2ff;
+    --t-InputFilesNode: #5aa9e6; --t-FilterNode: #4cc47d; --t-WeightsNode: #e0b040;
+    --t-HistogramNode: #d77fcb; --t-SnapshotNode: #f0924f;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 13px/1.45 system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+header { display: flex; gap: 12px; align-items: center; padding: 8px 12px;
+  border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+header h1 { font-size: 14px; margin: 0; }
+header .src { color: var(--muted); font-family: monospace; font-size: 12px; }
+main { flex: 1; display: grid; grid-template-columns: minmax(280px, 40%) 1fr; min-height: 0; }
+@media (max-width: 800px) { main { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
+#left { display: flex; flex-direction: column; border-right: 1px solid var(--border); min-height: 0; }
+#tools { padding: 8px; display: flex; gap: 6px; border-bottom: 1px solid var(--border); }
+#tools input { flex: 1; min-width: 0; }
+input, select, button { font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--border); border-radius: 4px; padding: 4px 6px; }
+button { cursor: pointer; }
+button:hover { border-color: var(--accent); }
+#tree, #results { flex: 1; overflow: auto; padding: 6px 4px; min-height: 0; }
+#results { display: none; }
+#resinfo { padding: 4px 10px; color: var(--muted); display: none; border-bottom: 1px solid var(--border); }
+.row { display: flex; align-items: center; gap: 4px; padding: 1px 4px; border-radius: 3px;
+  cursor: pointer; white-space: nowrap; }
+.row:hover { background: var(--panel); }
+.row.sel { background: var(--sel); }
+.twisty { width: 14px; text-align: center; color: var(--muted); flex: none; user-select: none; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.lbl { overflow: hidden; text-overflow: ellipsis; }
+.cnt { color: var(--muted); font-size: 11px; }
+.kids { margin-left: 14px; border-left: 1px dotted var(--border); }
+.more { color: var(--accent); padding: 2px 22px; cursor: pointer; }
+#right { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+#gwrap { flex: 0 0 55%; display: flex; flex-direction: column; border-bottom: 1px solid var(--border); min-height: 0; }
+#gwrap.hidden { flex: 0 0 auto; }
+#gwrap.hidden #gsvg { display: none; }
+#gbar { display: flex; gap: 6px; align-items: center; padding: 4px 8px; border-bottom: 1px solid var(--border); }
+#gbar .muted { margin-left: auto; font-size: 11px; }
+#gsvg { flex: 1; min-height: 0; width: 100%; background: var(--panel); cursor: grab; touch-action: none; }
+#gsvg.drag { cursor: grabbing; }
+.gn rect { stroke: var(--border); stroke-width: 1; fill: var(--bg); }
+.gn.sel rect { stroke: var(--accent); stroke-width: 2; fill: var(--sel); }
+.gn.path rect { stroke: var(--accent); }
+.gn text { fill: var(--fg); font-size: 11px; pointer-events: none; }
+.gn .tw circle { fill: var(--bg); stroke: var(--muted); }
+.gn .tw text { text-anchor: middle; fill: var(--muted); font-size: 10px; }
+.gn.more rect { stroke-dasharray: 3 2; }
+.gn.more text { fill: var(--accent); }
+.ge { fill: none; stroke: var(--muted); stroke-opacity: .5; }
+.ge.path { stroke: var(--accent); stroke-opacity: 1; stroke-width: 1.5; }
+#detail { flex: 1; overflow: auto; padding: 12px 16px; min-height: 0; }
+#right h2 { font-size: 15px; margin: 0 0 4px; }
+.badge { display: inline-block; padding: 0 6px; border-radius: 9px; color: #fff; font-size: 11px; }
+.sec { margin-top: 14px; }
+.sec > h3 { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 4px; }
+table { border-collapse: collapse; width: 100%; }
+td { border-top: 1px solid var(--border); padding: 3px 6px; vertical-align: top; }
+td:first-child { color: var(--muted); width: 1%; white-space: nowrap; }
+pre, code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+pre { margin: 0; white-space: pre-wrap; word-break: break-all; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; max-height: 260px; overflow: auto; }
+.crumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.crumb { cursor: pointer; border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+.crumb:hover { border-color: var(--accent); }
+.crumb.cur { background: var(--sel); }
+.sep { color: var(--muted); }
+.copy { float: right; font-size: 11px; padding: 0 6px; }
+details summary { cursor: pointer; color: var(--accent); }
+.muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Graph Browser</h1>
+  <span class="src" id="src"></span>
+  <span class="muted" id="stats"></span>
+</header>
+<main>
+  <section id="left">
+    <div id="tools">
+      <input id="q" type="search" placeholder="Search name, expression, dataset, variable… (space = AND)">
+      <select id="qtype"><option value="">all types</option></select>
+    </div>
+    <div id="resinfo"></div>
+    <div id="results"></div>
+    <div id="tree"></div>
+  </section>
+  <section id="right">
+    <div id="gwrap">
+      <div id="gbar">
+        <button id="gfit">Fit</button>
+        <button id="gtoggle">Hide graph</button>
+        <span class="muted">drag = pan · wheel = zoom · click = select · ± = expand/collapse</span>
+      </div>
+      <svg id="gsvg"><g id="gview"></g></svg>
+    </div>
+    <div id="detail"><p class="muted">Select a node in the tree or search results.</p></div>
+  </section>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+const PAGE = 200;
+const colour = t => `var(--t-${t}, #888)`;
+const short = t => t.replace(/Node$/, '');
+const api = async p => { const r = await fetch('/api/' + p); if (!r.ok) throw new Error(p); return r.json(); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let selected = null;      // selected node id
+const rowsById = new Map(); // id -> {row, kids, loaded, open} for tree rows
+
+function rowHtml(n, twisty) {
+  const cnt = n.n_children ? `<span class="cnt">(${n.n_children})</span>` : '';
+  return `<span class="twisty">${twisty}</span><span class="dot" style="background:${colour(n.type)}"></span>` +
+    `<span class="lbl" title="${esc(short(n.type) + ': ' + n.label)}">${esc(n.label)}</span>${cnt}`;
+}
+
+function makeNode(n, container) {
+  const wrap = document.createElement('div');
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.dataset.id = n.id;
+  row.innerHTML = rowHtml(n, n.n_children ? '▸' : '');
+  const kids = document.createElement('div');
+  kids.className = 'kids'; kids.hidden = true;
+  wrap.append(row, kids);
+  container.append(wrap);
+  const st = { row, kids, n, loaded: false, open: false, shown: 0 };
+  rowsById.set(n.id, st);
+  row.addEventListener('click', e => {
+    if (e.target.classList.contains('twisty') && n.n_children) toggle(st);
+    else select(n.id, false);
+  });
+  row.addEventListener('dblclick', () => n.n_children && toggle(st));
+  return st;
+}
+
+async function loadMore(st) {
+  const page = await api(`children/${st.n.id}?offset=${st.shown}&limit=${PAGE}`);
+  st.kids.querySelector('.more')?.remove();
+  page.children.forEach(c => makeNode(c, st.kids));
+  st.shown += page.children.length;
+  if (st.shown < page.total) {
+    const more = document.createElement('div');
+    more.className = 'more';
+    more.textContent = `… ${page.total - st.shown} more`;
+    more.onclick = () => loadMore(st);
+    st.kids.append(more);
+  }
+  st.loaded = true;
+}
+
+async function setOpen(st, open) {
+  if (open && !st.loaded) await loadMore(st);
+  st.open = open;
+  st.kids.hidden = !open;
+  st.row.querySelector('.twisty').textContent = st.n.n_children ? (open ? '▾' : '▸') : '';
+}
+const toggle = st => setOpen(st, !st.open);
+
+// Expand the tree along the node's path and scroll to it.
+async function reveal(path) {
+  for (let i = 0; i < path.length - 1; i++) {
+    let st = rowsById.get(path[i]);
+    if (!st) return;
+    await setOpen(st, true);
+  }
+  // The target may sit beyond the first page of its parent.
+  let st = rowsById.get(path[path.length - 1]);
+  const parent = path.length > 1 ? rowsById.get(path[path.length - 2]) : null;
+  while (!st && parent && parent.shown < parent.n.n_children) {
+    await loadMore(parent);
+    st = rowsById.get(path[path.length - 1]);
+  }
+  st?.row.scrollIntoView({ block: 'center' });
+}
+
+async function select(id, doReveal = true, fromGraph = false) {
+  selected = id;
+  history.replaceState(null, '', '#' + id);
+  document.querySelectorAll('.row.sel').forEach(r => r.classList.remove('sel'));
+  rowsById.get(id)?.row.classList.add('sel');
+  const d = await api('node/' + id);
+  if (selected !== id) return;
+  if (doReveal) {
+    await reveal(d.path.map(p => p.id));
+    rowsById.get(id)?.row.classList.add('sel');
+  }
+  renderDetail(d);
+  graphFocus(d, fromGraph);
+}
+
+function kv(obj) {
+  return '<table>' + Object.entries(obj).map(([k, v]) => {
+    let cell;
+    if (k === 'files') {
+      cell = Object.entries(v).map(([name, list]) =>
+        `<details><summary>${esc(name)}: ${list.length} file(s)</summary><pre>${esc(list.join('\n'))}</pre></details>`).join('');
+    } else if (typeof v === 'object' && v !== null) {
+      cell = `<code>${esc(JSON.stringify(v))}</code>`;
+    } else if (k === 'expression' || k === 'output_file') {
+      cell = `<pre>${esc(v)}</pre>`;
+    } else {
+      cell = `<code>${esc(v)}</code>`;
+    }
+    return `<tr><td>${esc(k)}</td><td>${cell}</td></tr>`;
+  }).join('') + '</table>';
+}
+
+const copyBtn = id => `<button class="copy" data-copy="${id}">copy</button>`;
+
+async function renderDetail(d) {
+  const crumbs = d.path.map((p, i) =>
+    `<span class="crumb${p.id === d.id ? ' cur' : ''}" data-id="${p.id}" title="${esc(short(p.type))}" style="border-left:3px solid ${colour(p.type)}">${esc(p.label)}</span>`
+  ).join('<span class="sep">→</span>');
+  const desc = Object.entries(d.descendants).map(([t, n]) => `${n.toLocaleString()} ${short(t)}`).join(', ');
+  let html = `<h2><span class="badge" style="background:${colour(d.type)}">${esc(short(d.type))}</span> ${esc(d.label)}</h2>
+    <div class="muted"><code>${d.id}</code></div>
+    <div class="sec"><h3>Path from input</h3><div class="crumbs">${crumbs}</div></div>`;
+  if (d.selection) html += `<div class="sec"><h3>Combined selection (all filters above) ${copyBtn('sel')}</h3><pre id="c-sel">${esc(d.selection)}</pre></div>`;
+  if (d.weight) html += `<div class="sec"><h3>Combined weight ${copyBtn('w')}</h3><pre id="c-w">${esc(d.weight)}</pre></div>`;
+  html += `<div class="sec"><h3>Spec</h3>${kv(d.spec)}</div>`;
+  html += `<div class="sec"><h3>Graph</h3><table>
+    <tr><td>direct children</td><td>${d.n_children}</td></tr>
+    <tr><td>descendants</td><td>${desc || 'none'}</td></tr>
+    <tr><td>parents</td><td>${d.n_parents}</td></tr></table></div>`;
+  html += `<div class="sec"><h3>Path details</h3>` + d.path.slice(0, -1).map(p =>
+    `<details><summary>${esc(short(p.type))}: ${esc(p.label)}</summary>${kv(p.spec)}</details>`).join('') + '</div>';
+  $('#detail').innerHTML = html;
+  $('#detail').scrollTop = 0;
+}
+
+$('#detail').addEventListener('click', e => {
+  const c = e.target.closest('.crumb');
+  if (c) return select(c.dataset.id);
+  const b = e.target.closest('[data-copy]');
+  if (b) navigator.clipboard?.writeText($('#c-' + b.dataset.copy).textContent);
+});
+
+
+// ---- graph view ----
+const SVGNS = 'http://www.w3.org/2000/svg';
+const NW = 190, NH = 24, DX = 250, DY = 32, GPAGE = 40;
+let G = null;            // {nodes: Map, root, selected}
+let view = { x: 20, y: 20, k: 1 };
+const svg = $('#gsvg'), gview = $('#gview');
+
+const applyView = () => gview.setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.k})`);
+
+async function gMore(st) {
+  const page = await api(`children/${st.id}?offset=${st.kids.length}&limit=${GPAGE}`);
+  page.children.forEach(c => {
+    if (!G.nodes.has(c.id)) G.nodes.set(c.id, { ...c, kids: null, shown: 0, open: false });
+    st.kids.push(c.id);
+  });
+  st.total = page.total;
+  st.shown = Math.max(st.shown, GPAGE) ;
+}
+
+async function gOpen(st) {
+  if (!st.kids) { st.kids = []; await gMore(st); }
+  st.open = true;
+}
+
+async function graphBuild(d) {
+  const path = d.path;
+  G = { nodes: new Map(), root: path[0].id, selected: d.id, path: new Set(path.map(p => p.id)) };
+  for (const p of path) G.nodes.set(p.id, { id: p.id, type: p.type, label: p.label, n_children: p.n_children, kids: null, shown: 0, open: false });
+  for (let i = 0; i < path.length - 1; i++) {
+    const st = G.nodes.get(path[i].id);
+    await gOpen(st);
+    while (!st.kids.includes(path[i + 1].id) && st.kids.length < st.total) await gMore(st);
+    st.shown = st.kids.length;
+  }
+  const last = G.nodes.get(d.id);
+  if (last.n_children) { await gOpen(last); last.shown = last.kids.length; }
+}
+
+// Visible tree -> positioned items.
+function graphLayout() {
+  const items = [], edges = [];
+  let row = 0;
+  const place = (st, depth, parent) => {
+    const kids = st.open && st.kids ? st.kids.slice(0, st.shown).map(i => G.nodes.get(i)) : [];
+    const more = st.open && st.kids && st.shown < st.total;
+    const ys = [];
+    const item = { st, x: depth * DX, y: 0 };
+    kids.forEach(k => ys.push(place(k, depth + 1, item)));
+    if (more) {
+      const m = { st: { id: st.id + '#more', more: st, label: `… ${st.total - st.shown} more` }, x: (depth + 1) * DX, y: row++ * DY, isMore: true };
+      items.push(m); ys.push(m.y); edges.push([item, m]);
+    }
+    item.y = ys.length ? (ys[0] + ys[ys.length - 1]) / 2 : row++ * DY;
+    items.push(item);
+    if (parent) edges.push([parent, item]);
+    return item.y;
+  };
+  place(G.nodes.get(G.root), 0, null);
+  return { items, edges };
+}
+
+function el(name, attrs = {}, parent) {
+  const e = document.createElementNS(SVGNS, name);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  parent?.append(e);
+  return e;
+}
+
+function graphRender(fit = false) {
+  if (!G) return;
+  const { items, edges } = graphLayout();
+  gview.replaceChildren();
+  const eg = el('g', {}, gview), ng = el('g', {}, gview);
+  for (const [a, b] of edges) {
+    const x1 = a.x + NW, y1 = a.y + NH / 2, x2 = b.x, y2 = b.y + NH / 2, mx = (x1 + x2) / 2;
+    const onPath = G.path.has(a.st.id) && G.path.has(b.st.id);
+    el('path', { d: `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`, class: 'ge' + (onPath ? ' path' : '') }, eg);
+  }
+  for (const it of items) {
+    const st = it.st;
+    const g = el('g', { class: 'gn' + (it.isMore ? ' more' : '') + (st.id === G.selected ? ' sel' : '') + (G.path.has(st.id) ? ' path' : ''),
+      transform: `translate(${it.x},${it.y})` }, ng);
+    g.dataset.id = st.id;
+    const t = el('title', {}, g);
+    t.textContent = it.isMore ? 'show more' : `${short(st.type)}: ${st.label}`;
+    el('rect', { width: NW, height: NH, rx: 5 }, g);
+    if (!it.isMore) el('rect', { width: 5, height: NH, rx: 2, style: `fill:${colour(st.type)};stroke:none` }, g);
+    const text = el('text', { x: 12, y: NH / 2 + 4 }, g);
+    const lbl = st.label;
+    text.textContent = lbl.length > 30 ? lbl.slice(0, 29) + '…' : lbl;
+    if (!it.isMore && st.n_children) {
+      const tw = el('g', { class: 'tw', transform: `translate(${NW},${NH / 2})` }, g);
+      el('circle', { r: 7 }, tw);
+      el('text', { y: 3 }, tw).textContent = st.open ? '−' : '+';
+      tw.dataset.toggle = st.id;
+    }
+  }
+  if (fit) graphFit();
+  else applyView();
+}
+
+function graphFit() {
+  const b = gview.getBBox(), w = svg.clientWidth, h = svg.clientHeight;
+  if (!b.width || !w || !h) return;
+  const fit = Math.min(1, (w - 40) / b.width, (h - 40) / b.height);
+  // Never shrink below a readable size; centre on the selected node instead.
+  const k = Math.max(fit, 0.6);
+  view = { k, x: 20 - b.x * k, y: Math.max(20, (h - b.height * k) / 2) - b.y * k };
+  applyView();
+  if (k > fit && G) centerOn(G.selected);
+}
+
+function centerOn(id) {
+  const g = gview.querySelector(`.gn[data-id="${CSS.escape(id)}"]`);
+  if (!g) return;
+  const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(g.getAttribute('transform'));
+  const w = svg.clientWidth, h = svg.clientHeight;
+  view.x = Math.min(view.x, w * 0.6 - (+m[1] + NW) * view.k);
+  view.x = Math.max(view.x, 20 - (+m[1]) * view.k);
+  view.y = h / 2 - (+m[2] + NH / 2) * view.k;
+  applyView();
+}
+
+async function graphFocus(d, fromGraph) {
+  if (G && G.nodes.has(d.id)) {
+    G.selected = d.id;
+    G.path = new Set(d.path.map(p => p.id));
+    // Make sure every ancestor is expanded far enough to show the node.
+    for (let i = 0; i < d.path.length - 1; i++) {
+      const st = G.nodes.get(d.path[i].id), at = st.kids.indexOf(d.path[i + 1].id);
+      st.open = true;
+      st.shown = Math.max(st.shown, at + 1);
+    }
+    graphRender();
+    if (!fromGraph) centerOn(d.id);
+    return;
+  }
+  await graphBuild(d);
+  graphRender(true);
+}
+
+// Interaction
+let drag = null, moved = false;
+svg.addEventListener('pointerdown', e => { drag = { x: e.clientX - view.x, y: e.clientY - view.y, sx: e.clientX, sy: e.clientY }; moved = false; });
+svg.addEventListener('pointermove', e => {
+  if (!drag) return;
+  if (Math.abs(e.clientX - drag.sx) + Math.abs(e.clientY - drag.sy) > 3) { moved = true; svg.classList.add('drag'); }
+  if (moved) { view.x = e.clientX - drag.x; view.y = e.clientY - drag.y; applyView(); }
+});
+addEventListener('pointerup', () => { drag = null; svg.classList.remove('drag'); });
+svg.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r = svg.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+  const f = Math.exp(-e.deltaY * 0.0015), k = Math.min(4, Math.max(0.05, view.k * f));
+  view.x = px - (px - view.x) * k / view.k;
+  view.y = py - (py - view.y) * k / view.k;
+  view.k = k;
+  applyView();
+}, { passive: false });
+svg.addEventListener('click', async e => {
+  if (moved) return;
+  const tg = e.target.closest('[data-toggle]');
+  const g = e.target.closest('.gn');
+  if (!g || !G) return;
+  const id = g.dataset.id;
+  if (tg) {
+    const st = G.nodes.get(tg.dataset.toggle);
+    if (st.open) st.open = false; else { await gOpen(st); st.shown = Math.max(st.shown, Math.min(GPAGE, st.kids.length)); }
+    graphRender();
+  } else if (id.endsWith('#more')) {
+    const st = G.nodes.get(id.slice(0, -5));
+    if (st.shown >= st.kids.length && st.kids.length < st.total) await gMore(st);
+    st.shown = Math.min(st.kids.length, st.shown + GPAGE);
+    graphRender();
+  } else {
+    select(id, true, true);
+  }
+});
+$('#gfit').onclick = graphFit;
+$('#gtoggle').onclick = () => {
+  const w = $('#gwrap'); w.classList.toggle('hidden');
+  $('#gtoggle').textContent = w.classList.contains('hidden') ? 'Show graph' : 'Hide graph';
+  if (!w.classList.contains('hidden')) setTimeout(graphFit, 0);
+};
+
+// ---- search ----
+let timer = null;
+async function runSearch() {
+  const q = $('#q').value.trim(), type = $('#qtype').value;
+  const res = $('#results'), info = $('#resinfo');
+  if (!q && !type) { res.style.display = info.style.display = 'none'; $('#tree').style.display = ''; return; }
+  const r = await api(`search?q=${encodeURIComponent(q)}&type=${type}&limit=300`);
+  $('#tree').style.display = 'none'; res.style.display = 'block'; info.style.display = 'block';
+  info.textContent = `${r.total.toLocaleString()} match(es)` + (r.total > r.results.length ? `, showing ${r.results.length}` : '');
+  res.innerHTML = '';
+  r.results.forEach(n => {
+    const row = document.createElement('div');
+    row.className = 'row' + (n.id === selected ? ' sel' : '');
+    row.innerHTML = rowHtml(n, '');
+    row.onclick = () => { select(n.id); res.querySelectorAll('.sel').forEach(x => x.classList.remove('sel')); row.classList.add('sel'); };
+    res.append(row);
+  });
+}
+$('#q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(runSearch, 250); });
+$('#qtype').addEventListener('change', runSearch);
+
+// ---- init ----
+(async () => {
+  const m = await api('meta');
+  $('#src').textContent = m.source;
+  $('#stats').textContent = `${m.n_nodes.toLocaleString()} nodes, ${m.n_edges.toLocaleString()} edges · ` +
+    Object.entries(m.types).map(([t, n]) => `${n.toLocaleString()} ${short(t)}`).join(', ');
+  Object.keys(m.types).forEach(t => $('#qtype').insertAdjacentHTML('beforeend', `<option value="${t}">${short(t)}</option>`));
+  m.roots.forEach(r => makeNode(r, $('#tree')));
+  if (location.hash.length > 1) select(location.hash.slice(1));
+})();
+</script>
+</body>
+</html>
