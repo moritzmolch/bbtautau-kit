@@ -6,6 +6,7 @@ platforms = ["linux-64"]
 version = "0.1.0"
 
 [tasks]
+browse-graphs = "python -m xyh.scripts.browse_graphs"
 
 [dependencies]
 python = "3.12.*"
