@@ -122,8 +122,9 @@ ntuples:
 
 # Settings for multi-threaded graph processing
 graph_processing:
-  num_workers: 16
-  num_threads: 2
+  num_workers: 8
+  num_threads: 4
+  mode: "histogram"
 
 # Settings for profiling the graph processing in `run_graphs`
 profiling:
