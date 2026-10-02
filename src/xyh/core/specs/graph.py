@@ -5,6 +5,7 @@ import os
 import resource
 import tempfile
 from collections import OrderedDict
+import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from functools import cached_property
@@ -936,7 +937,10 @@ def run_graph(
             logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
 
     else:
-        with ProcessPoolExecutor(max_workers=num_workers) as pool:
+        with ProcessPoolExecutor(
+            max_workers=num_workers,
+            mp_context=multiprocessing.get_context("spawn"),
+        ) as pool:
             # Distribute subgraphs across workers. The profiling information of
             # each subgraph is collected from the completed future.
             futures = {
