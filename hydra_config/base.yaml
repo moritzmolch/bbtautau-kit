@@ -17,8 +17,8 @@
 
 # Tags for input and output artifacts
 tags:
-  ntuple_tag: "ntuples-2026-06-10"
-  shapes_tag: "shapes-2026-09-15"
+  ntuple_tag: "ntuples-2026-10-02"
+  shapes_tag: "shapes-2026-10-02"
 
 # Artifact paths
 artifacts:
@@ -37,6 +37,13 @@ inventory:
     process_set: "default"
   filters_fn: "xyh.filters.default_filters"
   weights_fn: "xyh.weights.default_weights"
+  campaigns:
+  - "2024_nano_v15"
+  channels: ["ee", "mm", "em"]
+  categories:
+  - "ee_base"
+  - "mm_base"
+  - "em_base"
   variables:
   - "yield"
   - "pt_1"
@@ -101,8 +108,12 @@ inventory:
   - "jtag_value_2"
   - "met"
   - "met_raw"
+  - "met_jetcorrected"
+  - "met_leptoncorrected"
   - "met_uncorrected"
   - "metphi"
+  - "metphi_jetcorrected"
+  - "metphi_leptoncorrected"
   - "metphi_raw"
   - "metphi_uncorrected"
   - "mt_1[et,mt,tt]"

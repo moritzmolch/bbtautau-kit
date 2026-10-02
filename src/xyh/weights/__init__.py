@@ -48,3 +48,14 @@ def default_weights_without_bjet_weights(self) -> OrderedDict[str, str]:
     weights.pop("id_wgt_bjet_shape", None)
 
     return weights
+
+
+@Wrapper.wrap
+def default_weights_without_muon_iso_weights(self) -> OrderedDict[str, str]:
+    # Get the default weights
+    weights = self.get_instance("default_weights").nominal()
+
+    # Remove the muon isolation weight
+    weights.pop("muon_iso_weight", None)
+
+    return weights
