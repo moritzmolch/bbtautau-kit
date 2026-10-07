@@ -736,6 +736,33 @@ def _subgraph_label(subgraph: networkx.DiGraph) -> str:
     return info
 
 
+def _enable_rdf_progress_bar(
+    subgraph: networkx.DiGraph,
+    artifacts: dict[str, Any],
+) -> None:
+    """Attach ROOT's native RDataFrame progress bar to the subgraph's head.
+
+    The progress bar is marked *Experimental* in ROOT and only accepts the
+    head `RDataFrame` created from the input files, not the chained filter,
+    weight, or action nodes. Any failure is therefore swallowed and only
+    reported at debug level, so that it can never break the processing.
+    """
+    try:
+        head = next(
+            (
+                artifacts[node_hash]["data_frame"]
+                for node_hash in subgraph.nodes
+                if subgraph.in_degree(node_hash) == 0
+                and "data_frame" in artifacts[node_hash]
+            ),
+            None,
+        )
+        if head is not None:
+            ROOT.RDF.Experimental.AddProgressBar(head)
+    except Exception:
+        logger.debug("RDataFrame progress bar not available", exc_info=True)
+
+
 def _capture_logging_config() -> dict[str, Any]:
     """Snapshot the root logger's configuration for replay in workers.
 
@@ -901,6 +928,10 @@ def run_subgraph(
                 events_processed = data_frame.Count()
                 graph_elements.append(rdf_report)
                 graph_elements.append(events_processed)
+
+        # Attach ROOT's RDataFrame progress bar to the head data frame. It
+        # needs to be added before the event loop is triggered below.
+        _enable_rdf_progress_bar(subgraph, artifacts)
 
         # Trigger the RDataFrame event loop and time it
         run_start = monotonic()
