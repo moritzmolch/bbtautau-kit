@@ -8,3 +8,7 @@ defaults:
 graph_specs_file: ${artifacts.graph_specs_file}
 merged_histograms_dir: ${artifacts.merged_histograms_dir}
 output_dir: ${artifacts.control_plots_dir}
+
+# Number of worker processes used for producing the control plots. A value of
+# 1 processes the independent plot tasks sequentially in the current process.
+num_workers: 8

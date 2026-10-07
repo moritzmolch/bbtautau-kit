@@ -28,6 +28,7 @@ def main(cfg: DictConfig):
         Path(cfg["merged_histograms_dir"]),
         Path(cfg["output_dir"]),
         cfg["control_plots"]["extensions"],
+        num_workers=cfg.get("num_workers", 1),
     )
 
 
