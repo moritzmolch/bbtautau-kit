@@ -714,6 +714,53 @@ def _list_leaf_nodes(
     return leaf_nodes
 
 
+def _capture_logging_config() -> dict[str, Any]:
+    """Snapshot the root logger's configuration for replay in workers.
+
+    The configuration is returned as a plain dictionary so that it can be
+    pickled and shipped to the worker processes of the process pool.
+    """
+    root = logging.getLogger()
+    config = {"level": root.getEffectiveLevel(), "handlers": []}
+    for handler in root.handlers:
+        config["handlers"].append(
+            {
+                "level": handler.level,
+                "format": getattr(handler.formatter, "_fmt", None),
+                "file": (
+                    handler.baseFilename
+                    if isinstance(handler, logging.FileHandler)
+                    else None
+                ),
+            }
+        )
+    return config
+
+
+def _init_worker_logging(config: dict[str, Any]) -> None:
+    """Replay the parent's logging configuration in a spawned worker.
+
+    With the `spawn` multiprocessing context, workers start from a fresh
+    interpreter and inherit neither the parent's handlers nor its log level.
+    Without this initializer, records emitted by the parallel subgraph
+    processing would be dropped or printed by the unformatted "handler of last
+    resort".
+    """
+    root = logging.getLogger()
+    root.setLevel(config["level"])
+    for handler_config in config["handlers"]:
+        if handler_config.get("file"):
+            handler: logging.Handler = logging.FileHandler(
+                handler_config["file"]
+            )
+        else:
+            handler = logging.StreamHandler()
+        handler.setLevel(handler_config["level"])
+        if handler_config.get("format"):
+            handler.setFormatter(logging.Formatter(handler_config["format"]))
+        root.addHandler(handler)
+
+
 @contextmanager
 def _process_pool(max_workers: int, mp_context):
     """Context manager around the pool of processes processing the subgraphs.
@@ -727,6 +774,10 @@ def _process_pool(max_workers: int, mp_context):
     pool = ProcessPoolExecutor(
         max_workers=max_workers,
         mp_context=mp_context,
+        # Replay the parent's logging configuration in each spawned worker so
+        # that log records emitted during parallel processing remain visible.
+        initializer=_init_worker_logging,
+        initargs=(_capture_logging_config(),),
     )
     try:
         yield pool
