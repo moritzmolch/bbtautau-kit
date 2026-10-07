@@ -4,10 +4,9 @@ from collections import OrderedDict
 import networkx
 import ROOT
 
+from xyh.core.parallel import _capture_logging_config, _init_worker_logging
 from xyh.core.specs.graph import (
-    _capture_logging_config,
     _enable_rdf_progress_bar,
-    _init_worker_logging,
     _list_leaf_nodes,
     _subgraph_label,
     create_graph_specs,
