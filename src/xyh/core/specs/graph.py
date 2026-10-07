@@ -1,12 +1,13 @@
 import hashlib
 import json
 import logging
+import multiprocessing
 import os
 import resource
 import tempfile
 from collections import OrderedDict
-import multiprocessing
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from functools import cached_property
 from pathlib import Path
@@ -713,6 +714,34 @@ def _list_leaf_nodes(
     return leaf_nodes
 
 
+@contextmanager
+def _process_pool(max_workers: int, mp_context):
+    """Context manager around the pool of processes processing the subgraphs.
+
+    ROOT keeps its worker processes alive during interpreter shutdown (e.g. via
+    its global state or background threads), so the graceful shutdown triggered
+    by `ProcessPoolExecutor.__exit__` can block forever once all subgraphs have
+    been processed. This context manager therefore tears the workers down
+    explicitly when the pool is left, while keeping the idiomatic `with` usage.
+    """
+    pool = ProcessPoolExecutor(
+        max_workers=max_workers,
+        mp_context=mp_context,
+    )
+    try:
+        yield pool
+    finally:
+        # Terminate the worker processes explicitly instead of relying on the
+        # graceful shutdown of the `with` statement (see docstring).
+        pool.shutdown(wait=False, cancel_futures=True)
+        process_values = pool._processes
+        if process_values is not None:
+            for process in process_values.values():
+                process.terminate()
+            for process in process_values.values():
+                process.join()
+
+
 def run_subgraph(
     subgraph: networkx.DiGraph,
     output_dir: Path,
@@ -937,9 +966,9 @@ def run_graph(
             logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
 
     else:
-        with ProcessPoolExecutor(
-            max_workers=num_workers,
-            mp_context=multiprocessing.get_context("spawn"),
+        with _process_pool(
+            num_workers,
+            multiprocessing.get_context("spawn"),
         ) as pool:
             # Distribute subgraphs across workers. The profiling information of
             # each subgraph is collected from the completed future.
