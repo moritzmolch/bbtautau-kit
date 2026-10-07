@@ -714,6 +714,28 @@ def _list_leaf_nodes(
     return leaf_nodes
 
 
+def _subgraph_label(subgraph: networkx.DiGraph) -> str:
+    """Return a human-readable label identifying the subgraph's root node.
+
+    Each independent subgraph is rooted in an `InputFilesNode`, which carries
+    the campaign, channel, and dataset of the associated input. Naming
+    subgraphs by this information is much more useful in log output than the
+    (process-dependent) hash of the subgraph.
+    """
+    roots = [n for n in subgraph.nodes if subgraph.in_degree(n) == 0]
+    if len(roots) != 1:
+        return f"subgraph with {len(roots)} root nodes"
+    spec = subgraph.nodes[roots[0]].get("spec", {})
+    info = ", ".join(
+        f"{key}='{spec[key]}'"
+        for key in ("campaign", "channel", "dataset")
+        if key in spec
+    )
+    if not info:
+        return f"subgraph (root {roots[0][:12]})"
+    return info
+
+
 def _capture_logging_config() -> dict[str, Any]:
     """Snapshot the root logger's configuration for replay in workers.
 
@@ -810,7 +832,7 @@ def run_subgraph(
         _new_subgraph_profile(profiling) if profiling is not None else None
     )
 
-    logger.info(f"Running subgraph {hash(subgraph)}")
+    logger.info(f"Running subgraph {_subgraph_label(subgraph)}")
 
     start = time()
 
@@ -962,7 +984,9 @@ def run_subgraph(
     stop = time()
 
     delta = round(stop - start, 3)
-    logger.info(f"Finished running subgraph {hash(subgraph)} in {delta} s")
+    logger.info(
+        f"Finished running subgraph {_subgraph_label(subgraph)} in {delta} s"
+    )
 
     if profile is None:
         return None
@@ -1014,7 +1038,10 @@ def run_graph(
             subgraph_profile = run_subgraph(subgraph, output_dir, profiling)
             if report is not None and subgraph_profile is not None:
                 report["subgraphs"].append(subgraph_profile)
-            logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
+            logger.info(
+                f"Finished {i + 1} of {n_subgraphs} subgraphs "
+                f"({_subgraph_label(subgraph)})"
+            )
 
     else:
         with _process_pool(
@@ -1031,7 +1058,10 @@ def run_graph(
                 subgraph_profile = future.result()
                 if report is not None and subgraph_profile is not None:
                     report["subgraphs"].append(subgraph_profile)
-                logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
+                label = _subgraph_label(subgraphs[futures[future]])
+                logger.info(
+                    f"Finished {i + 1} of {n_subgraphs} subgraphs ({label})"
+                )
 
     logger.info("Finished processing all graphs")
 
