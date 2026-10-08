@@ -125,6 +125,38 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             "ee": r"Dilepton $p_{\text{T}}$",
             "mm": r"Dilepton $p_{\text{T}}$",
         },
+        "pt_fastmtt": {
+            "et": r"FastMTT $p_{\text{T}}$",
+            "mt": r"FastMTT $p_{\text{T}}$",
+            "tt": r"FastMTT $p_{\text{T}}$",
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "eta_fastmtt": {
+            "et": r"FastMTT $\eta$",
+            "mt": r"FastMTT $\eta$",
+            "tt": r"FastMTT $\eta$",
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "phi_fastmtt": {
+            "et": r"FastMTT $\phi$",
+            "mt": r"FastMTT $\phi$",
+            "tt": r"FastMTT $\phi$",
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "m_fastmtt": {
+            "et": r"FastMTT $m$",
+            "mt": r"FastMTT $m$",
+            "tt": r"FastMTT $m$",
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
         "deltaR_ditaupair": {
             "et": r"$\Delta R(\text{e}, \tau_{\text{h}})$",
             "mt": r"$\Delta R(\mu, \tau_{\text{h}})$",
@@ -249,49 +281,56 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             r"Subleading jet $p_{\text{T}}$",
         ),
         "jpt_regressed_1": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"Leading jet $p_{\text{T}}^{\text{reg}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"Leading jet $p_{\text{T}}^{\text{reg}}$",
         ),
         "jpt_regressed_2": dict.fromkeys(
             ["et", "mt", "tt", "em", "ee", "mm"],
             r"Subleading jet $p_{\text{T}}^{\text{reg}}$",
         ),
         "jpt_raw_1": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"Leading jet $p_{\text{T}}^{\text{raw}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"Leading jet $p_{\text{T}}^{\text{raw}}$",
         ),
         "jpt_raw_2": dict.fromkeys(
             ["et", "mt", "tt", "em", "ee", "mm"],
             r"Subleading jet $p_{\text{T}}^{\text{raw}}$",
         ),
         "jpt_nano_1": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"Leading jet $p_{\text{T}}^{\text{nano}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"Leading jet $p_{\text{T}}^{\text{nano}}$",
         ),
         "jpt_nano_2": dict.fromkeys(
             ["et", "mt", "tt", "em", "ee", "mm"],
             r"Subleading jet $p_{\text{T}}^{\text{nano}}$",
         ),
         "jpt_l1_1": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"Leading jet $p_{\text{T}}^{\text{L1}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"Leading jet $p_{\text{T}}^{\text{L1}}$",
         ),
         "jpt_l1_2": dict.fromkeys(
             ["et", "mt", "tt", "em", "ee", "mm"],
             r"Subleading jet $p_{\text{T}}^{\text{L1}}$",
         ),
         "jpt_l2rel_1": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"Leading jet $p_{\text{T}}^{\text{L2Rel}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"Leading jet $p_{\text{T}}^{\text{L2Rel}}$",
         ),
         "jpt_l2rel_2": dict.fromkeys(
             ["et", "mt", "tt", "em", "ee", "mm"],
             r"Subleading jet $p_{\text{T}}^{\text{L2Rel}}$",
         ),
         "jpt_l2l3res_1": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"Leading jet $p_{\text{T}}^{\text{L2L3Res}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"Leading jet $p_{\text{T}}^{\text{L2L3Res}}$",
         ),
         "jpt_l2l3res_2": dict.fromkeys(
             ["et", "mt", "tt", "em", "ee", "mm"],
             r"Subleading jet $p_{\text{T}}^{\text{L2L3Res}}$",
         ),
         "jpt_regressed_resolution_1": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"Leading jet $p_{\text{T}}^{\text{reg}}$ resolution"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"Leading jet $p_{\text{T}}^{\text{reg}}$ resolution",
         ),
         "jpt_regressed_resolution_2": dict.fromkeys(
             ["et", "mt", "tt", "em", "ee", "mm"],
@@ -370,16 +409,20 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             r"Second b candidate $p_{\text{T}}^{\text{reg}}$",
         ),
         "bpair_eta_regressed_1": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"First b candidate $\eta^{\text{reg}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"First b candidate $\eta^{\text{reg}}$",
         ),
         "bpair_eta_regressed_2": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"Second b candidate $\eta^{\text{reg}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"Second b candidate $\eta^{\text{reg}}$",
         ),
         "bpair_phi_regressed_1": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"First b candidate $\phi^{\text{reg}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"First b candidate $\phi^{\text{reg}}$",
         ),
         "bpair_phi_regressed_2": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"Second b candidate $\phi^{\text{reg}}$"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"Second b candidate $\phi^{\text{reg}}$",
         ),
         "bpair_btag_value_regressed_1": dict.fromkeys(
             ["et", "mt", "tt", "em", "ee", "mm"],
@@ -390,10 +433,12 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             r"Second b candidate tagging score (regressed)",
         ),
         "bpair_m_inv_regressed": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"bb candidate mass (regressed)"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"bb candidate mass (regressed)",
         ),
         "bpair_pt_dijet_regressed": dict.fromkeys(
-            ["et", "mt", "tt", "em", "ee", "mm"], r"bb candidate $p_{\text{T}}$ (regressed)"
+            ["et", "mt", "tt", "em", "ee", "mm"],
+            r"bb candidate $p_{\text{T}}$ (regressed)",
         ),
         "bpair_deltaR_regressed": dict.fromkeys(
             ["et", "mt", "tt", "em", "ee", "mm"],
@@ -419,6 +464,54 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             "et": r"$\tau\tau$ $p_{\text{T}}$ ($\tau\tau$+$\vec{p}_{\text{T}}^{\text{miss}}$)",
             "mt": r"$\tau\tau$ $p_{\text{T}}$ ($\tau\tau$+$\vec{p}_{\text{T}}^{\text{miss}}$)",
             "tt": r"$\tau\tau$ $p_{\text{T}}$ ($\tau\tau$+$\vec{p}_{\text{T}}^{\text{miss}}$)",
+            "em": "",
+            "ee": "",
+            "mm": "",
+        },
+        "kinfit_mX_YToBB": {
+            "et": r"bb$\tau\tau$ mass (kinematic fit)",
+            "mt": r"bb$\tau\tau$ mass (kinematic fit)",
+            "tt": r"bb$\tau\tau$ mass (kinematic fit)",
+            "em": "",
+            "ee": "",
+            "mm": "",
+        },
+        "kinfit_mY_YToBB": {
+            "et": r"bb mass (kinematic fit)",
+            "mt": r"bb mass (kinematic fit)",
+            "tt": r"bb mass (kinematic fit)",
+            "em": "",
+            "ee": "",
+            "mm": "",
+        },
+        "kinfit_chi2_YToBB": {
+            "et": r"$\chi^2$ ($\text{Y} \to \text{bb}$ kinematic fit)",
+            "mt": r"$\chi^2$ ($\text{Y} \to \text{bb}$ kinematic fit)",
+            "tt": r"$\chi^2$ ($\text{Y} \to \text{bb}$ kinematic fit)",
+            "em": "",
+            "ee": "",
+            "mm": "",
+        },
+        "kinfit_mX_YToTauTau": {
+            "et": r"bb$\tau\tau$ mass (kinematic fit)",
+            "mt": r"bb$\tau\tau$ mass (kinematic fit)",
+            "tt": r"bb$\tau\tau$ mass (kinematic fit)",
+            "em": "",
+            "ee": "",
+            "mm": "",
+        },
+        "kinfit_mY_YToTauTau": {
+            "et": r"$\tau\tau$ mass (kinematic fit)",
+            "mt": r"$\tau\tau$ mass (kinematic fit)",
+            "tt": r"$\tau\tau$ mass (kinematic fit)",
+            "em": "",
+            "ee": "",
+            "mm": "",
+        },
+        "kinfit_chi2_YToTauTau": {
+            "et": r"$\chi^2$ ($\text{Y} \to \tau\tau$ kinematic fit)",
+            "mt": r"$\chi^2$ ($\text{Y} \to \tau\tau$ kinematic fit)",
+            "tt": r"$\chi^2$ ($\text{Y} \to \tau\tau$ kinematic fit)",
             "em": "",
             "ee": "",
             "mm": "",
@@ -553,6 +646,38 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             "em": arange(0, 185, 5),
             "ee": arange(0, 185, 5),
             "mm": arange(0, 185, 5),
+        },
+        "m_fastmtt": {
+            "et": arange(0, 205, 5),
+            "mt": arange(0, 205, 5),
+            "tt": arange(0, 210, 10),
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "pt_fastmtt": {
+            "et": arange(0, 185, 5),
+            "mt": arange(0, 185, 5),
+            "tt": arange(0, 190, 10),
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "eta_fastmtt": {
+            "et": binning(-10, 10, 51),
+            "mt": binning(-10, 10, 51),
+            "tt": binning(-10, 10, 26),
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "phi_fastmtt": {
+            "et": binning(-PI, PI, 51),
+            "mt": binning(-PI, PI, 51),
+            "tt": binning(-PI, PI, 26),
+            "em": [],
+            "ee": [],
+            "mm": [],
         },
         "deltaR_ditaupair": {
             "et": arange(0, 6.2, 0.2),
@@ -842,7 +967,7 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             "ee": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
             "mm": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
         },
-        "jtag_value_2": { # Values for 2024/2025
+        "jtag_value_2": {  # Values for 2024/2025
             "et": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
             "mt": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
             "tt": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
@@ -914,7 +1039,7 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             "ee": binning(-PI, PI, 40),
             "mm": binning(-PI, PI, 40),
         },
-        "bpair_btag_value_1": { # Values for 2024/2025
+        "bpair_btag_value_1": {  # Values for 2024/2025
             "et": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
             "mt": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
             "tt": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
@@ -922,7 +1047,7 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             "ee": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
             "mm": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
         },
-        "bpair_btag_value_2": { # Values for 2024/2025
+        "bpair_btag_value_2": {  # Values for 2024/2025
             "et": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
             "mt": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
             "tt": [0.0, 0.0246, 0.1272, 0.4648, 0.6298, 0.9739, 1.0],
@@ -1066,6 +1191,54 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             "ee": [],
             "mm": [],
         },
+        "kinfit_mX_YToBB": {
+            "et": cat([-10], arange(0, 1010, 10)),
+            "mt": cat([-10], arange(0, 1010, 10)),
+            "tt": cat([-10], arange(0, 1010, 20)),
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "kinfit_mY_YToBB": {
+            "et": cat([-10], arange(0, 1010, 10)),
+            "mt": cat([-10], arange(0, 1010, 10)),
+            "tt": cat([-10], arange(0, 1010, 20)),
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "kinfit_chi2_YToBB": {
+            "et": cat([-10], arange(0, 100, 10)),
+            "mt": cat([-10], arange(0, 100, 10)),
+            "tt": cat([-10], arange(0, 100, 20)),
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "kinfit_mX_YToTauTau": {
+            "et": cat([-10], arange(0, 1010, 10)),
+            "mt": cat([-10], arange(0, 1010, 10)),
+            "tt": cat([-10], arange(0, 1010, 20)),
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "kinfit_mY_YToTauTau": {
+            "et": cat([-10], arange(0, 1010, 10)),
+            "mt": cat([-10], arange(0, 1010, 10)),
+            "tt": cat([-10], arange(0, 1010, 20)),
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
+        "kinfit_chi2_YToTauTau": {
+            "et": cat([-10], arange(0, 100, 10)),
+            "mt": cat([-10], arange(0, 100, 10)),
+            "tt": cat([-10], arange(0, 100, 20)),
+            "em": [],
+            "ee": [],
+            "mm": [],
+        },
         "n_jets": {
             c: arange(-0.5, 8.5, 1.0)
             for c in ["et", "mt", "tt", "em", "ee", "mm"]
@@ -1096,6 +1269,10 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
         "tau_decaymode_2": None,
         "m_vis": "GeV",
         "pt_vis": "GeV",
+        "pt_fastmtt": "GeV",
+        "eta_fastmtt": None,
+        "phi_fastmtt": None,
+        "m_fastmtt": "GeV",
         "deltaR_ditaupair": None,
         "met": "GeV",
         "metphi": None,
@@ -1162,6 +1339,12 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
         "pt_tautau": "GeV",
         "n_jets": None,
         "n_bjets": None,
+        "kinfit_mX_YToBB": "GeV",
+        "kinfit_mY_YToBB": "GeV",
+        "kinfit_chi2_YToBB": None,
+        "kinfit_mX_YToTauTau": "GeV",
+        "kinfit_mY_YToTauTau": "GeV",
+        "kinfit_chi2_YToTauTau": None,
         "max_score": None,
     }
 
