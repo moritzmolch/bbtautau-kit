@@ -7,10 +7,6 @@ defaults:
 - inventory: default
 - _self_
 
-# Load base parameters as default
-defaults:
-- base
-
 # Explicitly define input and output files
 graph_specs_file: ${artifacts.graph_specs_file}
 histograms_dir: ${artifacts.histograms_dir}
