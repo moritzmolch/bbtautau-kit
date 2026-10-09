@@ -18,6 +18,7 @@ def main(cfg: DictConfig):
         graph_specs,
         Path(cfg["histograms_dir"]),
         Path(cfg["output_dir"]),
+        num_workers=cfg.get("num_workers", 1),
     )
 
 

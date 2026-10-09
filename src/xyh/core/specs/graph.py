@@ -1,12 +1,12 @@
 import hashlib
 import json
 import logging
+import multiprocessing
 import os
 import resource
 import tempfile
 from collections import OrderedDict
-import multiprocessing
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from dataclasses import asdict, dataclass
 from functools import cached_property
 from pathlib import Path
@@ -17,6 +17,7 @@ import networkx
 import numpy as np
 import ROOT
 
+from ..parallel import _process_pool
 from .specs import Dataset, FiltersAndWeights, Histogram
 
 # Set up logger
@@ -713,6 +714,55 @@ def _list_leaf_nodes(
     return leaf_nodes
 
 
+def _subgraph_label(subgraph: networkx.DiGraph) -> str:
+    """Return a human-readable label identifying the subgraph's root node.
+
+    Each independent subgraph is rooted in an `InputFilesNode`, which carries
+    the campaign, channel, and dataset of the associated input. Naming
+    subgraphs by this information is much more useful in log output than the
+    (process-dependent) hash of the subgraph.
+    """
+    roots = [n for n in subgraph.nodes if subgraph.in_degree(n) == 0]
+    if len(roots) != 1:
+        return f"subgraph with {len(roots)} root nodes"
+    spec = subgraph.nodes[roots[0]].get("spec", {})
+    info = ", ".join(
+        f"{key}='{spec[key]}'"
+        for key in ("campaign", "channel", "dataset")
+        if key in spec
+    )
+    if not info:
+        return f"subgraph (root {roots[0][:12]})"
+    return info
+
+
+def _enable_rdf_progress_bar(
+    subgraph: networkx.DiGraph,
+    artifacts: dict[str, Any],
+) -> None:
+    """Attach ROOT's native RDataFrame progress bar to the subgraph's head.
+
+    The progress bar is marked *Experimental* in ROOT and only accepts the
+    head `RDataFrame` created from the input files, not the chained filter,
+    weight, or action nodes. Any failure is therefore swallowed and only
+    reported at debug level, so that it can never break the processing.
+    """
+    try:
+        head = next(
+            (
+                artifacts[node_hash]["data_frame"]
+                for node_hash in subgraph.nodes
+                if subgraph.in_degree(node_hash) == 0
+                and "data_frame" in artifacts[node_hash]
+            ),
+            None,
+        )
+        if head is not None:
+            ROOT.RDF.Experimental.AddProgressBar(head)
+    except Exception:
+        logger.debug("RDataFrame progress bar not available", exc_info=True)
+
+
 def run_subgraph(
     subgraph: networkx.DiGraph,
     output_dir: Path,
@@ -730,7 +780,7 @@ def run_subgraph(
         _new_subgraph_profile(profiling) if profiling is not None else None
     )
 
-    logger.info(f"Running subgraph {hash(subgraph)}")
+    logger.info(f"Running subgraph {_subgraph_label(subgraph)}")
 
     start = time()
 
@@ -799,6 +849,10 @@ def run_subgraph(
                 events_processed = data_frame.Count()
                 graph_elements.append(rdf_report)
                 graph_elements.append(events_processed)
+
+        # Attach ROOT's RDataFrame progress bar to the head data frame. It
+        # needs to be added before the event loop is triggered below.
+        _enable_rdf_progress_bar(subgraph, artifacts)
 
         # Trigger the RDataFrame event loop and time it
         run_start = monotonic()
@@ -882,7 +936,9 @@ def run_subgraph(
     stop = time()
 
     delta = round(stop - start, 3)
-    logger.info(f"Finished running subgraph {hash(subgraph)} in {delta} s")
+    logger.info(
+        f"Finished running subgraph {_subgraph_label(subgraph)} in {delta} s"
+    )
 
     if profile is None:
         return None
@@ -934,12 +990,15 @@ def run_graph(
             subgraph_profile = run_subgraph(subgraph, output_dir, profiling)
             if report is not None and subgraph_profile is not None:
                 report["subgraphs"].append(subgraph_profile)
-            logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
+            logger.info(
+                f"Finished {i + 1} of {n_subgraphs} subgraphs "
+                f"({_subgraph_label(subgraph)})"
+            )
 
     else:
-        with ProcessPoolExecutor(
-            max_workers=num_workers,
-            mp_context=multiprocessing.get_context("spawn"),
+        with _process_pool(
+            num_workers,
+            multiprocessing.get_context("spawn"),
         ) as pool:
             # Distribute subgraphs across workers. The profiling information of
             # each subgraph is collected from the completed future.
@@ -951,7 +1010,10 @@ def run_graph(
                 subgraph_profile = future.result()
                 if report is not None and subgraph_profile is not None:
                     report["subgraphs"].append(subgraph_profile)
-                logger.info(f"Finished {i} of {n_subgraphs} subgraphs")
+                label = _subgraph_label(subgraphs[futures[future]])
+                logger.info(
+                    f"Finished {i + 1} of {n_subgraphs} subgraphs ({label})"
+                )
 
     logger.info("Finished processing all graphs")
 
