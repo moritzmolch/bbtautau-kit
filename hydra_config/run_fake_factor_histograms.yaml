@@ -1,4 +1,11 @@
-# Parameters specific to the `create_histogram_specs` CLI entry point.
+# Load base parameters as default
+defaults:
+- base/global
+- base/artifacts@artifacts
+- base/ntuples@ntuples
+- base/tags@tags
+- inventory: default
+- _self_
 
 # Load base parameters as default
 defaults:

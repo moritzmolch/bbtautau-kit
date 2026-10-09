@@ -1,0 +1,7 @@
+# NTuple location and friends to include
+xrootd_server: "root://cmsdcache-kit-disk.gridka.de:1094"
+base_dir: "/store/user/mmolch/CROWN/ntuples"
+friends: []
+# - name: "fake-factors-2026-10-03" # "fake-factors-2026-06-10", "pnn-2026-07-10"
+#   channels: ["et", "mt", "tt"]
+#   exclude_datasets: ["^xyh_.*$"]
