@@ -1,4 +1,4 @@
-"""Tasks covering the shape production chain (phase 1: one task per stage).
+"""Tasks covering the shape production chain (one task per stage).
 
 Run with, e.g.::
 
@@ -8,40 +8,17 @@ Run with, e.g.::
 import law
 import luigi
 
-from xyh.workflow.base import DirStageTask, FileStageTask
-
-
-class CreateDatasetSpecs(FileStageTask):
-    stage = "create_dataset_specs"
-
-
-class CreateFiltersAndWeightsSpecs(FileStageTask):
-    stage = "create_filters_and_weights_specs"
-
-
-class CreateHistogramSpecs(FileStageTask):
-    stage = "create_histogram_specs"
-
-
-class CreateGraphSpecs(FileStageTask):
-    stage = "create_graph_specs"
-
-    def requires(self):
-        kwargs = {"overrides": self.overrides}
-        return {
-            "datasets": CreateDatasetSpecs.req(self, **kwargs),
-            "filters_and_weights": CreateFiltersAndWeightsSpecs.req(
-                self, **kwargs
-            ),
-            "histograms": CreateHistogramSpecs.req(self, **kwargs),
-        }
+from xyh.workflow.base import DirStageTask
 
 
 class RunGraphs(DirStageTask):
-    stage = "run_graphs"
+    """Create all specs and process the graphs.
 
-    def requires(self):
-        return CreateGraphSpecs.req(self)
+    The dataset, histogram, filter/weight and graph specs are created inside
+    this stage and dumped to ``artifacts.*_specs_file``.
+    """
+
+    stage = "run_graphs"
 
 
 class RunFakeFactorHistograms(DirStageTask):

@@ -69,17 +69,6 @@ class HydraTask(law.Task):
         run_stage(self.stage, [*self.override_list, *extra_overrides])
 
 
-class FileStageTask(HydraTask):
-    """A stage whose single output is the file named by ``output_file``."""
-
-    def output(self):
-        return self.path_target("output_file")
-
-    def run(self):
-        self.output().parent.touch()
-        self.run_stage()
-
-
 class DirStageTask(HydraTask):
     """A stage writing many files; completion is tracked by a marker file."""
 
