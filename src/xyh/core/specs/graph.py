@@ -766,8 +766,12 @@ def _enable_rdf_progress_bar(
 def run_subgraph(
     subgraph: networkx.DiGraph,
     output_dir: Path,
+    num_threads: int,
     profiling: dict[str, bool] | None = None,
 ) -> dict[str, Any] | None:
+    # Set number of ROOT threads for parallel processing
+    ROOT.EnableImplicitMT(num_threads)
+
     # Store for all artifacts of actions on graph nodes. The key corresponds
     # to the node hash and the value to an output dictionary.
     artifacts = {}
@@ -954,6 +958,7 @@ def run_graph(
     graph_specs,
     output_dir,
     num_workers,
+    num_threads,
     profiling: dict[str, bool] | None = None,
 ) -> dict[str, Any] | None:
     # Turn graph specs into a networkx graph object
@@ -987,7 +992,9 @@ def run_graph(
         # If number of workers is 1, set up primitive single-threaded
         # processing logic
         for i, subgraph in enumerate(subgraphs):
-            subgraph_profile = run_subgraph(subgraph, output_dir, profiling)
+            subgraph_profile = run_subgraph(
+                subgraph, output_dir, num_threads, profiling
+            )
             if report is not None and subgraph_profile is not None:
                 report["subgraphs"].append(subgraph_profile)
             logger.info(
@@ -1003,7 +1010,9 @@ def run_graph(
             # Distribute subgraphs across workers. The profiling information of
             # each subgraph is collected from the completed future.
             futures = {
-                pool.submit(run_subgraph, subgraph, output_dir, profiling): i
+                pool.submit(
+                    run_subgraph, subgraph, output_dir, num_threads, profiling
+                ): i
                 for i, subgraph in enumerate(subgraphs)
             }
             for i, future in enumerate(as_completed(futures)):

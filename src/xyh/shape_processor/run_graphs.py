@@ -6,7 +6,6 @@ from dataclasses import asdict
 from pathlib import Path
 from time import time
 
-import ROOT
 from omegaconf import DictConfig
 
 from xyh.core.cli import hydra_cli
@@ -141,11 +140,6 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
     )
     dump_json(graph_specs, Path(cfg["graph_specs_file"]))
 
-    # Set number of threads in ROOT parallel processing
-    num_threads = cfg["graph_processing"]["num_threads"]
-    if num_threads > 1:
-        ROOT.EnableImplicitMT(num_threads)
-
     # Set output dir based on mode
     output_dir = None
     if cfg["graph_processing"]["mode"] == "histogram":
@@ -162,6 +156,7 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         graph_specs,
         Path(output_dir),
         cfg["graph_processing"]["num_workers"],
+        cfg["graph_processing"]["num_threads"],
         profiling_options,
     )
 
