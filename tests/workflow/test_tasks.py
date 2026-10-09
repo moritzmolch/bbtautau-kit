@@ -8,6 +8,7 @@ from xyh.workflow.tasks import (
     MergeHistograms,
     PlotShapes,
     RunGraphs,
+    RunGraphsSnapshots,
     Shapes,
 )
 
@@ -70,3 +71,39 @@ def test_shapes_wrapper_requires_plot_shapes():
     req = Shapes(overrides=OVERRIDES, fake_factors=True).requires()
     assert isinstance(req, PlotShapes)
     assert req.fake_factors is True
+
+
+def test_snapshot_task_forces_snapshot_mode():
+    task = RunGraphsSnapshots(overrides=OVERRIDES)
+    assert task.override_list == [
+        *OVERRIDES.split(),
+        "graph_processing.mode=snapshot",
+    ]
+    assert task.cfg.graph_processing.mode == "snapshot"
+
+
+def test_snapshot_task_overrides_user_mode():
+    task = RunGraphsSnapshots(
+        overrides=f"{OVERRIDES} graph_processing.mode=histogram"
+    )
+    assert task.override_list.count("graph_processing.mode=snapshot") == 1
+    assert not any(o.endswith("=histogram") for o in task.override_list)
+
+
+def test_snapshot_task_has_separate_marker_and_runs_run_graphs():
+    task = RunGraphsSnapshots(overrides=OVERRIDES)
+    assert task.output().path.endswith("/.workflow/run_graphs_snapshots.done")
+    assert task.output().path != RunGraphs(overrides=OVERRIDES).output().path
+    with (
+        patch("xyh.workflow.base.run_stage") as run,
+        patch.object(type(task.output()), "dump"),
+    ):
+        task.run()
+    stage, overrides = run.call_args.args
+    assert stage == "run_graphs"
+    assert overrides[-1] == "graph_processing.mode=snapshot"
+
+
+def test_snapshot_task_does_not_change_histogram_task():
+    task = RunGraphs(overrides=OVERRIDES)
+    assert task.override_list == OVERRIDES.split()

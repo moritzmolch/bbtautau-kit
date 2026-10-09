@@ -21,6 +21,18 @@ class RunGraphs(DirStageTask):
     stage = "run_graphs"
 
 
+class RunGraphsSnapshots(RunGraphs):
+    """Produce snapshots instead of histograms.
+
+    Runs the same stage as `RunGraphs` with ``graph_processing.mode=snapshot``,
+    so the output goes to ``artifacts.snapshots_dir``. It is independent of
+    `RunGraphs`, and the downstream histogram tasks do not require it.
+    """
+
+    forced_overrides = {"graph_processing.mode": "snapshot"}
+    marker_name = "run_graphs_snapshots"
+
+
 class RunFakeFactorHistograms(DirStageTask):
     stage = "run_fake_factor_histograms"
 

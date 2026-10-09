@@ -8,7 +8,7 @@ composes to derive its outputs.
 import shlex
 from functools import cached_property
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import law
 import luigi
@@ -36,9 +36,23 @@ class HydraTask(law.Task):
     # `overrides` determines the composed config and therefore all outputs
     task_namespace = "xyh"
 
+    # Overrides forced by the task, e.g. `graph_processing.mode=snapshot`.
+    # They take precedence over user overrides of the same key.
+    forced_overrides: ClassVar[dict[str, str]] = {}
+
+    # Name of the completion marker, defaults to the stage name
+    marker_name: ClassVar[str | None] = None
+
     @property
     def override_list(self) -> list[str]:
-        return shlex.split(self.overrides)
+        """User overrides followed by the overrides forced by the task."""
+        forced = self.forced_overrides
+        user = [
+            o
+            for o in shlex.split(self.overrides)
+            if o.split("=", 1)[0] not in forced
+        ]
+        return [*user, *(f"{k}={v}" for k, v in forced.items())]
 
     @cached_property
     def cfg(self) -> DictConfig:
@@ -61,7 +75,10 @@ class HydraTask(law.Task):
         specs_dir = Path(self.cfg_value("artifacts.graph_specs_file")).parent
         return law.LocalFileTarget(
             str(
-                ROOT_DIR / specs_dir.parent / ".workflow" / f"{self.stage}.done"
+                ROOT_DIR
+                / specs_dir.parent
+                / ".workflow"
+                / f"{self.marker_name or self.stage}.done"
             )
         )
 
