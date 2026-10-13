@@ -31,7 +31,7 @@ variables:
 - "phi_2"
 - "mass_2[et,mt,tt]"
 - "iso_2"
-- "tau_decaymode_2[tt]"
+- "tau_decaymode_2[et,mt,tt]"
 - "m_vis"
 - "pt_vis"
 - "deltaR_ditaupair"

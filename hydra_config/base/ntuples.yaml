@@ -8,4 +8,8 @@ friends:
 - name: "kinfit-2026-10-09"
   channels: ["et", "mt", "tt"]
 - name: "fastmtt-2026-10-09"
+  campaigns: ["2024_nano_v15"]
+  channels: ["et", "mt", "tt"]
+- name: "fastmtt-2026-10-12"
+  campaigns: ["2025_nano_v15"]
   channels: ["et", "mt", "tt"]
