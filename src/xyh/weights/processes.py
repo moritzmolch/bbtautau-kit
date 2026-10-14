@@ -49,12 +49,12 @@ def tt_normalization(self) -> OrderedDict[str, str]:
 
     # tt normalization factors per era
     normalization_factor = {
-        "2022_pre_ee_nano_v12": 1.0,  # 0.91,
-        "2022_post_ee_nano_v12": 1.0,  # 0.89,
-        "2023_pre_bpix_nano_v12": 1.0,  # 0.85,
-        "2023_post_bpix_nano_v12": 1.0,  # 0.83,
-        "2024_nano_v15": 1.0,  # 0.90,
-        "2025_nano_v15": 1.0,  # 0.88,
+        "2022_pre_ee_nano_v12": 1.0,
+        "2022_post_ee_nano_v12": 1.0,
+        "2023_pre_bpix_nano_v12": 1.0,
+        "2023_post_bpix_nano_v12": 1.0,
+        "2024_nano_v15": 0.95,
+        "2025_nano_v15": 0.93,
     }[self.campaign_inst.name]
 
     # Do not apply a correction factor in the em channel, as this channel is
@@ -66,6 +66,41 @@ def tt_normalization(self) -> OrderedDict[str, str]:
         [
             (
                 "tt_normalization_weight",
+                f"{normalization_factor}",
+            ),
+        ],
+    )
+
+
+@Wrapper.wrap
+def z_normalization(self) -> OrderedDict[str, str]:
+    """
+    Weight to scale $\\text{Z}(\\ell\\ell)$ normalization to value that
+    has been observed in an $\\mu\\mu$ control region.
+    """
+
+    if not self.process_inst.has_tag("z"):
+        return OrderedDict([])
+
+    # tt normalization factors per era
+    normalization_factor = {
+        "2022_pre_ee_nano_v12": 1.0,
+        "2022_post_ee_nano_v12": 1.0,
+        "2023_pre_bpix_nano_v12": 1.0,
+        "2023_post_bpix_nano_v12": 1.0,
+        "2024_nano_v15": 1.0,  # 1.15,
+        "2025_nano_v15": 1.0,  # 0.95,
+    }[self.campaign_inst.name]
+
+    # Do not apply a correction factor in the mm channel, as this channel is
+    # used to derive the correction factor
+    if self.channel_inst.name == "mm":
+        return OrderedDict([])
+
+    return OrderedDict(
+        [
+            (
+                "z_normalization_weight",
                 f"{normalization_factor}",
             ),
         ],

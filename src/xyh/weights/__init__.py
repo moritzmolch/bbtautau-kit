@@ -7,7 +7,12 @@ from xyh.core.wrapper import Wrapper
 from .event import normalization, pileup_weights
 from .jets import b_jet_weights
 from .leptons import electron_weights, hadronic_tau_weights, muon_weights
-from .processes import top_pt_reweighting, tt_normalization, z_pt_reweighting
+from .processes import (
+    top_pt_reweighting,
+    tt_normalization,
+    z_normalization,
+    z_pt_reweighting,
+)
 from .triggers import trigger_weights
 
 
@@ -32,7 +37,8 @@ def default_weights(self) -> OrderedDict[str, str]:
             # self.get_instance("z_pt_reweighting").nominal().items(),
             # Normalization weights
             self.get_instance("normalization").nominal().items(),
-            # self.get_instance("tt_normalization").nominal().items(),
+            self.get_instance("tt_normalization").nominal().items(),
+            self.get_instance("z_normalization").nominal().items(),
         )
     )
 
