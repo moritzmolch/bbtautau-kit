@@ -122,6 +122,7 @@ def derive_z_pt_weights(
     normalizations = {}
     normalization_errors = {}
     pt_corrections = {}
+    raw_ratios = {}
     for category in categories:
         # Normalization from the yield histograms
         data, z, others = _read_processes(
@@ -160,6 +161,7 @@ def derive_z_pt_weights(
         else:
             # Smooth the raw ratios, in which no bins are dropped
             ratio, weights = compute_pt_ratio(data, z, others, norm)
+            raw_ratios[category] = ratio
             pt_corr = smooth_gaussian(
                 ratio, smoothing_sigma, smoothing_grid_step, weights
             )
@@ -183,6 +185,7 @@ def derive_z_pt_weights(
         normalizations,
         pt_corrections,
         normalization_errors,
+        raw_pt_ratios=raw_ratios or None,
         description=(
             f"Z normalization and pt corrections for {campaign}, derived in "
             f"the {channel} channel"

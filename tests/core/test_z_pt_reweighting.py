@@ -211,6 +211,19 @@ def test_correction_set_normalization_unc():
             {"mm_eq2j": 1.2}, pts, {"mm_eq2j": 0.03}
         ).model_dump_json(exclude_unset=True)
     )
-    assert cset["z_normalization_stat_unc"].evaluate(2) == pytest.approx(
-        0.03
+    assert cset["z_normalization_stat_unc"].evaluate(2) == pytest.approx(0.03)
+
+
+def test_correction_set_unsmoothed_ratios():
+    smooth = {"mm_eq2j": Binned(EDGES, [1.0, 1.1, 1.2], [0.0] * 3)}
+    raw = {"mm_eq2j": Binned(EDGES, [0.8, 1.3, 1.1], [0.04, 0.09, 0.16])}
+    cset = correctionlib.CorrectionSet.from_string(
+        build_correction_set(
+            {"mm_eq2j": 1.0}, smooth, raw_pt_ratios=raw
+        ).model_dump_json(exclude_unset=True)
     )
+    assert cset["z_pt_ratio_unsmoothed"].evaluate(2, 15.0) == pytest.approx(1.3)
+    assert cset["z_pt_ratio_unsmoothed_stat_unc"].evaluate(
+        2, 25.0
+    ) == pytest.approx(0.4)
+    assert cset["z_pt_correction"].evaluate(2, 15.0) == pytest.approx(1.1)

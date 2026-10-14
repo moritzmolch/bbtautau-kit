@@ -40,6 +40,25 @@ def _evaluate(evaluator, name, n_jets, centers) -> np.ndarray:
     return np.array([evaluator[name].evaluate(n_jets, pt) for pt in centers])
 
 
+def _load_raw(evaluator, cset, n_jets: int) -> dict | None:
+    """The binwise ratios before smoothing, if stored in the file."""
+    raw = next(c for c in cset.corrections if c.name == "z_pt_ratio_unsmoothed")
+    leaf = _leaf_binnings(raw.data).get(n_jets)
+    if leaf is None:
+        return None
+    edges = np.array(leaf.edges, dtype=float)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    return {
+        "centers": centers,
+        "values": _evaluate(
+            evaluator, "z_pt_ratio_unsmoothed", n_jets, centers
+        ),
+        "errors": _evaluate(
+            evaluator, "z_pt_ratio_unsmoothed_stat_unc", n_jets, centers
+        ),
+    }
+
+
 def load(path: Path) -> dict:
     """Evaluate normalization and pt correction for all jet multiplicity bins.
 
@@ -55,6 +74,7 @@ def load(path: Path) -> dict:
     has_unc = any(
         c.name == "z_pt_correction_stat_unc" for c in cset.corrections
     )
+    has_raw = any(c.name == "z_pt_ratio_unsmoothed" for c in cset.corrections)
     result = {}
     for n_jets, leaf in _leaf_binnings(pt_corr.data).items():
         edges = np.array(leaf.edges, dtype=float)
@@ -75,6 +95,7 @@ def load(path: Path) -> dict:
             )
             if has_unc
             else None,
+            "raw": _load_raw(evaluator, cset, n_jets) if has_raw else None,
         }
     return result
 
@@ -107,6 +128,7 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for n_jets in all_bins:
         fig, ax = plt.subplots()
+        colors = {}
         for name, d in data.items():
             if n_jets not in d:
                 continue
@@ -127,6 +149,7 @@ def main():
                     color=step.get_edgecolor(),
                     linewidth=0,
                 )
+            colors[name] = step.get_edgecolor()
         # Make sure the uncertainty bands are fully visible
         lo, hi = ax.get_ylim()
         for d in data.values():
@@ -137,6 +160,21 @@ def main():
                 hi = max(hi, (h["values"] + h["errors"]).max() + margin)
         if not args.log_y:
             ax.set_ylim(lo, hi)
+        # Unsmoothed ratios do not enter the axis range, outliers are clipped
+        for name, d in data.items():
+            raw = d.get(n_jets, {}).get("raw")
+            if raw is not None:
+                ax.errorbar(
+                    raw["centers"],
+                    raw["values"],
+                    yerr=raw["errors"],
+                    fmt=".",
+                    markersize=3,
+                    linewidth=0.8,
+                    alpha=0.5,
+                    color=colors[name],
+                    label=f"{name} (unsmoothed)",
+                )
         ax.axhline(1.0, color="gray", linestyle="--", linewidth=1)
         ax.set_xlabel(r"$p_{T}$ [GeV]")
         ax.set_ylabel("Z $p_{T}$ correction")

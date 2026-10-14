@@ -322,15 +322,31 @@ def _jet_binning(leaves: dict[int, object]) -> schemav2.Binning:
     )
 
 
+def _pt_binning(edges, content) -> schemav2.Binning:
+    return schemav2.Binning(
+        nodetype="binning",
+        input="genboson_pt",
+        edges=[float(e) for e in edges],
+        content=[float(v) for v in content],
+        flow="clamp",
+    )
+
+
 def build_correction_set(
     normalizations: dict[str, float],
     pt_corrections: dict[str, Binned],
     normalization_errors: dict[str, float] | None = None,
     description: str = "",
+    raw_pt_ratios: dict[str, Binned] | None = None,
 ) -> schemav2.CorrectionSet:
     """
     Build the correctionlib set with the corrections `z_normalization`
-    (input `n_jets`) and `z_pt_correction` (inputs `n_jets`, `genboson_pt`). All dictionaries are keyed by category names.
+    (input `n_jets`) and `z_pt_correction` (inputs `n_jets`, `genboson_pt`).
+    All dictionaries are keyed by category names.
+
+    If given, the binwise ratios before smoothing are stored for reference
+    (e.g. for control plots) as `z_pt_ratio_unsmoothed` and
+    `z_pt_ratio_unsmoothed_stat_unc`. They are not meant to be applied.
 
     The statistical uncertainties are stored as `z_pt_correction_stat_unc`
     (uncorrelated between pt bins, normalization uncertainty not included) and,
@@ -365,6 +381,13 @@ def build_correction_set(
             content=[float(v) for v in np.sqrt(hist.variances)],
             flow="clamp",
         )
+
+    raw_leaves = {}
+    raw_error_leaves = {}
+    for category, hist in (raw_pt_ratios or {}).items():
+        key = parse_multiplicities(category)
+        raw_leaves[key] = _pt_binning(hist.edges, hist.values)
+        raw_error_leaves[key] = _pt_binning(hist.edges, np.sqrt(hist.variances))
 
     int_inputs = [
         schemav2.Variable(
@@ -432,6 +455,32 @@ def build_correction_set(
                 inputs=pt_inputs,
                 output=output,
                 data=_jet_binning(pt_error_leaves),
+            ),
+            *(
+                [
+                    schemav2.Correction(
+                        name=name,
+                        description=description,
+                        version=1,
+                        inputs=pt_inputs,
+                        output=output,
+                        data=_jet_binning(leaves),
+                    )
+                    for name, description, leaves in (
+                        (
+                            "z_pt_ratio_unsmoothed",
+                            "Binwise ratio before smoothing, for reference",
+                            raw_leaves,
+                        ),
+                        (
+                            "z_pt_ratio_unsmoothed_stat_unc",
+                            "Statistical uncertainty of the unsmoothed ratio",
+                            raw_error_leaves,
+                        ),
+                    )
+                ]
+                if raw_pt_ratios
+                else []
             ),
         ],
     )
