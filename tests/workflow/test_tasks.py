@@ -1,10 +1,12 @@
 """Tests for the workflow tasks (stage execution is mocked)."""
 
+import shlex
 from pathlib import Path
 from unittest.mock import patch
 
 from xyh import ROOT_DIR
 from xyh.workflow.tasks import (
+    DeriveZPtWeights,
     MergeHistograms,
     PlotShapes,
     RunGraphs,
@@ -107,3 +109,59 @@ def test_snapshot_task_has_separate_marker_and_runs_run_graphs():
 def test_snapshot_task_does_not_change_histogram_task():
     task = RunGraphs(overrides=OVERRIDES)
     assert task.override_list == OVERRIDES.split()
+
+
+Z_OVERRIDES = f"{OVERRIDES} z_pt_weights.tag=wf-derive"
+
+
+def test_no_z_corrections_by_default():
+    task = RunGraphs(overrides=OVERRIDES)
+    assert not task.applies_z_corrections
+    assert task.requires() == []
+    assert not any("z_pt_weights" in o for o in task.override_list)
+
+
+def test_same_tag_does_not_apply_z_corrections():
+    task = RunGraphs(overrides=f"{OVERRIDES} z_pt_weights.tag=wf-test")
+    assert not task.applies_z_corrections
+    assert task.requires() == []
+
+
+def test_production_requires_derivation_and_applies_corrections():
+    task = RunGraphs(overrides=Z_OVERRIDES)
+    derive = task.requires()
+    assert isinstance(derive, DeriveZPtWeights)
+    expected_dir = ROOT_DIR / "data/output/wf-derive/z_pt_weights"
+    assert f"z_pt_weights.input_dir={expected_dir}" in task.override_list
+    # The corrections are applied in all stages of the production
+    merge = MergeHistograms(overrides=Z_OVERRIDES)
+    assert f"z_pt_weights.input_dir={expected_dir}" in merge.override_list
+
+
+def test_derivation_runs_in_the_uncorrected_derivation_production():
+    derive = DeriveZPtWeights(overrides=Z_OVERRIDES)
+    overrides = derive.override_list
+    assert "tags.shapes_tag=wf-derive" in overrides
+    assert "tags.shapes_tag=wf-test" not in overrides
+    assert "inventory=control_regions_z_pt" in overrides
+    assert not any(o.startswith("z_pt_weights.input_dir") for o in overrides)
+    assert derive.output().path == str(
+        ROOT_DIR / "data/output/wf-derive/.workflow/derive_z_pt_weights.done"
+    )
+    merge = derive.requires()
+    assert isinstance(merge, MergeHistograms)
+    assert "tags.shapes_tag=wf-derive" in shlex.split(merge.overrides)
+    # The derivation production is not corrected itself
+    assert merge.requires().requires() == []
+    assert not merge.requires().applies_z_corrections
+
+
+def test_configured_derivation_overrides_replace_user_overrides():
+    derive = DeriveZPtWeights(overrides=f"{Z_OVERRIDES} inventory=default")
+    assert derive.override_list.count("inventory=control_regions_z_pt") == 1
+    assert "inventory=default" not in derive.override_list
+
+
+def test_derivation_without_tag_uses_the_production_tag():
+    derive = DeriveZPtWeights(overrides=OVERRIDES)
+    assert "tags.shapes_tag=wf-test" in derive.override_list
