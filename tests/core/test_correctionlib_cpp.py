@@ -60,3 +60,26 @@ def test_rdataframe_matches_python_evaluation(correction_file):
 
 def test_ensure_declared_ignores_unrelated_expressions():
     ensure_declared("pt_1 > 20")
+
+
+def test_file_is_loaded_only_once(correction_file):
+    n_events = 100_000
+    data_frame = ROOT.RDF.FromNumpy(
+        {
+            "n_jets": np.full(n_events, 2, dtype=np.int32),
+            "n_bjets": np.full(n_events, 1, dtype=np.int32),
+            "pt": np.linspace(0.0, 40.0, n_events),
+        }
+    )
+    path = str(correction_file)
+    expressions = {
+        "norm": f'xyh_z_normalization("{path}", n_jets, n_bjets)',
+        "pt_corr": f'xyh_z_pt_correction("{path}", n_jets, n_bjets, pt)',
+    }
+    for name, expression in expressions.items():
+        ensure_declared(expression)
+        data_frame = data_frame.Define(name, expression)
+    before = ROOT.xyh_n_correction_sets_loaded()
+    data_frame.AsNumpy(["norm", "pt_corr"])
+    # Both corrections share the single loaded file
+    assert ROOT.xyh_n_correction_sets_loaded() - before == 1
