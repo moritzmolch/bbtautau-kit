@@ -771,7 +771,20 @@ def run_subgraph(
 ) -> dict[str, Any] | None:
     # Set number of ROOT threads for parallel processing
     ROOT.EnableImplicitMT(num_threads)
+    try:
+        return _run_subgraph(subgraph, output_dir, num_threads, profiling)
+    finally:
+        # Shut down ROOT's implicit multithreading pool, since lingering
+        # threads can block the interpreter from exiting
+        ROOT.DisableImplicitMT()
 
+
+def _run_subgraph(
+    subgraph: networkx.DiGraph,
+    output_dir: Path,
+    num_threads: int,
+    profiling: dict[str, bool] | None = None,
+) -> dict[str, Any] | None:
     # Store for all artifacts of actions on graph nodes. The key corresponds
     # to the node hash and the value to an output dictionary.
     artifacts = {}
