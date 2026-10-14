@@ -63,6 +63,15 @@ class PlotShapes(DirStageTask):
         return MergeHistograms.req(self, fake_factors=self.fake_factors)
 
 
+class DeriveZPtWeights(DirStageTask):
+    """Derive Z normalization and pt corrections from the merged histograms."""
+
+    stage = "derive_z_pt_weights"
+
+    def requires(self):
+        return MergeHistograms.req(self)
+
+
 class Shapes(law.WrapperTask):
     """Full shape production, replacing ``bin/shapes_ff`` and ``bin/shapes_no_ff``."""
 
