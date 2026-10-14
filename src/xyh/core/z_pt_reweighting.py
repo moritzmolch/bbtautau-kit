@@ -79,6 +79,15 @@ class Binned:
             self.variances.reshape(-1, factor).sum(axis=1),
         )
 
+    def merge(self, starts: list[int]) -> "Binned":
+        """Merge bins into groups beginning at the given bin indices."""
+        idx = np.asarray(starts, dtype=int)
+        return Binned(
+            np.append(self.edges[idx], self.edges[-1]),
+            np.add.reduceat(self.values, idx),
+            np.add.reduceat(self.variances, idx),
+        )
+
     @property
     def integral(self) -> tuple[float, float]:
         return float(self.values.sum()), float(np.sqrt(self.variances.sum()))
@@ -93,6 +102,44 @@ def sum_binned(hists: list[Binned]) -> Binned:
             total.edges, total.values + h.values, total.variances + h.variances
         )
     return total
+
+
+def find_merge_groups(
+    data: Binned,
+    z: Binned,
+    others: list[Binned],
+    max_rel_error: float,
+) -> list[int]:
+    """
+    Group adjacent bins from low to high such that the statistical uncertainty
+    of the data-over-Z ratio is below `max_rel_error` in every group. Returns
+    the start indices of the groups. A remainder that does not reach the
+    threshold is merged into the last group. The uncertainty of the
+    normalization is common to all bins and therefore not considered.
+    """
+    subtracted = data - sum_binned(others) if others else data
+    n_bins = len(data.values)
+    starts = [0]
+    sum_data = sum_var_data = sum_z = sum_var_z = 0.0
+    open_group = True
+    for i in range(n_bins):
+        sum_data += subtracted.values[i]
+        sum_var_data += subtracted.variances[i]
+        sum_z += z.values[i]
+        sum_var_z += z.variances[i]
+        if sum_data > 0 and sum_z > 0:
+            rel_var = sum_var_data / sum_data**2 + sum_var_z / sum_z**2
+            if rel_var < max_rel_error**2:
+                starts.append(i + 1)
+                open_group = False
+                sum_data = sum_var_data = sum_z = sum_var_z = 0.0
+                continue
+        open_group = True
+    # The last start is either past the end or begins an incomplete group,
+    # which is merged into the previous one
+    if len(starts) > 1 and (open_group or starts[-1] >= n_bins):
+        starts.pop()
+    return starts
 
 
 def compute_normalization(

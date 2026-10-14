@@ -35,6 +35,11 @@ pt_variable: pt_vis
 # Merge adjacent pt bins before deriving the correction
 rebin: 1
 
+# Merge adjacent pt bins (from low to high pt) until the statistical
+# uncertainty of the ratio in each bin is below this value. Set to null to
+# disable. Applied after the fixed rebinning.
+max_rel_error: 0.05
+
 # Optional limits on the pt correction factors
 min_value: null
 max_value: null

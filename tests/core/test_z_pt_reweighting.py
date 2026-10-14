@@ -9,6 +9,7 @@ from xyh.core.z_pt_reweighting import (
     build_correction_set,
     compute_normalization,
     compute_pt_correction,
+    find_merge_groups,
     parse_multiplicities,
 )
 
@@ -106,3 +107,28 @@ def test_correction_set_evaluation():
     assert pt.evaluate(5, 4, 25.0) == pytest.approx(4.3)
     # Overflow in pt is clamped to the last bin
     assert pt.evaluate(2, 1, 500.0) == pytest.approx(0.3)
+
+
+def test_find_merge_groups():
+    edges = np.arange(7.0)
+    data = Binned(
+        edges,
+        [10000, 10000, 100, 100, 100, 100],
+        [10000, 10000, 100, 100, 100, 100],
+    )
+    z = Binned(edges, [10000, 10000, 100, 100, 100, 100], [0.0] * 6)
+    starts = find_merge_groups(data, z, [], 0.05)
+    # First two bins are precise; the small ones are merged until < 5 %
+    assert starts[:3] == [0, 1, 2]
+    merged = data.merge(starts)
+    assert merged.edges[0] == 0 and merged.edges[-1] == 6
+    assert merged.values.sum() == data.values.sum()
+    rel = np.sqrt(merged.variances) / merged.values
+    assert (rel[:-1] < 0.05).all()
+
+
+def test_find_merge_groups_remainder_joins_last_group():
+    edges = np.arange(4.0)
+    data = Binned(edges, [10000, 10000, 1], [10000, 10000, 1])
+    z = Binned(edges, [1, 1, 1], [0.0] * 3)
+    assert find_merge_groups(data, z, [], 0.05) == [0, 1]

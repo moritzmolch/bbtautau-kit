@@ -13,6 +13,7 @@ from xyh.core.z_pt_reweighting import (
     build_correction_set,
     compute_normalization,
     compute_pt_correction,
+    find_merge_groups,
     sum_binned,
 )
 
@@ -91,6 +92,7 @@ def derive_z_pt_weights(
     yield_variable: str = "yield",
     pt_variable: str = "pt_vis",
     rebin: int = 1,
+    max_rel_error: float | None = None,
     min_value: float | None = None,
     max_value: float | None = None,
 ):
@@ -124,6 +126,11 @@ def derive_z_pt_weights(
         if rebin > 1:
             data, z = data.rebin(rebin), z.rebin(rebin)
             others = [h.rebin(rebin) for h in others]
+        if max_rel_error is not None:
+            starts = find_merge_groups(data, z, others, max_rel_error)
+            data, z = data.merge(starts), z.merge(starts)
+            others = [h.merge(starts) for h in others]
+        logger.info("%s, %s: %d pt bins", campaign, category, len(data.values))
         pt_corr = compute_pt_correction(
             data,
             z,
@@ -173,6 +180,7 @@ def main(cfg: DictConfig):
             yield_variable=cfg["yield_variable"],
             pt_variable=cfg["pt_variable"],
             rebin=cfg["rebin"],
+            max_rel_error=cfg.get("max_rel_error"),
             min_value=cfg.get("min_value"),
             max_value=cfg.get("max_value"),
         )
