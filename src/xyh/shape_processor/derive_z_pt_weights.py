@@ -1,3 +1,15 @@
+"""
+Derive data-driven Z normalization and pt corrections.
+
+Reads the merged histograms of a shapes tag (`yield` and `pt_vis`), subtracts
+all non-Z processes from data and writes one correctionlib file per campaign
+to `output_dir`. See `xyh.core.z_pt_reweighting` for the method. The weights
+are applied in a new production by setting `XYH_Z_PT_WEIGHTS_DIR`, see
+`xyh.weights.processes`.
+
+The corrections must be derived from a production without Z corrections.
+"""
+
 import logging
 from pathlib import Path
 

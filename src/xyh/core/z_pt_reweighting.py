@@ -58,13 +58,11 @@ class Binned:
         ):
             raise ValueError("Histograms have different binning")
 
-    def scale(self, factor: float, factor_error: float = 0.0) -> "Binned":
-        """Scale by a factor with uncertainty (uncorrelated with the bins)."""
-        values = self.values * factor
-        variances = (
-            self.variances * factor**2 + (self.values * factor_error) ** 2
+    def scale(self, factor: float) -> "Binned":
+        """Scale the contents by a constant factor without uncertainty."""
+        return Binned(
+            self.edges, self.values * factor, self.variances * factor**2
         )
-        return Binned(self.edges, values, variances)
 
     def rebin(self, factor: int) -> "Binned":
         """Merge `factor` adjacent bins."""
@@ -87,10 +85,6 @@ class Binned:
             np.add.reduceat(self.values, idx),
             np.add.reduceat(self.variances, idx),
         )
-
-    @property
-    def integral(self) -> tuple[float, float]:
-        return float(self.values.sum()), float(np.sqrt(self.variances.sum()))
 
 
 def sum_binned(hists: list[Binned]) -> Binned:
