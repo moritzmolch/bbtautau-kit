@@ -5,7 +5,7 @@ The corrections are derived from control region histograms by subtracting all
 non-Z backgrounds from data and comparing the result to the Z prediction:
 
 1. The *normalization* is the ratio of the background-subtracted data yield to
-   the Z yield, derived per jet / b-jet category.
+   the Z yield, derived per jet multiplicity category.
 2. The *pt correction* is the binwise ratio of the background-subtracted data
    to the (normalized) Z prediction in a pt distribution. The Z prediction is
    scaled with the normalization first, so that the two weights factorize.
@@ -19,11 +19,10 @@ from dataclasses import dataclass
 import numpy as np
 from correctionlib import schemav2
 
-# Upper edge used for the open-ended jet and b-jet multiplicity bins
+# Upper edge used for the open-ended jet multiplicity bin
 MULTIPLICITY_UPPER_EDGE = 100.0
 
 _N_JETS_PATTERN = re.compile(r"_(?:eq|geq)(\d+)j(?:_|$)")
-_N_BJETS_PATTERN = re.compile(r"_(?:eq|geq)(\d+)b(?:_|$)")
 
 
 @dataclass
@@ -289,18 +288,15 @@ def smooth_gaussian(
     return Binned(edges, smoothed, variance)
 
 
-def parse_multiplicities(category: str) -> tuple[int, int]:
+def parse_multiplicities(category: str) -> int:
     """
-    Extract the lower edges of the jet and b-jet multiplicity bins from a
-    category name such as `mm_geq4j_eq2b`.
+    Extract the lower edge of the jet multiplicity bin from a category name
+    such as `mm_geq4j`.
     """
     m_jets = _N_JETS_PATTERN.search(category)
-    m_bjets = _N_BJETS_PATTERN.search(category)
-    if m_jets is None or m_bjets is None:
-        raise ValueError(
-            f"Cannot determine jet and b-jet multiplicity of '{category}'"
-        )
-    return int(m_jets.group(1)), int(m_bjets.group(1))
+    if m_jets is None:
+        raise ValueError(f"Cannot determine jet multiplicity of '{category}'")
+    return int(m_jets.group(1))
 
 
 def _multiplicity_binning(
@@ -315,21 +311,15 @@ def _multiplicity_binning(
     )
 
 
-def _nested_binning(leaves: dict[tuple[int, int], object]) -> schemav2.Binning:
+def _jet_binning(leaves: dict[int, object]) -> schemav2.Binning:
     """
-    Nested binning in `n_jets` and `n_bjets` with the given leaves, keyed by the
-    lower edges of the jet and b-jet bins. Out-of-range values are clamped.
+    Binning in `n_jets` with the given leaves, keyed by the lower edges of
+    the jet bins. Out-of-range values are clamped.
     """
-    jet_edges = sorted({j for j, _ in leaves})
-    content = []
-    for j in jet_edges:
-        bjet_edges = sorted(b for jj, b in leaves if jj == j)
-        content.append(
-            _multiplicity_binning(
-                "n_bjets", bjet_edges, [leaves[(j, b)] for b in bjet_edges]
-            )
-        )
-    return _multiplicity_binning("n_jets", jet_edges, content)
+    jet_edges = sorted(leaves)
+    return _multiplicity_binning(
+        "n_jets", jet_edges, [leaves[j] for j in jet_edges]
+    )
 
 
 def build_correction_set(
@@ -340,8 +330,7 @@ def build_correction_set(
 ) -> schemav2.CorrectionSet:
     """
     Build the correctionlib set with the corrections `z_normalization`
-    (inputs `n_jets`, `n_bjets`) and `z_pt_correction` (inputs `n_jets`,
-    `n_bjets`, `genboson_pt`). All dictionaries are keyed by category names.
+    (input `n_jets`) and `z_pt_correction` (inputs `n_jets`, `genboson_pt`). All dictionaries are keyed by category names.
 
     The statistical uncertainties are stored as `z_pt_correction_stat_unc`
     (uncorrelated between pt bins, normalization uncertainty not included) and,
@@ -381,9 +370,6 @@ def build_correction_set(
         schemav2.Variable(
             name="n_jets", type="int", description="Number of jets"
         ),
-        schemav2.Variable(
-            name="n_bjets", type="int", description="Number of b-tagged jets"
-        ),
     ]
     pt_inputs = [
         *int_inputs,
@@ -404,7 +390,7 @@ def build_correction_set(
                 version=1,
                 inputs=int_inputs,
                 output=output,
-                data=_nested_binning(norm_leaves),
+                data=_jet_binning(norm_leaves),
             ),
             *(
                 [
@@ -416,7 +402,7 @@ def build_correction_set(
                         version=1,
                         inputs=int_inputs,
                         output=output,
-                        data=_nested_binning(norm_error_leaves),
+                        data=_jet_binning(norm_error_leaves),
                     )
                 ]
                 if normalization_errors is not None
@@ -432,7 +418,7 @@ def build_correction_set(
                 version=1,
                 inputs=pt_inputs,
                 output=output,
-                data=_nested_binning(pt_leaves),
+                data=_jet_binning(pt_leaves),
             ),
             schemav2.Correction(
                 name="z_pt_correction_stat_unc",
@@ -445,7 +431,7 @@ def build_correction_set(
                 version=1,
                 inputs=pt_inputs,
                 output=output,
-                data=_nested_binning(pt_error_leaves),
+                data=_jet_binning(pt_error_leaves),
             ),
         ],
     )

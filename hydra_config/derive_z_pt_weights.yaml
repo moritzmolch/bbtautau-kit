@@ -17,16 +17,11 @@ campaigns: ${inventory.campaigns}
 # The weights are derived exclusively in this channel
 channel: mm
 
-# Categories with exclusive jet and b-jet multiplicities
+# Categories with exclusive jet multiplicities, inclusive in b jets
 categories:
-- mm_eq2j_eq1b
-- mm_eq2j_eq2b
-- mm_eq3j_eq1b
-- mm_eq3j_eq2b
-- mm_eq3j_geq3b
-- mm_geq4j_eq1b
-- mm_geq4j_eq2b
-- mm_geq4j_geq3b
+- mm_eq2j
+- mm_eq3j
+- mm_geq4j
 
 # Histograms used for the normalization and for the pt correction
 yield_variable: yield

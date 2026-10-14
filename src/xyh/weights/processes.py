@@ -27,9 +27,9 @@ def _z_corrections_file(campaign: str) -> str | None:
 def z_pt_reweighting(self) -> OrderedDict[str, str]:
     """
     Apply the data-driven Z boson $p_{\\text{T}}$ correction as function of the
-    number of jets, the number of b jets and the generator-level boson
-    $p_{\\text{T}}$. The correction is derived with
-    `bin/derive_z_pt_weights` on a production without Z corrections.
+    number of jets and the generator-level boson $p_{\\text{T}}$. The
+    correction is derived with `bin/derive_z_pt_weights` on a production
+    without Z corrections.
 
     The correction is only applied if the directory with the correctionlib
     files is set in the environment variable `XYH_Z_PT_WEIGHTS_DIR`.
@@ -46,8 +46,7 @@ def z_pt_reweighting(self) -> OrderedDict[str, str]:
         [
             (
                 "z_pt_weight",
-                f'xyh_z_pt_correction("{file}", n_jets, n_bjets, '
-                "gen_boson_p4.Pt())",
+                f'xyh_z_pt_correction("{file}", n_jets, gen_boson_p4.Pt())',
             ),
         ],
     )
@@ -110,7 +109,7 @@ def z_normalization(self) -> OrderedDict[str, str]:
     """
     Weight to scale the $\\text{Z}(\\ell\\ell)$ normalization to the value
     that has been observed in the $\\mu\\mu$ control region, as function of
-    the number of jets and b jets. It must be applied together with the
+    the number of jets. It must be applied together with the
     $p_{\\text{T}}$ correction of `z_pt_reweighting`.
 
     The weight is only applied if the directory with the correctionlib files
@@ -128,7 +127,7 @@ def z_normalization(self) -> OrderedDict[str, str]:
         [
             (
                 "z_normalization_weight",
-                f'xyh_z_normalization("{file}", n_jets, n_bjets)',
+                f'xyh_z_normalization("{file}", n_jets)',
             ),
         ],
     )

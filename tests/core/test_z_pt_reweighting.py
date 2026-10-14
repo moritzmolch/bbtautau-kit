@@ -70,20 +70,14 @@ def test_rebin():
 
 
 def test_parse_multiplicities():
-    assert parse_multiplicities("mm_eq2j_eq1b") == (2, 1)
-    assert parse_multiplicities("mm_geq4j_geq3b") == (4, 3)
+    assert parse_multiplicities("mm_eq2j") == 2
+    assert parse_multiplicities("mm_geq4j") == 4
     with pytest.raises(ValueError):
-        parse_multiplicities("mm_eq2j")
+        parse_multiplicities("mm_base")
 
 
 def test_correction_set_evaluation():
-    categories = [
-        "mm_eq2j_eq1b",
-        "mm_eq2j_eq2b",
-        "mm_eq3j_eq1b",
-        "mm_geq4j_eq1b",
-        "mm_geq4j_geq3b",
-    ]
+    categories = ["mm_eq2j", "mm_eq3j", "mm_geq4j"]
     norms = {c: 1.0 + 0.1 * i for i, c in enumerate(categories)}
     pts = {
         c: Binned(EDGES, [i + 0.1, i + 0.2, i + 0.3], [0, 0, 0])
@@ -95,20 +89,18 @@ def test_correction_set_evaluation():
     norm = cset["z_normalization"]
     pt = cset["z_pt_correction"]
 
-    assert norm.evaluate(2, 1) == pytest.approx(1.0)
-    assert norm.evaluate(2, 2) == pytest.approx(1.1)
-    assert norm.evaluate(3, 1) == pytest.approx(1.2)
+    assert norm.evaluate(2) == pytest.approx(1.0)
+    assert norm.evaluate(3) == pytest.approx(1.1)
+    assert norm.evaluate(4) == pytest.approx(1.2)
     # Out-of-range multiplicities are clamped to the nearest bin
-    assert norm.evaluate(7, 1) == pytest.approx(1.3)
-    assert norm.evaluate(7, 5) == pytest.approx(1.4)
-    assert norm.evaluate(2, 3) == pytest.approx(1.1)
-    assert norm.evaluate(3, 0) == pytest.approx(1.2)
+    assert norm.evaluate(7) == pytest.approx(1.2)
+    assert norm.evaluate(0) == pytest.approx(1.0)
 
-    assert pt.evaluate(2, 1, 5.0) == pytest.approx(0.1)
-    assert pt.evaluate(2, 2, 15.0) == pytest.approx(1.2)
-    assert pt.evaluate(5, 4, 25.0) == pytest.approx(4.3)
+    assert pt.evaluate(2, 5.0) == pytest.approx(0.1)
+    assert pt.evaluate(3, 15.0) == pytest.approx(1.2)
+    assert pt.evaluate(5, 25.0) == pytest.approx(2.3)
     # Overflow in pt is clamped to the last bin
-    assert pt.evaluate(2, 1, 500.0) == pytest.approx(0.3)
+    assert pt.evaluate(2, 500.0) == pytest.approx(0.3)
 
 
 def test_find_merge_groups():
@@ -137,15 +129,15 @@ def test_find_merge_groups_remainder_joins_last_group():
 
 
 def test_correction_set_stat_unc():
-    pts = {"mm_eq2j_eq1b": Binned(EDGES, [1.0, 2.0, 3.0], [0.04, 0.09, 0.16])}
+    pts = {"mm_eq2j": Binned(EDGES, [1.0, 2.0, 3.0], [0.04, 0.09, 0.16])}
     cset = correctionlib.CorrectionSet.from_string(
-        build_correction_set({"mm_eq2j_eq1b": 1.0}, pts).model_dump_json(
+        build_correction_set({"mm_eq2j": 1.0}, pts).model_dump_json(
             exclude_unset=True
         )
     )
     unc = cset["z_pt_correction_stat_unc"]
-    assert unc.evaluate(2, 1, 5.0) == pytest.approx(0.2)
-    assert unc.evaluate(2, 1, 25.0) == pytest.approx(0.4)
+    assert unc.evaluate(2, 5.0) == pytest.approx(0.2)
+    assert unc.evaluate(2, 25.0) == pytest.approx(0.4)
 
 
 def test_smooth_gaussian_constant_and_noise():
@@ -213,12 +205,12 @@ def test_smoothing_with_expected_weights_is_unbiased():
 
 
 def test_correction_set_normalization_unc():
-    pts = {"mm_eq2j_eq1b": Binned(EDGES, [1.0, 2.0, 3.0], [0.0] * 3)}
+    pts = {"mm_eq2j": Binned(EDGES, [1.0, 2.0, 3.0], [0.0] * 3)}
     cset = correctionlib.CorrectionSet.from_string(
         build_correction_set(
-            {"mm_eq2j_eq1b": 1.2}, pts, {"mm_eq2j_eq1b": 0.03}
+            {"mm_eq2j": 1.2}, pts, {"mm_eq2j": 0.03}
         ).model_dump_json(exclude_unset=True)
     )
-    assert cset["z_normalization_stat_unc"].evaluate(2, 1) == pytest.approx(
+    assert cset["z_normalization_stat_unc"].evaluate(2) == pytest.approx(
         0.03
     )
