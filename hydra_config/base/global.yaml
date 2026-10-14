@@ -12,3 +12,7 @@ hydra:
     env_set:
       XYH_SAMPLE_DATABASE: "/work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database"
       XYH_PROFILE: "BKG_ONLY"
+      # Directory with the correctionlib files of the Z corrections. The
+      # corrections are only applied if set, e.g. with
+      # hydra.job.env_set.XYH_Z_PT_WEIGHTS_DIR=data/output/<tag>/z_pt_weights
+      XYH_Z_PT_WEIGHTS_DIR: ""
