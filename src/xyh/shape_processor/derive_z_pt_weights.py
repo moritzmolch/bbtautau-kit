@@ -11,11 +11,13 @@ The corrections must be derived from a production without Z corrections.
 """
 
 import logging
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import ROOT
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from xyh.core.cli import hydra_cli
 from xyh.core.config import load_inventory
@@ -95,6 +97,32 @@ def _read_processes(
     return sum_binned(data), sum_binned(z), others
 
 
+@dataclass
+class DerivationSettings:
+    """Settings of the derivation in one category, see the Hydra config."""
+
+    rebin: int = 1
+    max_rel_error: float | None = None
+    smoothing_sigma: float | None = None
+    smoothing_grid_step: float = 1.0
+    min_value: float | None = None
+    max_value: float | None = None
+
+
+def resolve_settings(
+    derivation_settings: Mapping[str, Mapping], category: str
+) -> DerivationSettings:
+    """
+    Settings of the category: the keys of `default` overridden by the keys of
+    the entry named like the category, if there is one.
+    """
+    merged = {
+        **derivation_settings.get("default", {}),
+        **derivation_settings.get(category, {}),
+    }
+    return DerivationSettings(**merged)
+
+
 def derive_z_pt_weights(
     inventory_factory_fn_path: str,
     inventory_factory_kwargs: dict,
@@ -103,14 +131,9 @@ def derive_z_pt_weights(
     categories: list[str],
     merged_histograms_dir: Path,
     output_file: Path,
+    derivation_settings: Mapping[str, Mapping],
     yield_variable: str = "yield",
     pt_variable: str = "pt_vis",
-    rebin: int = 1,
-    max_rel_error: float | None = None,
-    smoothing_sigma: float | None = None,
-    smoothing_grid_step: float = 1.0,
-    min_value: float | None = None,
-    max_value: float | None = None,
 ):
     inventory = load_inventory(
         inventory_factory_fn_path,
@@ -124,6 +147,7 @@ def derive_z_pt_weights(
     pt_corrections = {}
     raw_ratios = {}
     for category in categories:
+        settings = resolve_settings(derivation_settings, category)
         # Normalization from the yield histograms
         data, z, others = _read_processes(
             merged_histograms_dir, inventory, category, yield_variable
@@ -141,32 +165,40 @@ def derive_z_pt_weights(
         data, z, others = _read_processes(
             merged_histograms_dir, inventory, category, pt_variable
         )
-        if rebin > 1:
-            data, z = data.rebin(rebin), z.rebin(rebin)
-            others = [h.rebin(rebin) for h in others]
+        if settings.rebin > 1:
+            data, z = data.rebin(settings.rebin), z.rebin(settings.rebin)
+            others = [h.rebin(settings.rebin) for h in others]
         # Smoothing needs the fine binning, so it replaces the merging
-        if max_rel_error is not None and smoothing_sigma is None:
-            starts = find_merge_groups(data, z, others, max_rel_error)
+        if (
+            settings.max_rel_error is not None
+            and settings.smoothing_sigma is None
+        ):
+            starts = find_merge_groups(data, z, others, settings.max_rel_error)
             data, z = data.merge(starts), z.merge(starts)
             others = [h.merge(starts) for h in others]
-        if smoothing_sigma is None:
+        if settings.smoothing_sigma is None:
             pt_corr = compute_pt_correction(
                 data,
                 z,
                 others,
                 norm,
-                min_value=min_value,
-                max_value=max_value,
+                min_value=settings.min_value,
+                max_value=settings.max_value,
             )
         else:
             # Smooth the raw ratios, in which no bins are dropped
             ratio, weights = compute_pt_ratio(data, z, others, norm)
             raw_ratios[category] = ratio
             pt_corr = smooth_gaussian(
-                ratio, smoothing_sigma, smoothing_grid_step, weights
+                ratio,
+                settings.smoothing_sigma,
+                settings.smoothing_grid_step,
+                weights,
             )
-            if min_value is not None or max_value is not None:
-                pt_corr.values = np.clip(pt_corr.values, min_value, max_value)
+            if settings.min_value is not None or settings.max_value is not None:
+                pt_corr.values = np.clip(
+                    pt_corr.values, settings.min_value, settings.max_value
+                )
         logger.info(
             "%s, %s: %d pt bins", campaign, category, len(pt_corr.values)
         )
@@ -210,14 +242,9 @@ def main(cfg: DictConfig):
             list(cfg["categories"]),
             Path(cfg["merged_histograms_dir"]),
             Path(cfg["output_dir"]) / f"{campaign}.json",
+            OmegaConf.to_container(cfg["derivation_settings"], resolve=True),
             yield_variable=cfg["yield_variable"],
             pt_variable=cfg["pt_variable"],
-            rebin=cfg["rebin"],
-            max_rel_error=cfg.get("max_rel_error"),
-            smoothing_sigma=cfg.get("smoothing_sigma"),
-            smoothing_grid_step=cfg.get("smoothing_grid_step", 1.0),
-            min_value=cfg.get("min_value"),
-            max_value=cfg.get("max_value"),
         )
 
 

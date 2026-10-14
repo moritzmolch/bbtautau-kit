@@ -7,6 +7,9 @@ defaults:
 - inventory: control_regions_z_pt
 - _self_
 
+tags:
+  shapes_tag: "shapes-2026-10-14-for-zpt-reweighting"
+
 # Input (merged histograms of the shapes tag) and output directory
 merged_histograms_dir: ${artifacts.merged_histograms_dir}
 output_dir: ${artifacts.z_pt_weights_dir}
@@ -17,31 +20,62 @@ campaigns: ${inventory.campaigns}
 # The weights are derived exclusively in this channel
 channel: mm
 
-# Categories with exclusive jet multiplicities, inclusive in b jets
+# Categories to derive the corrections in, with exclusive jet multiplicities
+# and inclusive in b jets. One entry of the correction per category
 categories:
+- mm_eq0j
+- mm_eq1j
 - mm_eq2j
 - mm_eq3j
 - mm_geq4j
 
-# Histograms used for the normalization and for the pt correction
+# Histograms used for the normalization (yield) and for the pt correction
 yield_variable: yield
 pt_variable: pt_vis
 
-# Merge adjacent pt bins before deriving the correction
-rebin: 1
-
-# Merge adjacent pt bins (from low to high pt) until the statistical
-# uncertainty of the ratio in each bin is below this value. Set to null to
-# disable. Applied after the fixed rebinning.
-max_rel_error: 0.05
-
-# Smooth the pt correction with a Gaussian kernel (width in GeV) to obtain a
-# continuous approximation, evaluated on a grid with the given step. The
-# kernel average weights the bins by their inverse variance. If enabled, the
-# merging above is skipped and the fine binning is smoothed instead.
-smoothing_sigma: null
-smoothing_grid_step: 1.0
-
-# Optional limits on the pt correction factors
-min_value: null
-max_value: null
+# Settings of the pt correction. The keys of `default` apply to all
+# categories. A category can override any of them with an entry named like the
+# category, listing only the keys that differ. Keys:
+#   rebin:               Merge this many adjacent pt bins of the histogram
+#                        before deriving the correction (1 = no merging).
+#   max_rel_error:       Merge adjacent pt bins (from low to high pt) until the
+#                        statistical uncertainty of the ratio in each bin is
+#                        below this value. null disables the merging. Ignored
+#                        if smoothing is enabled, which needs the fine binning.
+#   smoothing_sigma:     Width in GeV of the Gaussian kernel that smooths the
+#                        binwise ratios into a continuous approximation. The
+#                        bins are weighted by their expected inverse variance.
+#                        null disables the smoothing. If enabled, the ratios
+#                        before smoothing are stored too, for the control plots.
+#   smoothing_grid_step: Step in GeV of the grid on which the smoothed
+#                        correction is evaluated and stored.
+#   min_value/max_value: Limits on the correction factors, null for no limit.
+derivation_settings:
+  default:
+    rebin: 1
+    max_rel_error: 0.025
+    smoothing_sigma: 1.0
+    smoothing_grid_step: 1.0
+    min_value: null
+    max_value: 100
+  mm_eq2j:
+    rebin: 2
+    max_rel_error: 0.025
+    smoothing_sigma: 2.0
+    smoothing_grid_step: 2.0
+    min_value: null
+    max_value: 100
+  mm_eq3j:
+    rebin: 4
+    max_rel_error: 0.025
+    smoothing_sigma: 4.0
+    smoothing_grid_step: 4.0
+    min_value: null
+    max_value: 100
+  mm_geq4j:
+    rebin: 8
+    max_rel_error: 0.025
+    smoothing_sigma: 8.0
+    smoothing_grid_step: 8.0
+    min_value: null
+    max_value: 100
