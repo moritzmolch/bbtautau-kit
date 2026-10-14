@@ -1,0 +1,14 @@
+# @package _global_
+
+# Logging
+log_level: INFO
+
+# Hydra-specific config
+hydra:
+  run:
+    dir: "data/hydra/${now:%Y-%m-%d}/${now:%H-%M-%S}"
+  job:
+    chdir: false
+    env_set:
+      XYH_SAMPLE_DATABASE: "/work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database"
+      XYH_PROFILE: "BKG_ONLY"

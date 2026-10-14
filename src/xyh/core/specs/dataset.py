@@ -78,21 +78,33 @@ def create_dataset_spec(
             # Check if the friend is a dict with a name and channels
             if isinstance(friend, (dict, DictConfig)):
                 friend_name = friend.get("name")
-                friend_channels = friend.get("channels", [])
+                friend_campaigns = friend.get("campaigns", None)
+                friend_channels = friend.get("channels", None)
                 friend_exclude_datasets = friend.get("exclude_datasets", [])
-                if channel_inst.name not in friend_channels:
+                skip_friend = False
+                if (
+                    friend_channels is not None
+                    and channel_inst.name not in friend_channels
+                ):
                     logger.debug(
                         f"Skipping friend {friend_name} for channel {channel_inst.name}"
                     )
-                    continue
-                skip_friend = False
+                    skip_friend = True
+                if (
+                    friend_campaigns is not None
+                    and campaign_inst.name not in friend_campaigns
+                ):
+                    logger.debug(
+                        f"Skipping friend {friend_name} for campaign {campaign_inst.name}"
+                    )
+                    skip_friend = True
                 for exclude_dataset in friend_exclude_datasets:
                     if re.match(exclude_dataset, dataset_inst.name):
                         logger.debug(
                             f"Skipping friend {friend_name} for dataset {dataset_inst.name}"
                         )
                         skip_friend = True
-                        continue
+                        break
                 if skip_friend:
                     continue
                 friend = friend_name

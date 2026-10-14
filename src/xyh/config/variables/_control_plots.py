@@ -644,8 +644,8 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
             "mt": arange(0, 185, 5),
             "tt": arange(0, 190, 10),
             "em": arange(0, 185, 5),
-            "ee": arange(0, 185, 5),
-            "mm": arange(0, 185, 5),
+            "ee": arange(0, 302, 2),
+            "mm": arange(0, 302, 2),
         },
         "m_fastmtt": {
             "et": arange(0, 205, 5),
