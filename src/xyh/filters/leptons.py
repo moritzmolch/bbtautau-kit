@@ -144,17 +144,15 @@ def hadronic_taus(self) -> OrderedDict[str, str]:
     id_vs_e_wp = self.channel_inst.x.tau["id_vs_e_wp"]
     id_vs_mu_wp = self.channel_inst.x.tau["id_vs_mu_wp"]
 
-    # Set the tau pt and eta selection criteria depending on the channel
-    min_pt, max_abs_eta = 0, 0
+    # Set the tau eta selection criteria depending on the channel
+    max_abs_eta = 2.5
     if self.channel_inst.name in ["et", "mt"]:
-        min_pt, max_abs_eta = 20, 2.5
+        max_abs_eta = 2.5
     elif self.channel_inst.name == "tt":
-        min_pt, max_abs_eta = 40, 2.1
+        max_abs_eta = 2.3
 
     # Construct pt and eta selection string templates with index as parameter
-    tau_pt_eta_tpl = (
-        f"( (pt_{{index}} > {min_pt}) && (abs(eta_{{index}}) < {max_abs_eta}) )"
-    )
+    tau_eta_tpl = f"(abs(eta_{{index}}) < {max_abs_eta})"
 
     # Construct ID selection string templates with index as parameter
     id_vs_jet_tpl = f"(id_tau_vsJet_{id_vs_jet_wp}_{{index}} > 0.5)"
@@ -181,8 +179,7 @@ def hadronic_taus(self) -> OrderedDict[str, str]:
     }
     if self.channel_inst.name in indices:
         selections["tau_pt_eta"] = " && ".join(
-            tau_pt_eta_tpl.format(index=i)
-            for i in indices[self.channel_inst.name]
+            tau_eta_tpl.format(index=i) for i in indices[self.channel_inst.name]
         )
         selections["tau_dm"] = " && ".join(
             tau_dm_tpl.format(index=i) for i in indices[self.channel_inst.name]
