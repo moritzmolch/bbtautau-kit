@@ -9,6 +9,7 @@ from xyh.core.z_pt_reweighting import (
     build_correction_set,
     compute_normalization,
     compute_pt_correction,
+    compute_pt_ratio,
     find_merge_groups,
     parse_multiplicities,
     smooth_gaussian,
@@ -43,7 +44,7 @@ def test_pt_correction_matches_data():
     z = _hist([200, 200, 200])
     others = [_hist([10, 20, 30])]
     norm, err = compute_normalization(data, z, others)
-    corr = compute_pt_correction(data, z, others, norm, err)
+    corr = compute_pt_correction(data, z, others, norm)
     prediction = z.values * norm * corr.values + np.sum(
         [h.values for h in others], axis=0
     )
@@ -179,3 +180,45 @@ def test_smooth_gaussian_ignores_invalid_bins():
         np.r_[0.01, np.zeros(99)],
     )
     assert smooth_gaussian(only, 1.0).values[-1] == pytest.approx(2.0)
+
+
+def test_pt_ratio_keeps_nonpositive_bins_and_weights():
+    data = _hist([0, 100, 100])
+    z = Binned(EDGES, [100.0, 100.0, 0.0], [0.0, 0.0, 0.0])
+    ratio, weights = compute_pt_ratio(data, z, [])
+    assert ratio.values.tolist() == [0.0, 1.0, 1.0]
+    # Expected-variance weights: 1 / ((z + 0) / z**2) = z; zero without Z
+    assert weights.tolist() == pytest.approx([100.0, 100.0, 0.0])
+    # Statistical uncertainty of the bin contents only
+    assert ratio.variances[1] == pytest.approx(100 / 100**2)
+
+
+def test_pt_correction_excludes_normalization_uncertainty():
+    data = _hist([100, 100, 100])
+    z = Binned(EDGES, [100.0] * 3, [0.0] * 3)
+    corr = compute_pt_correction(data, z, [])
+    assert corr.variances == pytest.approx(100 / 100**2)
+
+
+def test_smoothing_with_expected_weights_is_unbiased():
+    rng = np.random.default_rng(3)
+    edges = np.arange(0.0, 201.0, 2.0)
+    z = Binned(edges, np.full(100, 50.0), np.zeros(100))
+    biases = []
+    for _ in range(200):
+        d = rng.poisson(50.0, size=100).astype(float)
+        ratio, w = compute_pt_ratio(Binned(edges, d, d.copy()), z, [], 1.0)
+        biases.append(smooth_gaussian(ratio, 10.0, 2.0, w).values.mean() - 1)
+    assert abs(np.mean(biases)) < 3 * np.std(biases) / np.sqrt(200)
+
+
+def test_correction_set_normalization_unc():
+    pts = {"mm_eq2j_eq1b": Binned(EDGES, [1.0, 2.0, 3.0], [0.0] * 3)}
+    cset = correctionlib.CorrectionSet.from_string(
+        build_correction_set(
+            {"mm_eq2j_eq1b": 1.2}, pts, {"mm_eq2j_eq1b": 0.03}
+        ).model_dump_json(exclude_unset=True)
+    )
+    assert cset["z_normalization_stat_unc"].evaluate(2, 1) == pytest.approx(
+        0.03
+    )

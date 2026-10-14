@@ -168,7 +168,6 @@ def compute_pt_correction(
     z: Binned,
     others: list[Binned],
     normalization: float = 1.0,
-    normalization_error: float = 0.0,
     min_value: float | None = None,
     max_value: float | None = None,
 ) -> Binned:
@@ -176,72 +175,123 @@ def compute_pt_correction(
     Binwise correction factors for Z such that the (normalized) Z prediction
     matches the background-subtracted data. Bins without a positive Z
     prediction or with a non-positive subtracted data content get a factor
-    of 1. The result holds the factors as values and their variances.
-    """
-    subtracted = data
-    if others:
-        subtracted = data - sum_binned(others)
-    z_norm = z.scale(normalization, normalization_error)
+    of 1. The result holds the factors and their variances.
 
-    ok = (z_norm.values > 0) & (subtracted.values > 0)
+    The variances contain only the statistical uncertainties of the bin
+    contents, which are uncorrelated between the bins. The uncertainty of the
+    normalization is common to all bins and anti-correlated to the factors
+    (the product of both is fixed by the data in each bin), so it is treated
+    separately, see `compute_normalization`.
+    """
+    ratio, _ = compute_pt_ratio(data, z, others, normalization)
+    subtracted = data - sum_binned(others) if others else data
+    ok = (z.values > 0) & (subtracted.values > 0) & (normalization > 0)
+    values = np.where(ok, ratio.values, 1.0)
+    variances = np.where(ok, ratio.variances, 0.0)
+    if min_value is not None or max_value is not None:
+        values = np.clip(values, min_value, max_value)
+    return Binned(z.edges, values, variances)
+
+
+def compute_pt_ratio(
+    data: Binned,
+    z: Binned,
+    others: list[Binned],
+    normalization: float = 1.0,
+) -> tuple[Binned, np.ndarray]:
+    """
+    Unbiased input for the smoothing of the pt correction.
+
+    Returns the raw binwise ratio of background-subtracted data to the
+    normalized Z prediction, including bins with a zero or negative content,
+    which must not be dropped in order not to bias the average. Bins without a
+    positive Z prediction get a ratio of 1 and a vanishing weight. The
+    variances are the observed statistical variances of the ratios.
+
+    The second return value are the weights for the averaging: the inverse of
+    the variance expected for a ratio of 1. Using the expectation instead of
+    the observed variance avoids the bias that arises when bins with
+    downward fluctuations get a larger weight.
+    """
+    subtracted = data - sum_binned(others) if others else data
+    z_norm = z.scale(normalization)
+    ok = z_norm.values > 0
     safe_z = np.where(ok, z_norm.values, 1.0)
-    ratio = np.where(ok, subtracted.values / safe_z, 1.0)
-    variance = np.where(
+    background = (
+        sum_binned(others)
+        if others
+        else Binned(z.edges, 0 * z.values, 0 * z.values)
+    )
+
+    values = np.where(ok, subtracted.values / safe_z, 1.0)
+    variances = np.where(
         ok,
         subtracted.variances / safe_z**2
         + z_norm.variances * subtracted.values**2 / safe_z**4,
         0.0,
     )
-    if min_value is not None or max_value is not None:
-        ratio = np.clip(ratio, min_value, max_value)
-    return Binned(z.edges, ratio, variance)
+    expected_variance = (
+        safe_z + background.values + background.variances + z_norm.variances
+    ) / safe_z**2
+    weights = np.where(ok, 1.0 / expected_variance, 0.0)
+    return Binned(z.edges, values, variances), weights
 
 
 def smooth_gaussian(
-    hist: Binned, sigma: float, grid_step: float = 1.0
+    hist: Binned,
+    sigma: float,
+    grid_step: float = 1.0,
+    weights: np.ndarray | None = None,
 ) -> Binned:
     """
     Smooth binwise correction factors with a Gaussian kernel to obtain a
     continuous approximation.
 
     The smoothed value at position x is the kernel-weighted average of the bin
-    values, evaluated at the bin centers, where each bin enters with the
-    weight `1 / variance` times the Gaussian kernel of width `sigma`. Bins
-    with a vanishing variance (invalid bins, see `compute_pt_correction`) are
-    ignored. The result is evaluated on a regular grid with the given step,
-    covering the range of `hist`, and carries the propagated variances.
+    values, evaluated at the bin centers, where each bin enters with its
+    weight times the Gaussian kernel of width `sigma`. By default the weight
+    is `1 / variance`; bins with a vanishing weight (or variance) are ignored.
+    The result is evaluated on a regular grid with the given step, covering
+    the range of `hist`. Its variances are propagated from the (uncorrelated)
+    bin variances, `sum((K w)^2 var) / sum(K w)^2`. They are correlated
+    between neighboring points of the grid.
     """
     if sigma <= 0 or grid_step <= 0:
         raise ValueError("sigma and grid_step must be positive")
-    centers = 0.5 * (hist.edges[:-1] + hist.edges[1:])
-    valid = hist.variances > 0
-    if not valid.any():
-        n = max(int(round((hist.edges[-1] - hist.edges[0]) / grid_step)), 1)
-        edges = np.linspace(hist.edges[0], hist.edges[-1], n + 1)
-        return Binned(edges, np.ones(n), np.zeros(n))
-    centers = centers[valid]
-    values = hist.values[valid]
-    weights = 1.0 / hist.variances[valid]
-
+    if weights is None:
+        weights = np.where(
+            hist.variances > 0,
+            1.0 / np.where(hist.variances > 0, hist.variances, 1.0),
+            0.0,
+        )
+    weights = np.asarray(weights, dtype=float)
     n_grid = max(int(round((hist.edges[-1] - hist.edges[0]) / grid_step)), 1)
     edges = np.linspace(hist.edges[0], hist.edges[-1], n_grid + 1)
+    valid = weights > 0
+    if not valid.any():
+        return Binned(edges, np.ones(n_grid), np.zeros(n_grid))
+    centers = (0.5 * (hist.edges[:-1] + hist.edges[1:]))[valid]
+    values = hist.values[valid]
+    variances = hist.variances[valid]
+    weights = weights[valid]
     x = 0.5 * (edges[:-1] + edges[1:])
 
-    kernel = np.exp(-0.5 * ((x[:, None] - centers[None, :]) / sigma) ** 2)
-    kw = kernel * weights[None, :]
+    kw = weights[None, :] * np.exp(
+        -0.5 * ((x[:, None] - centers[None, :]) / sigma) ** 2
+    )
     norm = kw.sum(axis=1)
     smoothed = np.empty(n_grid)
     variance = np.empty(n_grid)
     ok = norm > 1e-100
     smoothed[ok] = (kw[ok] * values[None, :]).sum(axis=1) / norm[ok]
-    variance[ok] = (kernel[ok] ** 2 * weights[None, :]).sum(axis=1) / norm[
+    variance[ok] = (kw[ok] ** 2 * variances[None, :]).sum(axis=1) / norm[
         ok
     ] ** 2
     # Far away from all valid bins the kernel vanishes: use the nearest bin
     if (~ok).any():
         nearest = np.abs(x[~ok][:, None] - centers[None, :]).argmin(axis=1)
         smoothed[~ok] = values[nearest]
-        variance[~ok] = 1.0 / weights[nearest]
+        variance[~ok] = variances[nearest]
     return Binned(edges, smoothed, variance)
 
 
@@ -291,12 +341,17 @@ def _nested_binning(leaves: dict[tuple[int, int], object]) -> schemav2.Binning:
 def build_correction_set(
     normalizations: dict[str, float],
     pt_corrections: dict[str, Binned],
+    normalization_errors: dict[str, float] | None = None,
     description: str = "",
 ) -> schemav2.CorrectionSet:
     """
     Build the correctionlib set with the corrections `z_normalization`
     (inputs `n_jets`, `n_bjets`) and `z_pt_correction` (inputs `n_jets`,
-    `n_bjets`, `genboson_pt`). Both dictionaries are keyed by category names.
+    `n_bjets`, `genboson_pt`). All dictionaries are keyed by category names.
+
+    The statistical uncertainties are stored as `z_pt_correction_stat_unc`
+    (uncorrelated between pt bins, normalization uncertainty not included) and,
+    if given, `z_normalization_stat_unc`.
     """
     if set(normalizations) != set(pt_corrections):
         raise ValueError(
@@ -304,11 +359,14 @@ def build_correction_set(
         )
 
     norm_leaves = {}
+    norm_error_leaves = {}
     pt_leaves = {}
     pt_error_leaves = {}
     for category, norm in normalizations.items():
         key = parse_multiplicities(category)
         norm_leaves[key] = float(norm)
+        if normalization_errors is not None:
+            norm_error_leaves[key] = float(normalization_errors[category])
         hist = pt_corrections[category]
         pt_leaves[key] = schemav2.Binning(
             nodetype="binning",
@@ -354,6 +412,22 @@ def build_correction_set(
                 output=output,
                 data=_nested_binning(norm_leaves),
             ),
+            *(
+                [
+                    schemav2.Correction(
+                        name="z_normalization_stat_unc",
+                        description=(
+                            "Statistical uncertainty of z_normalization"
+                        ),
+                        version=1,
+                        inputs=int_inputs,
+                        output=output,
+                        data=_nested_binning(norm_error_leaves),
+                    )
+                ]
+                if normalization_errors is not None
+                else []
+            ),
             schemav2.Correction(
                 name="z_pt_correction",
                 description=(
@@ -369,8 +443,10 @@ def build_correction_set(
             schemav2.Correction(
                 name="z_pt_correction_stat_unc",
                 description=(
-                    "Statistical uncertainty of z_pt_correction, including "
-                    "the uncertainty of the normalization"
+                    "Statistical uncertainty of z_pt_correction from the "
+                    "bin contents, uncorrelated between pt bins. The "
+                    "uncertainty of the normalization is not included, as "
+                    "it is anti-correlated to the pt correction"
                 ),
                 version=1,
                 inputs=pt_inputs,
