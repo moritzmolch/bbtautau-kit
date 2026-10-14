@@ -40,6 +40,13 @@ rebin: 1
 # disable. Applied after the fixed rebinning.
 max_rel_error: 0.05
 
+# Smooth the pt correction with a Gaussian kernel (width in GeV) to obtain a
+# continuous approximation, evaluated on a grid with the given step. The
+# kernel average weights the bins by their inverse variance. If enabled, the
+# merging above is skipped and the fine binning is smoothed instead.
+smoothing_sigma: null
+smoothing_grid_step: 1.0
+
 # Optional limits on the pt correction factors
 min_value: null
 max_value: null

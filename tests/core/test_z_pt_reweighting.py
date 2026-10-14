@@ -11,6 +11,7 @@ from xyh.core.z_pt_reweighting import (
     compute_pt_correction,
     find_merge_groups,
     parse_multiplicities,
+    smooth_gaussian,
 )
 
 EDGES = [0.0, 10.0, 20.0, 30.0]
@@ -144,3 +145,37 @@ def test_correction_set_stat_unc():
     unc = cset["z_pt_correction_stat_unc"]
     assert unc.evaluate(2, 1, 5.0) == pytest.approx(0.2)
     assert unc.evaluate(2, 1, 25.0) == pytest.approx(0.4)
+
+
+def test_smooth_gaussian_constant_and_noise():
+    edges = np.arange(0.0, 101.0, 2.0)
+    n = len(edges) - 1
+    rng = np.random.default_rng(1)
+    noisy = Binned(edges, 1.0 + 0.1 * rng.normal(size=n), np.full(n, 0.01))
+    smooth = smooth_gaussian(noisy, sigma=10.0, grid_step=1.0)
+    assert len(smooth.values) == 100
+    assert smooth.edges[0] == 0 and smooth.edges[-1] == 100
+    # Smoothing reduces fluctuations and uncertainties
+    assert smooth.values.std() < noisy.values.std()
+    assert (smooth.variances < noisy.variances.max()).all()
+    const = Binned(edges, np.full(n, 1.3), np.full(n, 0.01))
+    assert smooth_gaussian(const, 5.0).values == pytest.approx(1.3)
+
+
+def test_smooth_gaussian_ignores_invalid_bins():
+    edges = np.arange(0.0, 11.0)
+    values = np.full(10, 2.0)
+    variances = np.full(10, 0.01)
+    values[4], variances[4] = 1.0, 0.0  # invalid bin with factor 1
+    smooth = smooth_gaussian(Binned(edges, values, variances), 2.0)
+    assert smooth.values == pytest.approx(2.0)
+    assert smooth_gaussian(
+        Binned(edges, np.ones(10), np.zeros(10)), 2.0
+    ).values == pytest.approx(1.0)
+    # Far away from the only valid bin the nearest bin is used
+    only = Binned(
+        np.arange(0.0, 1001.0, 10.0),
+        np.r_[2.0, np.ones(99)],
+        np.r_[0.01, np.zeros(99)],
+    )
+    assert smooth_gaussian(only, 1.0).values[-1] == pytest.approx(2.0)

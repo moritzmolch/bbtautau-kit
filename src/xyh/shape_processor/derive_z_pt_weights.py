@@ -14,6 +14,7 @@ from xyh.core.z_pt_reweighting import (
     compute_normalization,
     compute_pt_correction,
     find_merge_groups,
+    smooth_gaussian,
     sum_binned,
 )
 
@@ -93,6 +94,8 @@ def derive_z_pt_weights(
     pt_variable: str = "pt_vis",
     rebin: int = 1,
     max_rel_error: float | None = None,
+    smoothing_sigma: float | None = None,
+    smoothing_grid_step: float = 1.0,
     min_value: float | None = None,
     max_value: float | None = None,
 ):
@@ -126,7 +129,8 @@ def derive_z_pt_weights(
         if rebin > 1:
             data, z = data.rebin(rebin), z.rebin(rebin)
             others = [h.rebin(rebin) for h in others]
-        if max_rel_error is not None:
+        # Smoothing needs the fine binning, so it replaces the merging
+        if max_rel_error is not None and smoothing_sigma is None:
             starts = find_merge_groups(data, z, others, max_rel_error)
             data, z = data.merge(starts), z.merge(starts)
             others = [h.merge(starts) for h in others]
@@ -139,6 +143,13 @@ def derive_z_pt_weights(
             norm_err,
             min_value=min_value,
             max_value=max_value,
+        )
+        if smoothing_sigma is not None:
+            pt_corr = smooth_gaussian(
+                pt_corr, smoothing_sigma, smoothing_grid_step
+            )
+        logger.info(
+            "%s, %s: %d pt bins", campaign, category, len(pt_corr.values)
         )
         logger.info(
             "%s, %s: pt correction in [%.3f, %.3f]",
@@ -181,6 +192,8 @@ def main(cfg: DictConfig):
             pt_variable=cfg["pt_variable"],
             rebin=cfg["rebin"],
             max_rel_error=cfg.get("max_rel_error"),
+            smoothing_sigma=cfg.get("smoothing_sigma"),
+            smoothing_grid_step=cfg.get("smoothing_grid_step", 1.0),
             min_value=cfg.get("min_value"),
             max_value=cfg.get("max_value"),
         )

@@ -197,6 +197,54 @@ def compute_pt_correction(
     return Binned(z.edges, ratio, variance)
 
 
+def smooth_gaussian(
+    hist: Binned, sigma: float, grid_step: float = 1.0
+) -> Binned:
+    """
+    Smooth binwise correction factors with a Gaussian kernel to obtain a
+    continuous approximation.
+
+    The smoothed value at position x is the kernel-weighted average of the bin
+    values, evaluated at the bin centers, where each bin enters with the
+    weight `1 / variance` times the Gaussian kernel of width `sigma`. Bins
+    with a vanishing variance (invalid bins, see `compute_pt_correction`) are
+    ignored. The result is evaluated on a regular grid with the given step,
+    covering the range of `hist`, and carries the propagated variances.
+    """
+    if sigma <= 0 or grid_step <= 0:
+        raise ValueError("sigma and grid_step must be positive")
+    centers = 0.5 * (hist.edges[:-1] + hist.edges[1:])
+    valid = hist.variances > 0
+    if not valid.any():
+        n = max(int(round((hist.edges[-1] - hist.edges[0]) / grid_step)), 1)
+        edges = np.linspace(hist.edges[0], hist.edges[-1], n + 1)
+        return Binned(edges, np.ones(n), np.zeros(n))
+    centers = centers[valid]
+    values = hist.values[valid]
+    weights = 1.0 / hist.variances[valid]
+
+    n_grid = max(int(round((hist.edges[-1] - hist.edges[0]) / grid_step)), 1)
+    edges = np.linspace(hist.edges[0], hist.edges[-1], n_grid + 1)
+    x = 0.5 * (edges[:-1] + edges[1:])
+
+    kernel = np.exp(-0.5 * ((x[:, None] - centers[None, :]) / sigma) ** 2)
+    kw = kernel * weights[None, :]
+    norm = kw.sum(axis=1)
+    smoothed = np.empty(n_grid)
+    variance = np.empty(n_grid)
+    ok = norm > 1e-100
+    smoothed[ok] = (kw[ok] * values[None, :]).sum(axis=1) / norm[ok]
+    variance[ok] = (kernel[ok] ** 2 * weights[None, :]).sum(axis=1) / norm[
+        ok
+    ] ** 2
+    # Far away from all valid bins the kernel vanishes: use the nearest bin
+    if (~ok).any():
+        nearest = np.abs(x[~ok][:, None] - centers[None, :]).argmin(axis=1)
+        smoothed[~ok] = values[nearest]
+        variance[~ok] = 1.0 / weights[nearest]
+    return Binned(edges, smoothed, variance)
+
+
 def parse_multiplicities(category: str) -> tuple[int, int]:
     """
     Extract the lower edges of the jet and b-jet multiplicity bins from a
