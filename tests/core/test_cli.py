@@ -121,3 +121,25 @@ def test_hydra_cli_wrapper_passes_through_return_value(mock_root_dir, _mock_hydr
 
     wrapped = decorator(entry)
     assert wrapped({}) == 42
+
+
+def test_z_pt_weights_dir_is_exported_to_the_environment(
+    mock_root_dir, monkeypatch
+):
+    """The configured Z corrections directory enables the weights."""
+    monkeypatch.delenv("XYH_Z_PT_WEIGHTS_DIR", raising=False)
+    seen = {}
+
+    @hydra_cli("some_stage")
+    def stage(cfg):
+        import os
+
+        seen["dir"] = os.environ.get("XYH_Z_PT_WEIGHTS_DIR")
+
+    stage(DictConfig({"z_pt_weights": {"input_dir": "data/z"}}))
+    assert seen["dir"] == "/fake/root/data/z"
+
+    # An empty directory leaves the environment untouched
+    monkeypatch.delenv("XYH_Z_PT_WEIGHTS_DIR")
+    stage(DictConfig({"z_pt_weights": {"input_dir": ""}}))
+    assert seen["dir"] is None

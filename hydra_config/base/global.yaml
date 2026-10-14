@@ -3,6 +3,20 @@
 # Logging
 log_level: INFO
 
+# Data-driven Z corrections, see `xyh.shape_processor.derive_z_pt_weights`
+z_pt_weights:
+  # Production (shapes tag) from which the corrections are taken. If set and
+  # different from `tags.shapes_tag`, the workflow derives the corrections
+  # first and applies them in this production.
+  tag: null
+  # Hydra overrides for the production the corrections are derived from, on
+  # top of the user overrides (they take precedence)
+  overrides:
+  - "inventory=control_regions_z_pt"
+  # Directory with the correctionlib files that are applied in this
+  # production. Empty disables the corrections. Set by the workflow.
+  input_dir: ""
+
 # Hydra-specific config
 hydra:
   run:
@@ -12,7 +26,6 @@ hydra:
     env_set:
       XYH_SAMPLE_DATABASE: "/work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database"
       XYH_PROFILE: "BKG_ONLY"
-      # Directory with the correctionlib files of the Z corrections. The
-      # corrections are only applied if set, e.g. with
-      # hydra.job.env_set.XYH_Z_PT_WEIGHTS_DIR=data/output/<tag>/z_pt_weights
+      # Directory with the correctionlib files of the Z corrections. Prefer
+      # `z_pt_weights.input_dir`, which takes precedence if set.
       XYH_Z_PT_WEIGHTS_DIR: ""
