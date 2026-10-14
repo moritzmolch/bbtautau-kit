@@ -5,7 +5,9 @@ derive_z_pt_weights`` and evaluates ``z_pt_correction`` at the pt bin centers
 for every jet / b-jet multiplicity bin of the correction. One plot per
 multiplicity bin is written, with one curve per input file (campaign). The
 normalization factors are listed in the legend. The shaded band is the
-statistical uncertainty of the correction, if stored in the file.
+statistical uncertainty of the bin contents, if stored in the file. It is
+uncorrelated between pt bins (neighboring points are correlated if the
+correction is smoothed) and does not include the normalization uncertainty.
 
 Usage
 -----
@@ -50,6 +52,9 @@ def load(path: Path) -> dict:
     cset = schemav2.CorrectionSet.model_validate_json(path.read_text())
     evaluator = correctionlib.CorrectionSet.from_file(str(path))
     pt_corr = next(c for c in cset.corrections if c.name == "z_pt_correction")
+    has_norm_unc = any(
+        c.name == "z_normalization_stat_unc" for c in cset.corrections
+    )
     has_unc = any(
         c.name == "z_pt_correction_stat_unc" for c in cset.corrections
     )
@@ -58,7 +63,15 @@ def load(path: Path) -> dict:
         edges = np.array(leaf.edges, dtype=float)
         centers = 0.5 * (edges[:-1] + edges[1:])
 
+        norm_unc = (
+            float(
+                evaluator["z_normalization_stat_unc"].evaluate(n_jets, n_bjets)
+            )
+            if has_norm_unc
+            else None
+        )
         result[(n_jets, n_bjets)] = {
+            "norm_unc": norm_unc,
             "edges": edges,
             "norm": float(
                 evaluator["z_normalization"].evaluate(n_jets, n_bjets)
@@ -73,6 +86,13 @@ def load(path: Path) -> dict:
             else None,
         }
     return result
+
+
+def _legend_label(name: str, h: dict) -> str:
+    text = f"{name} (norm. {h['norm']:.3f}"
+    if h["norm_unc"] is not None:
+        text += f" $\\pm$ {h['norm_unc']:.3f}"
+    return text + ")"
 
 
 def _label(n_jets: int, n_bjets: int, jets_open: bool, bjets_open: bool):
@@ -106,7 +126,7 @@ def main():
                 h["values"],
                 h["edges"],
                 baseline=None,
-                label=f"{name} (norm. {h['norm']:.3f})",
+                label=_legend_label(name, h),
             )
             if h["errors"] is not None:
                 ax.stairs(
