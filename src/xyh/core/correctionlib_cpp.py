@@ -69,10 +69,10 @@ inline int xyh_n_correction_sets_loaded() {
 _FUNCTIONS = {
     "xyh_z_normalization": """
 inline double xyh_z_normalization(
-    const char* file, int n_jets) {
+    const char* file, int n_jets, int n_bjets) {
   static thread_local xyh::CorrectionCache cache;
   return xyh::get_correction(cache, file, "z_normalization")->evaluate(
-      {n_jets});
+      {n_jets, n_bjets});
 }
 """,
     "xyh_z_pt_correction": """

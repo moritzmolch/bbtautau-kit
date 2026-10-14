@@ -4,10 +4,11 @@ Reads the correctionlib files written by ``xyh.shape_processor.
 derive_z_pt_weights`` and evaluates ``z_pt_correction`` at the pt bin centers
 for every jet multiplicity bin of the correction. One plot per
 multiplicity bin is written, with one curve per input file (campaign). The
-normalization factors are listed in the legend. The shaded band is the
+shaded band is the
 statistical uncertainty of the bin contents, if stored in the file. It is
 uncorrelated between pt bins (neighboring points are correlated if the
-correction is smoothed) and does not include the normalization uncertainty.
+correction is smoothed) and does not include the normalization uncertainty. The normalization
+factors are shown by ``plot_z_normalization``.
 
 Usage
 -----
@@ -60,7 +61,7 @@ def _load_raw(evaluator, cset, n_jets: int) -> dict | None:
 
 
 def load(path: Path) -> dict:
-    """Evaluate normalization and pt correction for all jet multiplicity bins.
+    """Evaluate the pt correction for all jet multiplicity bins.
 
     The pt binning differs between the multiplicity bins. The statistical
     uncertainty is `None` if the file does not contain it.
@@ -68,9 +69,6 @@ def load(path: Path) -> dict:
     cset = schemav2.CorrectionSet.model_validate_json(path.read_text())
     evaluator = correctionlib.CorrectionSet.from_file(str(path))
     pt_corr = next(c for c in cset.corrections if c.name == "z_pt_correction")
-    has_norm_unc = any(
-        c.name == "z_normalization_stat_unc" for c in cset.corrections
-    )
     has_unc = any(
         c.name == "z_pt_correction_stat_unc" for c in cset.corrections
     )
@@ -79,16 +77,8 @@ def load(path: Path) -> dict:
     for n_jets, leaf in _leaf_binnings(pt_corr.data).items():
         edges = np.array(leaf.edges, dtype=float)
         centers = 0.5 * (edges[:-1] + edges[1:])
-
-        norm_unc = (
-            float(evaluator["z_normalization_stat_unc"].evaluate(n_jets))
-            if has_norm_unc
-            else None
-        )
         result[n_jets] = {
-            "norm_unc": norm_unc,
             "edges": edges,
-            "norm": float(evaluator["z_normalization"].evaluate(n_jets)),
             "values": _evaluate(evaluator, "z_pt_correction", n_jets, centers),
             "errors": _evaluate(
                 evaluator, "z_pt_correction_stat_unc", n_jets, centers
@@ -98,13 +88,6 @@ def load(path: Path) -> dict:
             "raw": _load_raw(evaluator, cset, n_jets) if has_raw else None,
         }
     return result
-
-
-def _legend_label(name: str, h: dict) -> str:
-    text = f"{name} (norm. {h['norm']:.3f}"
-    if h["norm_unc"] is not None:
-        text += f" $\\pm$ {h['norm_unc']:.3f}"
-    return text + ")"
 
 
 def _label(n_jets: int, jets_open: bool):
@@ -137,7 +120,7 @@ def main():
                 h["values"],
                 h["edges"],
                 baseline=None,
-                label=_legend_label(name, h),
+                label=name,
             )
             if h["errors"] is not None:
                 ax.stairs(

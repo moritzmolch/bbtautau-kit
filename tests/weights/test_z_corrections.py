@@ -41,7 +41,7 @@ def test_disabled_without_environment_variable(monkeypatch):
 def test_weights_for_z_processes(corrections_dir):
     path = str(corrections_dir / "2024_nano_v15.json")
     assert z_normalization(**_kwargs()).nominal() == {
-        "z_normalization_weight": f'xyh_z_normalization("{path}", n_jets)'
+        "z_normalization_weight": f'xyh_z_normalization("{path}", n_jets, n_bjets)'
     }
     assert z_pt_reweighting(**_kwargs()).nominal() == {
         "z_pt_weight": (

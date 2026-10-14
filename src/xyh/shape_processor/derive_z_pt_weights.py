@@ -3,7 +3,9 @@ Derive data-driven Z normalization and pt corrections.
 
 Reads the merged histograms of a shapes tag (`yield` and `pt_vis`), subtracts
 all non-Z processes from data and writes one correctionlib file per campaign
-to `output_dir`. See `xyh.core.z_pt_reweighting` for the method. The weights
+to `output_dir`. The derivation has two stages: the Z normalization is derived
+per (n_jets, n_bjets) category, then the normalizations are applied to the Z
+histograms and the pt correction is derived per n_jets. See `xyh.core.z_pt_reweighting` for the method. The weights
 are applied in a new production by setting `XYH_Z_PT_WEIGHTS_DIR`, see
 `xyh.weights.processes`.
 
@@ -30,6 +32,7 @@ from xyh.core.z_pt_reweighting import (
     compute_pt_ratio,
     concatenate,
     find_merge_groups,
+    jet_category,
     smooth_gaussian,
     sum_binned,
 )
@@ -142,13 +145,10 @@ def derive_z_pt_weights(
         **inventory_factory_kwargs,
     )
 
+    # Stage 1: normalization per (n_jets, n_bjets) category from the yields
     normalizations = {}
     normalization_errors = {}
-    pt_corrections = {}
-    raw_ratios = {}
     for category in categories:
-        settings = resolve_settings(derivation_settings, category)
-        # Normalization from the yield histograms
         data, z, others = _read_processes(
             merged_histograms_dir, inventory, category, yield_variable
         )
@@ -160,11 +160,28 @@ def derive_z_pt_weights(
             norm,
             norm_err,
         )
+        normalizations[category] = norm
+        normalization_errors[category] = norm_err
 
-        # Binwise correction of the pt spectrum on top of the normalization
-        data, z, others = _read_processes(
-            merged_histograms_dir, inventory, category, pt_variable
-        )
+    # Stage 2: pt correction per n_jets on the normalized Z prediction, which
+    # is summed over the b-jet categories of each jet multiplicity
+    members: dict[str, list[str]] = {}
+    for category in categories:
+        members.setdefault(jet_category(category), []).append(category)
+
+    pt_corrections = {}
+    raw_ratios = {}
+    for jet_cat, member_categories in members.items():
+        settings = resolve_settings(derivation_settings, jet_cat)
+        datas, zs, others = [], [], []
+        for category in member_categories:
+            d, z, o = _read_processes(
+                merged_histograms_dir, inventory, category, pt_variable
+            )
+            datas.append(d)
+            zs.append(z.scale(normalizations[category]))
+            others.extend(o)
+        data, z = sum_binned(datas), sum_binned(zs)
         if settings.rebin > 1:
             data, z = data.rebin(settings.rebin), z.rebin(settings.rebin)
             others = [h.rebin(settings.rebin) for h in others]
@@ -187,12 +204,11 @@ def derive_z_pt_weights(
                 data,
                 z,
                 others,
-                norm,
             )
         else:
             # Smooth the raw ratios, in which no bins are dropped
-            ratio, weights = compute_pt_ratio(data, z, others, norm)
-            raw_ratios[category] = ratio
+            ratio, weights = compute_pt_ratio(data, z, others)
+            raw_ratios[jet_cat] = ratio
             # The tail bin is not smoothed, it stays a single bin
             n_smooth = len(ratio.values) - 1 if has_tail else None
             head = ratio.slice(0, n_smooth)
@@ -208,18 +224,16 @@ def derive_z_pt_weights(
             else:
                 pt_corr = ratio
         logger.info(
-            "%s, %s: %d pt bins", campaign, category, len(pt_corr.values)
+            "%s, %s: %d pt bins", campaign, jet_cat, len(pt_corr.values)
         )
         logger.info(
             "%s, %s: pt correction in [%.3f, %.3f]",
             campaign,
-            category,
+            jet_cat,
             pt_corr.values.min(),
             pt_corr.values.max(),
         )
-        normalizations[category] = norm
-        normalization_errors[category] = norm_err
-        pt_corrections[category] = pt_corr
+        pt_corrections[jet_cat] = pt_corr
 
     cset = build_correction_set(
         normalizations,

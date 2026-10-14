@@ -109,8 +109,9 @@ def z_normalization(self) -> OrderedDict[str, str]:
     """
     Weight to scale the $\\text{Z}(\\ell\\ell)$ normalization to the value
     that has been observed in the $\\mu\\mu$ control region, as function of
-    the number of jets. It must be applied together with the
-    $p_{\\text{T}}$ correction of `z_pt_reweighting`.
+    the number of jets and b jets. It must be applied together with the
+    $p_{\\text{T}}$ correction of `z_pt_reweighting`, which is derived on the
+    normalized Z prediction.
 
     The weight is only applied if the directory with the correctionlib files
     is set in the environment variable `XYH_Z_PT_WEIGHTS_DIR`.
@@ -127,7 +128,7 @@ def z_normalization(self) -> OrderedDict[str, str]:
         [
             (
                 "z_normalization_weight",
-                f'xyh_z_normalization("{file}", n_jets)',
+                f'xyh_z_normalization("{file}", n_jets, n_bjets)',
             ),
         ],
     )

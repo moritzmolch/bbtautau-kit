@@ -12,7 +12,9 @@ from xyh.core.z_pt_reweighting import (
     compute_pt_ratio,
     concatenate,
     find_merge_groups,
+    jet_category,
     parse_multiplicities,
+    parse_n_jets,
     smooth_gaussian,
 )
 
@@ -71,18 +73,31 @@ def test_rebin():
 
 
 def test_parse_multiplicities():
-    assert parse_multiplicities("mm_eq2j") == 2
-    assert parse_multiplicities("mm_geq4j") == 4
+    assert parse_multiplicities("mm_eq2j_eq1b") == (2, 1)
+    assert parse_multiplicities("mm_geq4j_geq3b") == (4, 3)
     with pytest.raises(ValueError):
-        parse_multiplicities("mm_base")
+        parse_multiplicities("mm_eq2j")
+    assert parse_n_jets("mm_geq4j") == 4
+    assert parse_n_jets("mm_eq2j_eq1b") == 2
+    with pytest.raises(ValueError):
+        parse_n_jets("mm_base")
+    assert jet_category("mm_geq4j_geq3b") == "mm_geq4j"
+    with pytest.raises(ValueError):
+        jet_category("mm_geq4j")
 
 
 def test_correction_set_evaluation():
-    categories = ["mm_eq2j", "mm_eq3j", "mm_geq4j"]
+    categories = [
+        "mm_eq2j_eq1b",
+        "mm_eq2j_eq2b",
+        "mm_eq3j_eq1b",
+        "mm_geq4j_eq1b",
+        "mm_geq4j_geq3b",
+    ]
     norms = {c: 1.0 + 0.1 * i for i, c in enumerate(categories)}
     pts = {
         c: Binned(EDGES, [i + 0.1, i + 0.2, i + 0.3], [0, 0, 0])
-        for i, c in enumerate(categories)
+        for i, c in enumerate(["mm_eq2j", "mm_eq3j", "mm_geq4j"])
     }
     cset = correctionlib.CorrectionSet.from_string(
         build_correction_set(norms, pts).model_dump_json(exclude_unset=True)
@@ -90,13 +105,16 @@ def test_correction_set_evaluation():
     norm = cset["z_normalization"]
     pt = cset["z_pt_correction"]
 
-    assert norm.evaluate(2) == pytest.approx(1.0)
-    assert norm.evaluate(3) == pytest.approx(1.1)
-    assert norm.evaluate(4) == pytest.approx(1.2)
+    assert norm.evaluate(2, 1) == pytest.approx(1.0)
+    assert norm.evaluate(2, 2) == pytest.approx(1.1)
+    assert norm.evaluate(3, 1) == pytest.approx(1.2)
     # Out-of-range multiplicities are clamped to the nearest bin
-    assert norm.evaluate(7) == pytest.approx(1.2)
-    assert norm.evaluate(0) == pytest.approx(1.0)
+    assert norm.evaluate(7, 1) == pytest.approx(1.3)
+    assert norm.evaluate(7, 5) == pytest.approx(1.4)
+    assert norm.evaluate(2, 3) == pytest.approx(1.1)
+    assert norm.evaluate(3, 0) == pytest.approx(1.2)
 
+    # The pt correction depends on the jet multiplicity only
     assert pt.evaluate(2, 5.0) == pytest.approx(0.1)
     assert pt.evaluate(3, 15.0) == pytest.approx(1.2)
     assert pt.evaluate(5, 25.0) == pytest.approx(2.3)
@@ -132,7 +150,7 @@ def test_find_merge_groups_remainder_joins_last_group():
 def test_correction_set_stat_unc():
     pts = {"mm_eq2j": Binned(EDGES, [1.0, 2.0, 3.0], [0.04, 0.09, 0.16])}
     cset = correctionlib.CorrectionSet.from_string(
-        build_correction_set({"mm_eq2j": 1.0}, pts).model_dump_json(
+        build_correction_set({"mm_eq2j_eq1b": 1.0}, pts).model_dump_json(
             exclude_unset=True
         )
     )
@@ -209,10 +227,12 @@ def test_correction_set_normalization_unc():
     pts = {"mm_eq2j": Binned(EDGES, [1.0, 2.0, 3.0], [0.0] * 3)}
     cset = correctionlib.CorrectionSet.from_string(
         build_correction_set(
-            {"mm_eq2j": 1.2}, pts, {"mm_eq2j": 0.03}
+            {"mm_eq2j_eq1b": 1.2}, pts, {"mm_eq2j_eq1b": 0.03}
         ).model_dump_json(exclude_unset=True)
     )
-    assert cset["z_normalization_stat_unc"].evaluate(2) == pytest.approx(0.03)
+    assert cset["z_normalization_stat_unc"].evaluate(2, 1) == pytest.approx(
+        0.03
+    )
 
 
 def test_correction_set_unsmoothed_ratios():
@@ -220,7 +240,7 @@ def test_correction_set_unsmoothed_ratios():
     raw = {"mm_eq2j": Binned(EDGES, [0.8, 1.3, 1.1], [0.04, 0.09, 0.16])}
     cset = correctionlib.CorrectionSet.from_string(
         build_correction_set(
-            {"mm_eq2j": 1.0}, smooth, raw_pt_ratios=raw
+            {"mm_eq2j_eq1b": 1.0}, smooth, raw_pt_ratios=raw
         ).model_dump_json(exclude_unset=True)
     )
     assert cset["z_pt_ratio_unsmoothed"].evaluate(2, 15.0) == pytest.approx(1.3)

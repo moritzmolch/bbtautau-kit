@@ -20,22 +20,42 @@ campaigns: ${inventory.campaigns}
 # The weights are derived exclusively in this channel
 channel: mm
 
-# Categories to derive the corrections in, with exclusive jet multiplicities
-# and inclusive in b jets. One entry of the correction per category
+# Categories with exclusive jet and b-jet multiplicities. The derivation has two
+# stages:
+# 1. The Z normalization is derived in each of these categories from the
+#    yields.
+# 2. The normalizations are applied to the Z histograms, and the pt correction
+#    is derived per jet multiplicity on the sum over the b-jet categories.
 categories:
-- mm_eq0j
-- mm_eq1j
-- mm_eq2j
-- mm_eq3j
-- mm_geq4j
+- mm_eq0j_eq0b
+- mm_eq0j_eq1b
+- mm_eq0j_eq2b
+- mm_eq0j_geq3b
+- mm_eq1j_eq0b
+- mm_eq1j_eq1b
+- mm_eq1j_eq2b
+- mm_eq1j_geq3b
+- mm_eq2j_eq0b
+- mm_eq2j_eq1b
+- mm_eq2j_eq2b
+- mm_eq2j_geq3b
+- mm_eq3j_eq0b
+- mm_eq3j_eq1b
+- mm_eq3j_eq2b
+- mm_eq3j_geq3b
+- mm_geq4j_eq0b
+- mm_geq4j_eq1b
+- mm_geq4j_eq2b
+- mm_geq4j_geq3b
 
 # Histograms used for the normalization (yield) and for the pt correction
 yield_variable: yield
 pt_variable: pt_vis
 
-# Settings of the pt correction. The keys of `default` apply to all
-# categories. A category can override any of them with an entry named like the
-# category, listing only the keys that differ. Keys:
+# Settings of the pt correction (stage 2). The keys of `default` apply to all
+# jet multiplicities. A jet multiplicity can override any of them with an
+# entry named like its category without b-jet selection (e.g. mm_eq2j),
+# listing only the keys that differ. Keys:
 #   rebin:               Merge this many adjacent pt bins of the histogram
 #                        before deriving the correction (1 = no merging).
 #   max_rel_error:       Merge adjacent pt bins (from low to high pt) until the
