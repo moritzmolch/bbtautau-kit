@@ -132,3 +132,15 @@ def test_find_merge_groups_remainder_joins_last_group():
     data = Binned(edges, [10000, 10000, 1], [10000, 10000, 1])
     z = Binned(edges, [1, 1, 1], [0.0] * 3)
     assert find_merge_groups(data, z, [], 0.05) == [0, 1]
+
+
+def test_correction_set_stat_unc():
+    pts = {"mm_eq2j_eq1b": Binned(EDGES, [1.0, 2.0, 3.0], [0.04, 0.09, 0.16])}
+    cset = correctionlib.CorrectionSet.from_string(
+        build_correction_set({"mm_eq2j_eq1b": 1.0}, pts).model_dump_json(
+            exclude_unset=True
+        )
+    )
+    unc = cset["z_pt_correction_stat_unc"]
+    assert unc.evaluate(2, 1, 5.0) == pytest.approx(0.2)
+    assert unc.evaluate(2, 1, 25.0) == pytest.approx(0.4)

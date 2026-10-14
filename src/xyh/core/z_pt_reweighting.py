@@ -257,6 +257,7 @@ def build_correction_set(
 
     norm_leaves = {}
     pt_leaves = {}
+    pt_error_leaves = {}
     for category, norm in normalizations.items():
         key = parse_multiplicities(category)
         norm_leaves[key] = float(norm)
@@ -268,6 +269,13 @@ def build_correction_set(
             content=[float(v) for v in hist.values],
             flow="clamp",
         )
+        pt_error_leaves[key] = schemav2.Binning(
+            nodetype="binning",
+            input="genboson_pt",
+            edges=[float(e) for e in hist.edges],
+            content=[float(v) for v in np.sqrt(hist.variances)],
+            flow="clamp",
+        )
 
     int_inputs = [
         schemav2.Variable(
@@ -275,6 +283,14 @@ def build_correction_set(
         ),
         schemav2.Variable(
             name="n_bjets", type="int", description="Number of b-tagged jets"
+        ),
+    ]
+    pt_inputs = [
+        *int_inputs,
+        schemav2.Variable(
+            name="genboson_pt",
+            type="real",
+            description="Generator-level pt of the boson in GeV",
         ),
     ]
     output = schemav2.Variable(name="weight", type="real")
@@ -298,16 +314,20 @@ def build_correction_set(
                     "reconstructed pt of the dilepton system."
                 ),
                 version=1,
-                inputs=[
-                    *int_inputs,
-                    schemav2.Variable(
-                        name="genboson_pt",
-                        type="real",
-                        description="Generator-level pt of the boson in GeV",
-                    ),
-                ],
+                inputs=pt_inputs,
                 output=output,
                 data=_nested_binning(pt_leaves),
+            ),
+            schemav2.Correction(
+                name="z_pt_correction_stat_unc",
+                description=(
+                    "Statistical uncertainty of z_pt_correction, including "
+                    "the uncertainty of the normalization"
+                ),
+                version=1,
+                inputs=pt_inputs,
+                output=output,
+                data=_nested_binning(pt_error_leaves),
             ),
         ],
     )
