@@ -1,0 +1,40 @@
+# Load base parameters as default
+defaults:
+- base/global
+- base/artifacts@artifacts
+- base/ntuples@ntuples
+- base/tags@tags
+- inventory: control_regions_z_pt
+- _self_
+
+# Input (merged histograms of the shapes tag) and output directory
+merged_histograms_dir: ${artifacts.merged_histograms_dir}
+output_dir: ${artifacts.z_pt_weights_dir}
+
+# Campaigns to derive weights for. One correctionlib file per campaign
+campaigns: ${inventory.campaigns}
+
+# The weights are derived exclusively in this channel
+channel: mm
+
+# Categories with exclusive jet and b-jet multiplicities
+categories:
+- mm_eq2j_eq1b
+- mm_eq2j_eq2b
+- mm_eq3j_eq1b
+- mm_eq3j_eq2b
+- mm_eq3j_geq3b
+- mm_geq4j_eq1b
+- mm_geq4j_eq2b
+- mm_geq4j_geq3b
+
+# Histograms used for the normalization and for the pt correction
+yield_variable: yield
+pt_variable: pt_vis
+
+# Merge adjacent pt bins before deriving the correction
+rebin: 1
+
+# Optional limits on the pt correction factors
+min_value: null
+max_value: null
