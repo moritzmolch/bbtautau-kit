@@ -4,7 +4,8 @@ Reads the correctionlib files written by ``xyh.shape_processor.
 derive_z_pt_weights`` and evaluates ``z_pt_correction`` at the pt bin centers
 for every jet / b-jet multiplicity bin of the correction. One plot per
 multiplicity bin is written, with one curve per input file (campaign). The
-normalization factors are listed in the legend.
+normalization factors are listed in the legend. The shaded band is the
+statistical uncertainty of the correction, if stored in the file.
 
 Usage
 -----
@@ -25,38 +26,53 @@ from correctionlib import schemav2
 matplotlib.use("Agg")
 
 
-def _multiplicity_bins(node) -> list[tuple[int, int]]:
-    """Lower edges of all (n_jets, n_bjets) bins of the nested binning."""
-    bins = []
+def _leaf_binnings(node) -> dict[tuple[int, int], object]:
+    """The pt binning of each (n_jets, n_bjets) bin of the nested binning."""
+    leaves = {}
     for j, child in zip(node.edges[:-1], node.content, strict=True):
-        for b in child.edges[:-1]:
-            bins.append((int(j), int(b)))
-    return bins
+        for b, leaf in zip(child.edges[:-1], child.content, strict=True):
+            leaves[(int(j), int(b))] = leaf
+    return leaves
 
 
-def _pt_edges(node) -> np.ndarray:
-    return np.array(node.content[0].content[0].edges, dtype=float)
+def _evaluate(evaluator, name, n_jets, n_bjets, centers) -> np.ndarray:
+    return np.array(
+        [evaluator[name].evaluate(n_jets, n_bjets, pt) for pt in centers]
+    )
 
 
 def load(path: Path) -> dict:
-    """Evaluate normalization and pt correction for all multiplicity bins."""
+    """Evaluate normalization and pt correction for all multiplicity bins.
+
+    The pt binning differs between the multiplicity bins. The statistical
+    uncertainty is `None` if the file does not contain it.
+    """
     cset = schemav2.CorrectionSet.model_validate_json(path.read_text())
     evaluator = correctionlib.CorrectionSet.from_file(str(path))
     pt_corr = next(c for c in cset.corrections if c.name == "z_pt_correction")
-    edges = _pt_edges(pt_corr.data)
-    centers = 0.5 * (edges[:-1] + edges[1:])
+    has_unc = any(
+        c.name == "z_pt_correction_stat_unc" for c in cset.corrections
+    )
     result = {}
-    for n_jets, n_bjets in _multiplicity_bins(pt_corr.data):
-        result[(n_jets, n_bjets)] = (
-            float(evaluator["z_normalization"].evaluate(n_jets, n_bjets)),
-            np.array(
-                [
-                    evaluator["z_pt_correction"].evaluate(n_jets, n_bjets, pt)
-                    for pt in centers
-                ]
+    for (n_jets, n_bjets), leaf in _leaf_binnings(pt_corr.data).items():
+        edges = np.array(leaf.edges, dtype=float)
+        centers = 0.5 * (edges[:-1] + edges[1:])
+
+        result[(n_jets, n_bjets)] = {
+            "edges": edges,
+            "norm": float(
+                evaluator["z_normalization"].evaluate(n_jets, n_bjets)
             ),
-        )
-    return {"edges": edges, "bins": result}
+            "values": _evaluate(
+                evaluator, "z_pt_correction", n_jets, n_bjets, centers
+            ),
+            "errors": _evaluate(
+                evaluator, "z_pt_correction_stat_unc", n_jets, n_bjets, centers
+            )
+            if has_unc
+            else None,
+        }
+    return result
 
 
 def _label(n_jets: int, n_bjets: int, jets_open: bool, bjets_open: bool):
@@ -74,7 +90,7 @@ def main():
     args = parser.parse_args()
 
     data = {p.stem: load(p) for p in args.inputs}
-    all_bins = sorted({k for d in data.values() for k in d["bins"]})
+    all_bins = sorted({k for d in data.values() for k in d})
     max_jets = max(j for j, _ in all_bins)
     max_bjets = max(b for _, b in all_bins)
 
@@ -83,15 +99,35 @@ def main():
     for n_jets, n_bjets in all_bins:
         fig, ax = plt.subplots()
         for name, d in data.items():
-            if (n_jets, n_bjets) not in d["bins"]:
+            if (n_jets, n_bjets) not in d:
                 continue
-            norm, values = d["bins"][(n_jets, n_bjets)]
-            ax.stairs(
-                values,
-                d["edges"],
+            h = d[(n_jets, n_bjets)]
+            step = ax.stairs(
+                h["values"],
+                h["edges"],
                 baseline=None,
-                label=f"{name} (norm. {norm:.3f})",
+                label=f"{name} (norm. {h['norm']:.3f})",
             )
+            if h["errors"] is not None:
+                ax.stairs(
+                    h["values"] + h["errors"],
+                    h["edges"],
+                    baseline=h["values"] - h["errors"],
+                    fill=True,
+                    alpha=0.3,
+                    color=step.get_edgecolor(),
+                    linewidth=0,
+                )
+        # Make sure the uncertainty bands are fully visible
+        lo, hi = ax.get_ylim()
+        for d in data.values():
+            h = d.get((n_jets, n_bjets))
+            if h is not None and h["errors"] is not None:
+                margin = 0.05 * (hi - lo)
+                lo = min(lo, (h["values"] - h["errors"]).min() - margin)
+                hi = max(hi, (h["values"] + h["errors"]).max() + margin)
+        if not args.log_y:
+            ax.set_ylim(lo, hi)
         ax.axhline(1.0, color="gray", linestyle="--", linewidth=1)
         ax.set_xlabel(r"$p_{T}$ [GeV]")
         ax.set_ylabel("Z $p_{T}$ correction")
