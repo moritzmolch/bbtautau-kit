@@ -10,6 +10,7 @@ from xyh.core.z_pt_reweighting import (
     compute_normalization,
     compute_pt_correction,
     compute_pt_ratio,
+    concatenate,
     find_merge_groups,
     parse_multiplicities,
     smooth_gaussian,
@@ -51,13 +52,13 @@ def test_pt_correction_matches_data():
     assert prediction == pytest.approx(data.values)
 
 
-def test_pt_correction_empty_bins_and_clip():
+def test_pt_correction_empty_bins():
     data = _hist([100, 0, 1000])
     z = _hist([100, 100, 0])
-    corr = compute_pt_correction(data, z, [], max_value=1.5)
+    corr = compute_pt_correction(data, z, [])
     assert corr.values.tolist() == [1.0, 1.0, 1.0]
-    corr = compute_pt_correction(_hist([300, 1, 1]), z, [], max_value=1.5)
-    assert corr.values[0] == 1.5
+    corr = compute_pt_correction(_hist([300, 1, 1]), z, [])
+    assert corr.values[0] == 3.0
 
 
 def test_rebin():
@@ -227,3 +228,26 @@ def test_correction_set_unsmoothed_ratios():
         2, 25.0
     ) == pytest.approx(0.4)
     assert cset["z_pt_correction"].evaluate(2, 15.0) == pytest.approx(1.1)
+
+
+def test_merge_above():
+    h = Binned([0, 10, 20, 30, 40], [1, 2, 3, 4], [1, 2, 3, 4])
+    merged, has_tail = h.merge_above(20)
+    assert has_tail
+    assert merged.edges.tolist() == [0, 10, 20, 40]
+    assert merged.values.tolist() == [1, 2, 7]
+    # A bin containing pt_clip is kept
+    assert h.merge_above(25)[0].edges.tolist() == [0, 10, 20, 30, 40]
+    assert h.merge_above(25)[0].values.tolist() == [1, 2, 3, 4]
+    merged, has_tail = h.merge_above(100)
+    assert not has_tail and merged.values.tolist() == [1, 2, 3, 4]
+    assert h.merge_above(0)[0].values.tolist() == [10]
+
+
+def test_concatenate_and_slice():
+    h = Binned([0, 1, 2, 3], [1, 2, 3], [1, 2, 3])
+    joined = concatenate(h.slice(0, 2), h.slice(2))
+    assert joined.edges.tolist() == h.edges.tolist()
+    assert joined.values.tolist() == h.values.tolist()
+    with pytest.raises(ValueError):
+        concatenate(h.slice(0, 1), h.slice(2))

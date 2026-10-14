@@ -76,6 +76,28 @@ class Binned:
             self.variances.reshape(-1, factor).sum(axis=1),
         )
 
+    def merge_above(self, pt_clip: float) -> tuple["Binned", bool]:
+        """
+        Merge all bins with a lower edge at or above `pt_clip` into a single
+        bin. Returns the histogram and whether a tail bin has been formed,
+        i.e. whether `pt_clip` lies below the upper edge. A bin that contains
+        `pt_clip` in its interior is kept as it is.
+        """
+        n_bins = len(self.values)
+        first = int(np.searchsorted(self.edges[:-1], pt_clip - 1e-9))
+        if first >= n_bins:
+            return self, False
+        return self.merge([*range(first), first]), True
+
+    def slice(self, start: int, stop: int | None = None) -> "Binned":
+        """The bins with indices from `start` up to `stop`."""
+        stop = len(self.values) if stop is None else stop
+        return Binned(
+            self.edges[start : stop + 1],
+            self.values[start:stop],
+            self.variances[start:stop],
+        )
+
     def merge(self, starts: list[int]) -> "Binned":
         """Merge bins into groups beginning at the given bin indices."""
         idx = np.asarray(starts, dtype=int)
@@ -84,6 +106,17 @@ class Binned:
             np.add.reduceat(self.values, idx),
             np.add.reduceat(self.variances, idx),
         )
+
+
+def concatenate(first: Binned, second: Binned) -> Binned:
+    """Join two histograms where the first ends where the second begins."""
+    if not np.isclose(first.edges[-1], second.edges[0]):
+        raise ValueError("Histograms are not adjacent")
+    return Binned(
+        np.append(first.edges, second.edges[1:]),
+        np.append(first.values, second.values),
+        np.append(first.variances, second.variances),
+    )
 
 
 def sum_binned(hists: list[Binned]) -> Binned:
@@ -161,8 +194,6 @@ def compute_pt_correction(
     z: Binned,
     others: list[Binned],
     normalization: float = 1.0,
-    min_value: float | None = None,
-    max_value: float | None = None,
 ) -> Binned:
     """
     Binwise correction factors for Z such that the (normalized) Z prediction
@@ -181,8 +212,6 @@ def compute_pt_correction(
     ok = (z.values > 0) & (subtracted.values > 0) & (normalization > 0)
     values = np.where(ok, ratio.values, 1.0)
     variances = np.where(ok, ratio.variances, 0.0)
-    if min_value is not None or max_value is not None:
-        values = np.clip(values, min_value, max_value)
     return Binned(z.edges, values, variances)
 
 

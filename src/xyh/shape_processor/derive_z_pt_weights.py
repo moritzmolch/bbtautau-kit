@@ -28,6 +28,7 @@ from xyh.core.z_pt_reweighting import (
     compute_normalization,
     compute_pt_correction,
     compute_pt_ratio,
+    concatenate,
     find_merge_groups,
     smooth_gaussian,
     sum_binned,
@@ -105,8 +106,7 @@ class DerivationSettings:
     max_rel_error: float | None = None
     smoothing_sigma: float | None = None
     smoothing_grid_step: float = 1.0
-    min_value: float | None = None
-    max_value: float | None = None
+    pt_clip: float | None = None
 
 
 def resolve_settings(
@@ -168,6 +168,12 @@ def derive_z_pt_weights(
         if settings.rebin > 1:
             data, z = data.rebin(settings.rebin), z.rebin(settings.rebin)
             others = [h.rebin(settings.rebin) for h in others]
+        # Merge all bins above pt_clip into a single tail bin
+        has_tail = False
+        if settings.pt_clip is not None:
+            data, has_tail = data.merge_above(settings.pt_clip)
+            z, _ = z.merge_above(settings.pt_clip)
+            others = [h.merge_above(settings.pt_clip)[0] for h in others]
         # Smoothing needs the fine binning, so it replaces the merging
         if (
             settings.max_rel_error is not None
@@ -182,23 +188,25 @@ def derive_z_pt_weights(
                 z,
                 others,
                 norm,
-                min_value=settings.min_value,
-                max_value=settings.max_value,
             )
         else:
             # Smooth the raw ratios, in which no bins are dropped
             ratio, weights = compute_pt_ratio(data, z, others, norm)
             raw_ratios[category] = ratio
-            pt_corr = smooth_gaussian(
-                ratio,
-                settings.smoothing_sigma,
-                settings.smoothing_grid_step,
-                weights,
-            )
-            if settings.min_value is not None or settings.max_value is not None:
-                pt_corr.values = np.clip(
-                    pt_corr.values, settings.min_value, settings.max_value
+            # The tail bin is not smoothed, it stays a single bin
+            n_smooth = len(ratio.values) - 1 if has_tail else None
+            head = ratio.slice(0, n_smooth)
+            if len(head.values) > 0:
+                pt_corr = smooth_gaussian(
+                    head,
+                    settings.smoothing_sigma,
+                    settings.smoothing_grid_step,
+                    weights[:n_smooth],
                 )
+                if has_tail:
+                    pt_corr = concatenate(pt_corr, ratio.slice(n_smooth))
+            else:
+                pt_corr = ratio
         logger.info(
             "%s, %s: %d pt bins", campaign, category, len(pt_corr.values)
         )

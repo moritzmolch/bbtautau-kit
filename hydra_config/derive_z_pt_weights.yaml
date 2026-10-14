@@ -49,33 +49,31 @@ pt_variable: pt_vis
 #                        before smoothing are stored too, for the control plots.
 #   smoothing_grid_step: Step in GeV of the grid on which the smoothed
 #                        correction is evaluated and stored.
-#   min_value/max_value: Limits on the correction factors, null for no limit.
+#   pt_clip:             All pt bins above this value in GeV (lower edge at or
+#                        above it) are merged into a single tail bin, which is
+#                        not smoothed. null for no tail bin.
 derivation_settings:
   default:
     rebin: 1
     max_rel_error: 0.025
     smoothing_sigma: 1.0
     smoothing_grid_step: 1.0
-    min_value: null
-    max_value: 100
+    pt_clip: 100
   mm_eq2j:
     rebin: 2
     max_rel_error: 0.025
     smoothing_sigma: 2.0
     smoothing_grid_step: 2.0
-    min_value: null
-    max_value: 100
+    pt_clip: 100
   mm_eq3j:
-    rebin: 4
+    rebin: 3
     max_rel_error: 0.025
     smoothing_sigma: 4.0
     smoothing_grid_step: 4.0
-    min_value: null
-    max_value: 100
+    pt_clip: 100
   mm_geq4j:
-    rebin: 8
+    rebin: 5
     max_rel_error: 0.025
     smoothing_sigma: 8.0
     smoothing_grid_step: 8.0
-    min_value: null
-    max_value: 100
+    pt_clip: 100
