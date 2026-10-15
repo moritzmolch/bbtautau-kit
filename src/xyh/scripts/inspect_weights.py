@@ -97,7 +97,6 @@ import mplhep
 import ROOT
 import yaml
 
-from xyh import ROOT_DIR
 from xyh.core.config import load_inventory
 from xyh.core.histograms.util import add_histograms
 from xyh.core.plotting.util import plot_distribution

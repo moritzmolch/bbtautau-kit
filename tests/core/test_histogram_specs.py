@@ -2,14 +2,14 @@
 
 from xyh.core.specs.histogram import create_histogram_specs
 
-KWARGS = dict(
-    inventory_factory_fn_path="xyh.config.inventory.create_inventory",
-    inventory_factory_kwargs={"process_set": "default"},
-    campaigns=["2024_nano_v15"],
-    channels=["tt"],
-    categories=["tt_base"],
-    variables=["pt_1", "mass_1[tt]", "mass_1[et]"],
-)
+KWARGS = {
+    "inventory_factory_fn_path": "xyh.config.inventory.create_inventory",
+    "inventory_factory_kwargs": {"process_set": "default"},
+    "campaigns": ["2024_nano_v15"],
+    "channels": ["tt"],
+    "categories": ["tt_base"],
+    "variables": ["pt_1", "mass_1[tt]", "mass_1[et]"],
+}
 
 
 def test_channel_restriction():

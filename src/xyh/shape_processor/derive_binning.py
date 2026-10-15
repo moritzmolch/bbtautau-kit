@@ -41,6 +41,8 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
+ROOT.EnableImplicitMT(16)
+
 
 def _column(name: str) -> str:
     return f"__binning_{name}"
