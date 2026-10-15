@@ -6,7 +6,7 @@ from order import Campaign
 
 from xyh.config.profiles import get_profile
 
-from ._util import add_dataset, add_kit_private_signal_datasets
+from ._util import add_dataset, get_kit_private_signal_nicks
 
 # ------------------------------------------------------------------------------
 # Campaign definition
@@ -41,11 +41,12 @@ cpn_2025_nano_v15 = Campaign(
 
 signal_v3 = {
     # (m_x, m_y) of signal samples whose dataset uses nanoAOD version v3
-    "y2b":     set(),
+    "y2b": set(),
     "y2tau": {
         (650, 150),
     },
 }
+
 
 # Function to derive name of a signal sample from the signal parameters
 def xyh_name(
@@ -202,9 +203,15 @@ dataset_nicks = {
 }
 
 
+# Add the kit-private productions of the signal samples to the corresponding
+# signal datasets
+for name, nicks in get_kit_private_signal_nicks(cpn_2025_nano_v15).items():
+    if name in dataset_nicks:
+        # The official signal sample is provided as a single nick
+        if isinstance(dataset_nicks[name], str):
+            dataset_nicks[name] = [dataset_nicks[name]]
+        dataset_nicks[name].extend(nicks)
+
 # Add datasets to the campaign
 for name, nicks in dataset_nicks.items():
     add_dataset(cpn_2025_nano_v15, name, nicks)
-
-# Add the kit-private signal samples to the campaign
-add_kit_private_signal_datasets(cpn_2025_nano_v15)
