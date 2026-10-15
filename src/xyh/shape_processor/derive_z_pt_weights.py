@@ -35,7 +35,8 @@ from xyh.core.z_pt_reweighting import (
     find_merge_groups,
     is_possible_category,
     jet_category,
-    smooth_gaussian,
+    smooth_kernel,
+    sparsify,
     sum_binned,
 )
 
@@ -109,8 +110,12 @@ class DerivationSettings:
 
     rebin: int = 1
     max_rel_error: float | None = None
-    smoothing_sigma: float | None = None
-    smoothing_grid_step: float = 1.0
+    bandwidth: float | None = None
+    stat_sigma: float = 1.0
+    bandwidth_variations: tuple[float, float] = (0.5, 1.5)
+    n_samples: int = 100
+    seed: int = 19
+    sparsify_threshold: float = 0.01
     pt_clip: float | None = None
 
 
@@ -125,6 +130,8 @@ def resolve_settings(
         **derivation_settings.get("default", {}),
         **derivation_settings.get(category, {}),
     }
+    if "bandwidth_variations" in merged:
+        merged["bandwidth_variations"] = tuple(merged["bandwidth_variations"])
     return DerivationSettings(**merged)
 
 
@@ -178,6 +185,8 @@ def derive_z_pt_weights(
         members.setdefault(jet_category(category), []).append(category)
 
     pt_corrections = {}
+    pt_stat_uncs = {}
+    pt_variations = {}
     raw_ratios = {}
     for jet_cat, member_categories in members.items():
         settings = resolve_settings(derivation_settings, jet_cat)
@@ -217,12 +226,12 @@ def derive_z_pt_weights(
         # Smoothing needs the fine binning, so it replaces the merging
         if (
             settings.max_rel_error is not None
-            and settings.smoothing_sigma is None
+            and settings.bandwidth is None
         ):
             starts = find_merge_groups(data, z, others, settings.max_rel_error)
             data, z = data.merge(starts), z.merge(starts)
             others = [h.merge(starts) for h in others]
-        if settings.smoothing_sigma is None:
+        if settings.bandwidth is None:
             pt_corr = compute_pt_correction(
                 data,
                 z,
@@ -236,14 +245,49 @@ def derive_z_pt_weights(
             n_smooth = len(ratio.values) - 1 if has_tail else None
             head = ratio.slice(0, n_smooth)
             if len(head.values) > 0:
-                pt_corr = smooth_gaussian(
+                smoothed = smooth_kernel(
                     head,
-                    settings.smoothing_sigma,
-                    settings.smoothing_grid_step,
-                    weights[:n_smooth],
+                    settings.bandwidth,
+                    weights[:n_smooth] > 0,
+                    stat_sigma=settings.stat_sigma,
+                    bandwidth_variations=settings.bandwidth_variations,
+                    n_samples=settings.n_samples,
+                    seed=settings.seed,
                 )
+                # Store the curves with as few bins as needed
+                curves = {
+                    "nominal": smoothed.nominal.values,
+                    "stat_unc": np.sqrt(smoothed.nominal.variances),
+                    **smoothed.variations,
+                }
+                sparse = {}
+                for name, values in curves.items():
+                    edges, values = sparsify(
+                        smoothed.nominal.edges,
+                        values,
+                        settings.sparsify_threshold,
+                    )
+                    sparse[name] = Binned(
+                        edges, values, np.zeros_like(values)
+                    )
                 if has_tail:
-                    pt_corr = concatenate(pt_corr, ratio.slice(n_smooth))
+                    tail = ratio.slice(n_smooth)
+                    unchanged = Binned(
+                        tail.edges, tail.values, np.zeros_like(tail.values)
+                    )
+                    error = Binned(
+                        tail.edges, np.sqrt(tail.variances), unchanged.variances
+                    )
+                    sparse = {
+                        name: concatenate(
+                            hist, error if name == "stat_unc" else unchanged
+                        )
+                        for name, hist in sparse.items()
+                    }
+                pt_corr = sparse.pop("nominal")
+                pt_stat_uncs[jet_cat] = sparse.pop("stat_unc")
+                for name, hist in sparse.items():
+                    pt_variations.setdefault(name, {})[jet_cat] = hist
             else:
                 pt_corr = ratio
         logger.info(
@@ -258,11 +302,23 @@ def derive_z_pt_weights(
         )
         pt_corrections[jet_cat] = pt_corr
 
+    # Jet multiplicities without smoothing are not varied
+    for variations in pt_variations.values():
+        for jet_cat, pt_corr in pt_corrections.items():
+            variations.setdefault(
+                jet_cat,
+                Binned(
+                    pt_corr.edges, pt_corr.values, np.zeros_like(pt_corr.values)
+                ),
+            )
+
     cset = build_correction_set(
         normalizations,
         pt_corrections,
         normalization_errors,
         raw_pt_ratios=raw_ratios or None,
+        pt_stat_uncs=pt_stat_uncs or None,
+        pt_variations=pt_variations or None,
         description=(
             f"Z normalization and pt corrections for {campaign}, derived in "
             f"the {channel} channel"

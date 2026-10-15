@@ -285,62 +285,174 @@ def compute_pt_ratio(
     return Binned(z.edges, values, variances), weights
 
 
-def smooth_gaussian(
+# Conversion of the bandwidth to the width of the Gaussian kernel. The kernels
+# are scaled such that their quartiles are at +-0.25 bandwidth, as in
+# `TGraphSmooth::SmoothKern` and R's `ksmooth`: 0.25 / qnorm(0.75)
+KERNEL_SCALE = 0.3706506
+# The kernel is truncated at this many kernel widths
+KERNEL_CUTOFF = 4.0
+
+BAND_VARIATIONS = (
+    "band_high_up",
+    "band_high_down",
+    "band_low_up",
+    "band_low_down",
+    "band_asym_up",
+    "band_asym_down",
+)
+
+
+@dataclass
+class SmoothedCorrection:
+    """
+    A smoothed correction on a dense grid.
+
+    `nominal` holds the mean of the smoothed samples and, as variances, the
+    squared standard deviation of the smoothed samples (statistical
+    uncertainty). `variations` holds the curves of the bandwidth variations,
+    keyed by `BAND_VARIATIONS`, on the same edges.
+    """
+
+    nominal: Binned
+    variations: dict[str, np.ndarray]
+
+
+def _nadaraya_watson(
+    grid: np.ndarray, x: np.ndarray, y: np.ndarray, bandwidth: float
+) -> np.ndarray:
+    """
+    Nadaraya-Watson estimator with a Gaussian kernel at the points `grid` for
+    the rows of `y` (bins) and all its columns (samples). Far away from all
+    points, where the truncated kernel vanishes, the value of the nearest
+    point is used.
+    """
+    width = KERNEL_SCALE * bandwidth
+    out = np.empty((len(grid), y.shape[1]))
+    # Process the grid in chunks to bound the size of the kernel matrix
+    for start in range(0, len(grid), 2000):
+        chunk = grid[start : start + 2000]
+        u = (chunk[:, None] - x[None, :]) / width
+        w = np.exp(-0.5 * u**2)
+        w[np.abs(u) > KERNEL_CUTOFF] = 0.0
+        norm = w.sum(axis=1)
+        ok = norm > 0
+        result = np.empty((len(chunk), y.shape[1]))
+        result[ok] = (w[ok] @ y) / norm[ok, None]
+        if (~ok).any():
+            nearest = np.abs(chunk[~ok][:, None] - x[None, :]).argmin(axis=1)
+            result[~ok] = y[nearest]
+        out[start : start + 2000] = result
+    return out
+
+
+def smooth_kernel(
     hist: Binned,
-    sigma: float,
-    grid_step: float = 1.0,
-    weights: np.ndarray | None = None,
-) -> Binned:
+    bandwidth: float,
+    valid: np.ndarray | None = None,
+    *,
+    stat_sigma: float = 1.0,
+    bandwidth_variations: tuple[float, float] = (0.5, 1.5),
+    n_samples: int = 100,
+    seed: int = 19,
+    grid_factor: int = 100,
+) -> SmoothedCorrection:
     """
-    Smooth binwise correction factors with a Gaussian kernel to obtain a
-    continuous approximation.
+    Smooth binwise correction factors with Nadaraya-Watson kernel regression
+    as done for the fake factor corrections in TauFakeFactors
+    (`TGraphSmooth::SmoothKern` with the "normal" kernel).
 
-    The smoothed value at position x is the kernel-weighted average of the bin
-    values, evaluated at the bin centers, where each bin enters with its
-    weight times the Gaussian kernel of width `sigma`. By default the weight
-    is `1 / variance`; bins with a vanishing weight (or variance) are ignored.
-    The result is evaluated on a regular grid with the given step, covering
-    the range of `hist`. Its variances are propagated from the (uncorrelated)
-    bin variances, `sum((K w)^2 var) / sum(K w)^2`. They are correlated
-    between neighboring points of the grid.
+    The bin contents are sampled `n_samples` times from Gaussians with the
+    bin content as mean and `stat_sigma` times the bin uncertainty as width,
+    negative samples being set to zero. Every sample is smoothed with the
+    kernel regression on a grid of `grid_factor` times the number of bins
+    points that spans the full range of the histogram. The nominal curve is
+    the mean and its statistical uncertainty the standard deviation of the
+    smoothed samples. The Gaussian kernel has the width `KERNEL_SCALE *
+    bandwidth`, and the bin centers are the positions of the bins.
+
+    The bandwidth variations are obtained by repeating the smoothing, with
+    the same samples, for the bandwidth multiplied with the low and high
+    factor `bandwidth_variations`. With the nominal curve m and the curves
+    m_high and m_low, the variations are
+    * band_high: up m_high, down 2 m - m_high,
+    * band_low: up m_low, down 2 m - m_low,
+    * band_asym: up m_high, down m_low.
+    They are not negative.
+
+    Only bins in `valid` (by default all) contribute, e.g. those without a
+    meaningful correction factor are excluded.
     """
-    if sigma <= 0 or grid_step <= 0:
-        raise ValueError("sigma and grid_step must be positive")
-    if weights is None:
-        weights = np.where(
-            hist.variances > 0,
-            1.0 / np.where(hist.variances > 0, hist.variances, 1.0),
-            0.0,
-        )
-    weights = np.asarray(weights, dtype=float)
-    n_grid = max(int(round((hist.edges[-1] - hist.edges[0]) / grid_step)), 1)
+    if bandwidth <= 0:
+        raise ValueError("The bandwidth must be positive")
+    if valid is None:
+        valid = np.ones(len(hist.values), dtype=bool)
+    n_grid = grid_factor * len(hist.values)
     edges = np.linspace(hist.edges[0], hist.edges[-1], n_grid + 1)
-    valid = weights > 0
     if not valid.any():
-        return Binned(edges, np.ones(n_grid), np.zeros(n_grid))
-    centers = (0.5 * (hist.edges[:-1] + hist.edges[1:]))[valid]
-    values = hist.values[valid]
-    variances = hist.variances[valid]
-    weights = weights[valid]
-    x = 0.5 * (edges[:-1] + edges[1:])
+        return SmoothedCorrection(
+            Binned(edges, np.ones(n_grid), np.zeros(n_grid)),
+            {name: np.ones(n_grid) for name in BAND_VARIATIONS},
+        )
 
-    kw = weights[None, :] * np.exp(
-        -0.5 * ((x[:, None] - centers[None, :]) / sigma) ** 2
+    centers = 0.5 * (hist.edges[:-1] + hist.edges[1:])[valid]
+    sigma = np.sqrt(hist.variances[valid])
+    rng = np.random.default_rng(seed)
+    samples = rng.normal(
+        hist.values[valid, None],
+        stat_sigma * sigma[:, None],
+        size=(len(centers), n_samples),
     )
-    norm = kw.sum(axis=1)
-    smoothed = np.empty(n_grid)
-    variance = np.empty(n_grid)
-    ok = norm > 1e-100
-    smoothed[ok] = (kw[ok] * values[None, :]).sum(axis=1) / norm[ok]
-    variance[ok] = (kw[ok] ** 2 * variances[None, :]).sum(axis=1) / norm[
-        ok
-    ] ** 2
-    # Far away from all valid bins the kernel vanishes: use the nearest bin
-    if (~ok).any():
-        nearest = np.abs(x[~ok][:, None] - centers[None, :]).argmin(axis=1)
-        smoothed[~ok] = values[nearest]
-        variance[~ok] = variances[nearest]
-    return Binned(edges, smoothed, variance)
+    samples = np.clip(samples, 0.0, None)
+
+    grid = 0.5 * (edges[:-1] + edges[1:])
+    curves = {
+        name: _nadaraya_watson(grid, centers, samples, bandwidth * factor)
+        for name, factor in (
+            ("nominal", 1.0),
+            ("low", bandwidth_variations[0]),
+            ("high", bandwidth_variations[1]),
+        )
+    }
+    nominal = curves["nominal"].mean(axis=1)
+    high = curves["high"].mean(axis=1)
+    low = curves["low"].mean(axis=1)
+    variations = {
+        "band_high_up": high,
+        "band_high_down": 2 * nominal - high,
+        "band_low_up": low,
+        "band_low_down": 2 * nominal - low,
+        "band_asym_up": high,
+        "band_asym_down": low,
+    }
+    variations = {k: np.clip(v, 0.0, None) for k, v in variations.items()}
+    return SmoothedCorrection(
+        Binned(edges, nominal, curves["nominal"].std(axis=1) ** 2), variations
+    )
+
+
+def sparsify(
+    edges: np.ndarray, values: np.ndarray, threshold: float = 0.01
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Reduce a piecewise constant curve on a dense grid. A bin is kept if the
+    cumulative absolute change of the values since the last kept bin reaches
+    `threshold` times the range of the values; the first and the last bin are
+    always kept. Returns the edges and values of the kept bins, each bin
+    extending up to the next kept one.
+    """
+    edges, values = np.asarray(edges), np.asarray(values)
+    if len(edges) != len(values) + 1:
+        raise ValueError("Shape mismatch: edges must be len(values) + 1")
+    step = (values.max() - values.min()) * threshold
+    if step == 0:
+        return np.array([edges[0], edges[-1]]), np.array([values[0]])
+
+    activity = np.concatenate(([0.0], np.cumsum(np.abs(np.diff(values)))))
+    targets = np.arange(0, activity[-1], step)
+    selected = np.unique(np.searchsorted(activity, targets))
+    selected = selected[selected < len(values)]
+    selected = np.unique(np.concatenate(([0], selected, [len(values) - 1])))
+    return np.append(edges[selected], edges[-1]), values[selected]
 
 
 def parse_n_jets(category: str) -> int:
@@ -442,6 +554,8 @@ def build_correction_set(
     normalization_errors: dict[str, float] | None = None,
     description: str = "",
     raw_pt_ratios: dict[str, Binned] | None = None,
+    pt_stat_uncs: dict[str, Binned] | None = None,
+    pt_variations: dict[str, dict[str, Binned]] | None = None,
 ) -> schemav2.CorrectionSet:
     """
     Build the correctionlib set with the corrections `z_normalization`
@@ -454,6 +568,12 @@ def build_correction_set(
     If given, the binwise ratios before smoothing are stored for reference
     (e.g. for control plots) as `z_pt_ratio_unsmoothed` and
     `z_pt_ratio_unsmoothed_stat_unc`. They are not meant to be applied.
+
+    The statistical uncertainty of the pt corrections is taken from the
+    variances of `pt_corrections`, or, if given, from the values of
+    `pt_stat_uncs`, which may have another binning. `pt_variations` maps the
+    names of variations (see `BAND_VARIATIONS`) to the varied pt corrections
+    (values), which are stored as `z_pt_correction_<variation>`.
 
     The statistical uncertainties are stored as `z_pt_correction_stat_unc`
     (uncorrelated between pt bins, normalization uncertainty not included) and,
@@ -471,20 +591,22 @@ def build_correction_set(
     pt_error_leaves = {}
     for category, hist in pt_corrections.items():
         key = parse_n_jets(category)
-        pt_leaves[key] = schemav2.Binning(
-            nodetype="binning",
-            input="genboson_pt",
-            edges=[float(e) for e in hist.edges],
-            content=[float(v) for v in hist.values],
-            flow="clamp",
-        )
-        pt_error_leaves[key] = schemav2.Binning(
-            nodetype="binning",
-            input="genboson_pt",
-            edges=[float(e) for e in hist.edges],
-            content=[float(v) for v in np.sqrt(hist.variances)],
-            flow="clamp",
-        )
+        pt_leaves[key] = _pt_binning(hist.edges, hist.values)
+        if pt_stat_uncs is not None and category in pt_stat_uncs:
+            err = pt_stat_uncs[category]
+            pt_error_leaves[key] = _pt_binning(err.edges, err.values)
+        else:
+            pt_error_leaves[key] = _pt_binning(
+                hist.edges, np.sqrt(hist.variances)
+            )
+
+    variation_leaves = {
+        name: {
+            parse_n_jets(category): _pt_binning(hist.edges, hist.values)
+            for category, hist in by_category.items()
+        }
+        for name, by_category in (pt_variations or {}).items()
+    }
 
     raw_leaves = {}
     raw_error_leaves = {}
@@ -590,6 +712,20 @@ def build_correction_set(
                 ]
                 if raw_pt_ratios
                 else []
+            ),
+            *(
+                schemav2.Correction(
+                    name=f"z_pt_correction_{name}",
+                    description=(
+                        f"Variation {name} of z_pt_correction, e.g. from the "
+                        "smoothing bandwidth"
+                    ),
+                    version=1,
+                    inputs=pt_inputs,
+                    output=output,
+                    data=_jet_binning(leaves),
+                )
+                for name, leaves in variation_leaves.items()
             ),
         ],
     )

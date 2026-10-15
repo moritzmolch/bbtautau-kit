@@ -10,20 +10,20 @@ from xyh.shape_processor.derive_z_pt_weights import (  # noqa: E402
 )
 
 SETTINGS = {
-    "default": {"rebin": 1, "smoothing_sigma": 1.0, "pt_clip": 100},
-    "mm_eq2j": {"rebin": 2, "smoothing_sigma": None},
+    "default": {"rebin": 1, "bandwidth": 1.0, "pt_clip": 100},
+    "mm_eq2j": {"rebin": 2, "bandwidth": None},
 }
 
 
 def test_category_overrides_default():
     assert resolve_settings(SETTINGS, "mm_eq2j") == DerivationSettings(
-        rebin=2, smoothing_sigma=None, pt_clip=100
+        rebin=2, bandwidth=None, pt_clip=100
     )
 
 
 def test_unlisted_category_uses_default():
     assert resolve_settings(SETTINGS, "mm_eq3j") == DerivationSettings(
-        rebin=1, smoothing_sigma=1.0, pt_clip=100
+        rebin=1, bandwidth=1.0, pt_clip=100
     )
 
 
@@ -138,7 +138,7 @@ def test_derivation_with_different_binnings(tmp_path, monkeypatch):
         list(true_norm),
         tmp_path,
         output,
-        {"default": {"smoothing_sigma": None}},
+        {"default": {"bandwidth": None}},
     )
 
     cset = correctionlib.CorrectionSet.from_file(str(output))

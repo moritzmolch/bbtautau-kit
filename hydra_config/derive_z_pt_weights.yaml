@@ -57,38 +57,35 @@ pt_variable: pt_vis
 #                        statistical uncertainty of the ratio in each bin is
 #                        below this value. null disables the merging. Ignored
 #                        if smoothing is enabled, which needs the fine binning.
-#   smoothing_sigma:     Width in GeV of the Gaussian kernel that smooths the
-#                        binwise ratios into a continuous approximation. The
-#                        bins are weighted by their expected inverse variance.
-#                        null disables the smoothing. If enabled, the ratios
-#                        before smoothing are stored too, for the control plots.
-#   smoothing_grid_step: Step in GeV of the grid on which the smoothed
-#                        correction is evaluated and stored.
+#   bandwidth:           Bandwidth in GeV of the Nadaraya-Watson kernel regression
+#                        that smooths the binwise ratios, as for the fake
+#                        factors in TauFakeFactors. The Gaussian kernel has the
+#                        width 0.3706506 * bandwidth and is evaluated at the bin
+#                        centers on a grid of 100 points per bin. null disables
+#                        the smoothing. If enabled, the ratios before smoothing
+#                        are stored too, for the control plots.
+#   stat_sigma:          The bin contents are sampled n_samples times from
+#                        Gaussians with this multiple of the bin uncertainty as
+#                        width. The mean and standard deviation of the smoothed
+#                        samples are the correction and its statistical
+#                        uncertainty.
+#   bandwidth_variations: Factors for the low and high variation of the
+#                        bandwidth, which define the band_{high,low,asym}
+#                        variations of the correction.
+#   n_samples, seed:     Number of samples and seed of the random generator.
+#   sparsify_threshold:  The stored curves keep only the bins at which the
+#                        values changed by this fraction of their range.
 #   pt_clip:             All pt bins above this value in GeV (lower edge at or
 #                        above it) are merged into a single tail bin, which is
 #                        not smoothed. null for no tail bin.
 derivation_settings:
   default:
     rebin: 1
-    max_rel_error: 0.025
-    smoothing_sigma: 1.0
-    smoothing_grid_step: 1.0
-    pt_clip: 100
-  mm_eq2j:
-    rebin: 2
-    max_rel_error: 0.025
-    smoothing_sigma: 2.0
-    smoothing_grid_step: 2.0
-    pt_clip: 100
-  mm_eq3j:
-    rebin: 3
-    max_rel_error: 0.025
-    smoothing_sigma: 4.0
-    smoothing_grid_step: 4.0
-    pt_clip: 100
-  mm_geq4j:
-    rebin: 5
-    max_rel_error: 0.025
-    smoothing_sigma: 8.0
-    smoothing_grid_step: 8.0
-    pt_clip: 100
+    max_rel_error: 1.0
+    bandwidth: 5.0
+    stat_sigma: 1.0
+    bandwidth_variations: [0.5, 1.5]
+    n_samples: 100
+    seed: 19
+    sparsify_threshold: 0.01
+    pt_clip: 2000
