@@ -90,3 +90,13 @@ derivation_settings:
     seed: 19
     sparsify_threshold: 0.001
     pt_clip: 200
+  mm_eq0j:
+    bandwidth: 1.0
+  mm_eq1j:
+    bandwidth: 2.0
+  mm_eq2j:
+    bandwidth: 2.0
+  mm_eq3j:
+    bandwidth: 5.0
+  mm_geq4j:
+    bandwidth: 10.0

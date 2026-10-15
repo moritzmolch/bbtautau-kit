@@ -1,0 +1,44 @@
+# The factory function to set up the inventory
+factory_fn: "xyh.config.inventory.create_inventory"
+factory_fn_kwargs:
+  process_set: "default"
+
+# Filter and weight functions
+filters_fn: "xyh.filters.default_filters_without_bjets"
+weights_fn: "xyh.weights.default_weights_without_z_weights"
+
+# Analysis context: campaigns, channels, categories, and variables to process
+campaigns:
+- "2024_nano_v15"
+- "2025_nano_v15"
+channels:
+- "mm"
+categories:
+- "mm_base"
+# Exclusive jet multiplicities to derive the Z pt correction
+- "mm_eq0j"
+- "mm_eq1j"
+- "mm_eq2j"
+- "mm_eq3j"
+- "mm_geq4j"
+# Exclusive jet and b-jet multiplicities to derive the Z normalization
+- "mm_eq0j_eq0b"
+- "mm_eq1j_eq0b"
+- "mm_eq1j_eq1b"
+- "mm_eq2j_eq0b"
+- "mm_eq2j_eq1b"
+- "mm_eq2j_eq2b"
+- "mm_eq3j_eq0b"
+- "mm_eq3j_eq1b"
+- "mm_eq3j_eq2b"
+- "mm_eq3j_geq3b"
+- "mm_geq4j_eq0b"
+- "mm_geq4j_eq1b"
+- "mm_geq4j_eq2b"
+- "mm_geq4j_geq3b"
+variables:
+- "yield"
+- "m_vis"
+- "pt_vis"
+- "n_jets"
+- "n_bjets"

@@ -17,17 +17,15 @@ binning:
   # Process group providing the events the binning is derived from
   data_process_group: "data"
   # Defaults for all variables
-  n_bins: 10
-  precision: 4
+  n_bins: 100
+  precision: null
   # Limit the number of ntuple files per dataset, e.g. for tests
   n_files: null
   # Variables to derive the binning for. Each can override `n_bins`,
   # `precision` and `range: [low, high]`. Variables that are not defined for a
   # channel (empty binning in the inventory) are skipped.
   variables:
-    m_vis: {}
-    pt_1: {}
-    pt_2: {}
+    pt_vis: {}
   # Output file to be set as `binning_overrides.file` in `run_graphs`, and
   # directory with control plots of the data with the derived binning
   output_file: data/output/${tags.shapes_tag}/binning/binning.json

@@ -15,7 +15,7 @@ z_pt_weights:
   - "inventory=control_regions_z_pt"
   # Directory with the correctionlib files that are applied in this
   # production. Empty disables the corrections. Set by the workflow.
-  input_dir: ""
+  input_dir: "data/output/shapes-2026-10-15-for-z-pt-reweighting/z_pt_weights"
 
 # Binning that overrides the one of the inventory, see
 # `xyh.shape_processor.derive_binning`. Empty uses the inventory binning.
