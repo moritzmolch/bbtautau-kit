@@ -4,9 +4,10 @@ Derive data-driven Z normalization and pt corrections.
 Reads the merged histograms of a shapes tag (`yield` and `pt_vis`), subtracts
 all non-Z processes from data and writes one correctionlib file per campaign
 to `output_dir`. The derivation has two stages: the Z normalization is derived
-per (n_jets, n_bjets) category, then the normalizations are applied to the Z
-histograms and the pt correction is derived per n_jets. See `xyh.core.z_pt_reweighting` for the method. The weights
-are applied in a new production by setting `XYH_Z_PT_WEIGHTS_DIR`, see
+per (n_jets, n_bjets) category, then the pt correction is derived per n_jets
+from the histograms inclusive in b jets, with the Z prediction scaled by the
+yield-weighted average of the normalizations. See `xyh.core.z_pt_reweighting`
+for the method. The weights are applied in a new production by setting `XYH_Z_PT_WEIGHTS_DIR`, see
 `xyh.weights.processes`.
 
 The corrections must be derived from a production without Z corrections.
@@ -30,7 +31,6 @@ from xyh.core.z_pt_reweighting import (
     compute_normalization,
     compute_pt_correction,
     compute_pt_ratio,
-    common_edges,
     concatenate,
     find_merge_groups,
     is_possible_category,
@@ -163,6 +163,7 @@ def derive_z_pt_weights(
     # Stage 1: normalization per (n_jets, n_bjets) category from the yields
     normalizations = {}
     normalization_errors = {}
+    z_yields = {}
     for category in categories:
         data, z, others = _read_processes(
             merged_histograms_dir, inventory, category, yield_variable
@@ -176,10 +177,14 @@ def derive_z_pt_weights(
             norm_err,
         )
         normalizations[category] = norm
+        z_yields[category] = float(z.values.sum())
         normalization_errors[category] = norm_err
 
-    # Stage 2: pt correction per n_jets on the normalized Z prediction, which
-    # is summed over the b-jet categories of each jet multiplicity
+    # Stage 2: pt correction per n_jets from the histograms of the jet
+    # multiplicity inclusive in b jets. The Z prediction is scaled with the
+    # normalization of the jet multiplicity, which is the average of the
+    # normalizations of its b-jet categories weighted by their Z yields, so
+    # that the Z yield matches the sum of the normalized b-jet categories.
     members: dict[str, list[str]] = {}
     for category in categories:
         members.setdefault(jet_category(category), []).append(category)
@@ -190,30 +195,23 @@ def derive_z_pt_weights(
     raw_ratios = {}
     for jet_cat, member_categories in members.items():
         settings = resolve_settings(derivation_settings, jet_cat)
-        datas, zs, others = [], [], []
-        for category in member_categories:
-            d, z, o = _read_processes(
-                merged_histograms_dir, inventory, category, pt_variable
+        data, z, others = _read_processes(
+            merged_histograms_dir, inventory, jet_cat, pt_variable
+        )
+        yields = np.array([z_yields[c] for c in member_categories])
+        if yields.sum() > 0:
+            jet_normalization = float(
+                np.average(
+                    [normalizations[c] for c in member_categories],
+                    weights=yields,
+                )
             )
-            datas.append(d)
-            zs.append(z.scale(normalizations[category]))
-            others.extend(o)
-        # The binning may differ between the categories, e.g. with a binning
-        # derived from the data of each category. Move all histograms onto
-        # the union of the bin edges before summing them.
-        edges = common_edges(datas)
-        if any(len(h.edges) != len(edges) for h in datas):
-            logger.info(
-                "%s, %s: the categories have different pt binnings, using "
-                "the union of the bin edges (%d bins)",
-                campaign,
-                jet_cat,
-                len(edges) - 1,
-            )
-        datas = [h.redistribute(edges) for h in datas]
-        zs = [h.redistribute(edges) for h in zs]
-        others = [h.redistribute(edges) for h in others]
-        data, z = sum_binned(datas), sum_binned(zs)
+        else:
+            jet_normalization = 1.0
+        logger.info(
+            "%s, %s: Z normalization %.4f", campaign, jet_cat, jet_normalization
+        )
+        z = z.scale(jet_normalization)
         if settings.rebin > 1:
             data, z = data.rebin(settings.rebin), z.rebin(settings.rebin)
             others = [h.rebin(settings.rebin) for h in others]
@@ -224,10 +222,7 @@ def derive_z_pt_weights(
             z, _ = z.merge_above(settings.pt_clip)
             others = [h.merge_above(settings.pt_clip)[0] for h in others]
         # Smoothing needs the fine binning, so it replaces the merging
-        if (
-            settings.max_rel_error is not None
-            and settings.bandwidth is None
-        ):
+        if settings.max_rel_error is not None and settings.bandwidth is None:
             starts = find_merge_groups(data, z, others, settings.max_rel_error)
             data, z = data.merge(starts), z.merge(starts)
             others = [h.merge(starts) for h in others]
@@ -267,9 +262,7 @@ def derive_z_pt_weights(
                         values,
                         settings.sparsify_threshold,
                     )
-                    sparse[name] = Binned(
-                        edges, values, np.zeros_like(values)
-                    )
+                    sparse[name] = Binned(edges, values, np.zeros_like(values))
                 if has_tail:
                     tail = ratio.slice(n_smooth)
                     unchanged = Binned(
