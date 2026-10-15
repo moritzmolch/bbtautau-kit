@@ -6,7 +6,7 @@ all non-Z processes from data and writes one correctionlib file per campaign
 to `output_dir`. The derivation has two stages: the Z normalization is derived
 per (n_jets, n_bjets) category, then the pt correction is derived per n_jets
 from the histograms inclusive in b jets, with the Z prediction scaled by the
-yield-weighted average of the normalizations. See `xyh.core.z_pt_reweighting`
+normalization of the jet multiplicity derived from its yields. See `xyh.core.z_pt_reweighting`
 for the method. The weights are applied in a new production by setting `XYH_Z_PT_WEIGHTS_DIR`, see
 `xyh.weights.processes`.
 
@@ -163,7 +163,6 @@ def derive_z_pt_weights(
     # Stage 1: normalization per (n_jets, n_bjets) category from the yields
     normalizations = {}
     normalization_errors = {}
-    z_yields = {}
     for category in categories:
         data, z, others = _read_processes(
             merged_histograms_dir, inventory, category, yield_variable
@@ -177,39 +176,35 @@ def derive_z_pt_weights(
             norm_err,
         )
         normalizations[category] = norm
-        z_yields[category] = float(z.values.sum())
         normalization_errors[category] = norm_err
 
     # Stage 2: pt correction per n_jets from the histograms of the jet
     # multiplicity inclusive in b jets. The Z prediction is scaled with the
-    # normalization of the jet multiplicity, which is the average of the
-    # normalizations of its b-jet categories weighted by their Z yields, so
-    # that the Z yield matches the sum of the normalized b-jet categories.
-    members: dict[str, list[str]] = {}
-    for category in categories:
-        members.setdefault(jet_category(category), []).append(category)
+    # normalization of the jet multiplicity, derived from its yields like the
+    # ones of the (n_jets, n_bjets) categories.
+    jet_categories = list(dict.fromkeys(jet_category(c) for c in categories))
 
     pt_corrections = {}
     pt_stat_uncs = {}
     pt_variations = {}
     raw_ratios = {}
-    for jet_cat, member_categories in members.items():
+    for jet_cat in jet_categories:
         settings = resolve_settings(derivation_settings, jet_cat)
+        yield_data, yield_z, yield_others = _read_processes(
+            merged_histograms_dir, inventory, jet_cat, yield_variable
+        )
+        jet_normalization, jet_norm_err = compute_normalization(
+            yield_data, yield_z, yield_others
+        )
+        logger.info(
+            "%s, %s: Z normalization %.4f +- %.4f",
+            campaign,
+            jet_cat,
+            jet_normalization,
+            jet_norm_err,
+        )
         data, z, others = _read_processes(
             merged_histograms_dir, inventory, jet_cat, pt_variable
-        )
-        yields = np.array([z_yields[c] for c in member_categories])
-        if yields.sum() > 0:
-            jet_normalization = float(
-                np.average(
-                    [normalizations[c] for c in member_categories],
-                    weights=yields,
-                )
-            )
-        else:
-            jet_normalization = 1.0
-        logger.info(
-            "%s, %s: Z normalization %.4f", campaign, jet_cat, jet_normalization
         )
         z = z.scale(jet_normalization)
         if settings.rebin > 1:

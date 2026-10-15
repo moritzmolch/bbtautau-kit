@@ -55,9 +55,12 @@ def test_two_stage_derivation(tmp_path, monkeypatch):
     background = 50.0 + 0 * centers
 
     # Inclusive in b jets: the Z yields and backgrounds add up. The yields
-    # are the z histograms times 10.
-    jet_cats = {"mm_eq2j": ["mm_eq2j_eq1b", "mm_eq2j_eq2b"],
-                "mm_eq3j": ["mm_eq3j_eq1b"]}
+    # are the z histograms times 10. The normalization of the jet
+    # multiplicity is derived from the inclusive yields.
+    jet_cats = {
+        "mm_eq2j": ["mm_eq2j_eq1b", "mm_eq2j_eq2b"],
+        "mm_eq3j": ["mm_eq3j_eq1b"],
+    }
     effective = {
         jc: sum(true_norm[c] * z_hist[c][0] for c in cs)
         / sum(z_hist[c][0] for c in cs)
@@ -67,15 +70,20 @@ def test_two_stage_derivation(tmp_path, monkeypatch):
     def read(base_dir, inventory, category, variable):
         wrap = lambda v, e=edges: Binned(e, v, v)  # noqa: E731
         if variable == "yield":
-            z = z_hist[category][:1] * 10
-            bkg = background[:1] * 10
-            data = true_norm[category] * z + bkg
             e = np.linspace(0, 1, 2)
+            if category in jet_cats:
+                z = sum(z_hist[c][:1] for c in jet_cats[category]) * 10
+                bkg = background[:1] * 10 * len(jet_cats[category])
+                data = effective[category] * z + bkg
+            else:
+                z = z_hist[category][:1] * 10
+                bkg = background[:1] * 10
+                data = true_norm[category] * z + bkg
             return wrap(data, e), wrap(z, e), [wrap(bkg, e)]
         n_jets = int(category.split("_")[1][2])
         z = sum(z_hist[c] for c in jet_cats[category])
         bkg = background * len(jet_cats[category])
-        # The data follow the effective normalization and the true shape
+        # The data follow the jet multiplicity normalization and true shape
         data = effective[category] * z * true_shape[n_jets] + bkg
         return wrap(data), wrap(z), [wrap(bkg)]
 

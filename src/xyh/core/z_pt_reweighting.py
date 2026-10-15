@@ -9,8 +9,8 @@ non-Z backgrounds from data and comparing the result to the Z prediction:
 2. The *pt correction* is the binwise ratio of the background-subtracted data
    to the Z prediction in a pt distribution, derived per jet multiplicity. The
    Z prediction is first scaled with the normalization of its jet
-   multiplicity, the average of the normalizations of its b-jet categories
-   weighted by their Z yields, so that the two weights factorize.
+   multiplicity, derived from the yields like the normalizations of the
+   b-jet categories.
 
 All corrections are stored in a correctionlib `CorrectionSet`.
 """
