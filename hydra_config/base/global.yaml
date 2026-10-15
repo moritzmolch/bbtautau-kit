@@ -17,6 +17,11 @@ z_pt_weights:
   # production. Empty disables the corrections. Set by the workflow.
   input_dir: ""
 
+# Binning that overrides the one of the inventory, see
+# `xyh.shape_processor.derive_binning`. Empty uses the inventory binning.
+binning_overrides:
+  file: ""
+
 # Hydra-specific config
 hydra:
   run:

@@ -8,6 +8,8 @@ from time import time
 
 from omegaconf import DictConfig
 
+from xyh import ROOT_DIR
+from xyh.core.binning import load_binning_overrides
 from xyh.core.cli import hydra_cli
 from xyh.core.io import dump_json
 from xyh.core.specs.dataset import create_dataset_specs
@@ -96,6 +98,12 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         ntuple_friends=cfg["ntuples"]["friends"],
     )
 
+    # Load the binning that overrides the one of the inventory, if configured
+    binning_overrides = None
+    binning_file = cfg.get("binning_overrides", {}).get("file")
+    if binning_file:
+        binning_overrides = load_binning_overrides(ROOT_DIR / binning_file)
+
     # Create the histogram specs
     histogram_specs = create_histogram_specs(
         inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
@@ -104,6 +112,7 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         channels=cfg["inventory"]["channels"],
         categories=cfg["inventory"]["categories"],
         variables=cfg["inventory"]["variables"],
+        binning_overrides=binning_overrides,
     )
 
     # Create the filter and weight specs
