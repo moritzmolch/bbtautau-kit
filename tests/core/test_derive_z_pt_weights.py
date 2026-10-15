@@ -78,7 +78,8 @@ def test_two_stage_derivation(tmp_path, monkeypatch):
         {},
         "2024_nano_v15",
         "mm",
-        list(true_norm),
+        # Empty by construction, must be ignored
+        [*true_norm, "mm_eq0j_eq1b"],
         tmp_path,
         output,
         {"default": {}},

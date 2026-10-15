@@ -20,7 +20,8 @@ campaigns: ${inventory.campaigns}
 # The weights are derived exclusively in this channel
 channel: mm
 
-# Categories with exclusive jet and b-jet multiplicities. The derivation has two
+# Categories with exclusive jet and b-jet multiplicities (those with more
+# b jets than jets are empty and left out). The derivation has two
 # stages:
 # 1. The Z normalization is derived in each of these categories from the
 #    yields.
@@ -28,17 +29,11 @@ channel: mm
 #    is derived per jet multiplicity on the sum over the b-jet categories.
 categories:
 - mm_eq0j_eq0b
-- mm_eq0j_eq1b
-- mm_eq0j_eq2b
-- mm_eq0j_geq3b
 - mm_eq1j_eq0b
 - mm_eq1j_eq1b
-- mm_eq1j_eq2b
-- mm_eq1j_geq3b
 - mm_eq2j_eq0b
 - mm_eq2j_eq1b
 - mm_eq2j_eq2b
-- mm_eq2j_geq3b
 - mm_eq3j_eq0b
 - mm_eq3j_eq1b
 - mm_eq3j_eq2b

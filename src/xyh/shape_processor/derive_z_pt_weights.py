@@ -32,6 +32,7 @@ from xyh.core.z_pt_reweighting import (
     compute_pt_ratio,
     concatenate,
     find_merge_groups,
+    is_possible_category,
     jet_category,
     smooth_gaussian,
     sum_binned,
@@ -144,6 +145,12 @@ def derive_z_pt_weights(
         channel,
         **inventory_factory_kwargs,
     )
+
+    # Categories with more b-tagged jets than jets are empty by construction
+    impossible = [c for c in categories if not is_possible_category(c)]
+    if impossible:
+        logger.warning("Ignoring impossible categories %s", impossible)
+    categories = [c for c in categories if c not in impossible]
 
     # Stage 1: normalization per (n_jets, n_bjets) category from the yields
     normalizations = {}

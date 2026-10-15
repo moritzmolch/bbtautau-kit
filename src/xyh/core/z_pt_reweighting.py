@@ -25,6 +25,7 @@ from correctionlib import schemav2
 MULTIPLICITY_UPPER_EDGE = 100.0
 
 _N_JETS_PATTERN = re.compile(r"_(?:eq|geq)(\d+)j(?:_|$)")
+_OPEN_JETS_PATTERN = re.compile(r"_geq\d+j(?:_|$)")
 _N_BJETS_PATTERN = re.compile(r"_(?:eq|geq)(\d+)b(?:_|$)")
 _BJET_SUFFIX_PATTERN = re.compile(r"_(?:eq|geq)\d+b$")
 
@@ -341,6 +342,18 @@ def parse_multiplicities(category: str) -> tuple[int, int]:
     if m_bjets is None:
         raise ValueError(f"Cannot determine b-jet multiplicity of '{category}'")
     return parse_n_jets(category), int(m_bjets.group(1))
+
+
+def is_possible_category(category: str) -> bool:
+    """
+    Whether a category with exclusive jet and b-jet multiplicities can hold
+    events. There are no events with more b-tagged jets than jets, e.g.
+    `mm_eq0j_eq1b` or `mm_eq2j_geq3b` are empty by construction.
+    """
+    n_jets, n_bjets = parse_multiplicities(category)
+    if _OPEN_JETS_PATTERN.search(category):
+        return True
+    return n_bjets <= n_jets
 
 
 def jet_category(category: str) -> str:

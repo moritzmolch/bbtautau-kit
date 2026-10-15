@@ -12,6 +12,7 @@ from xyh.core.z_pt_reweighting import (
     compute_pt_ratio,
     concatenate,
     find_merge_groups,
+    is_possible_category,
     jet_category,
     parse_multiplicities,
     parse_n_jets,
@@ -84,6 +85,15 @@ def test_parse_multiplicities():
     assert jet_category("mm_geq4j_geq3b") == "mm_geq4j"
     with pytest.raises(ValueError):
         jet_category("mm_geq4j")
+
+
+def test_is_possible_category():
+    assert is_possible_category("mm_eq0j_eq0b")
+    assert is_possible_category("mm_eq3j_geq3b")
+    assert is_possible_category("mm_geq4j_geq3b")
+    assert not is_possible_category("mm_eq0j_eq1b")
+    assert not is_possible_category("mm_eq1j_eq2b")
+    assert not is_possible_category("mm_eq2j_geq3b")
 
 
 def test_correction_set_evaluation():
