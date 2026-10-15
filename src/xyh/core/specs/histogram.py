@@ -31,7 +31,7 @@ def _parse_variable_name(name):
     # channel names
     if channels is not None:
         channels = [
-            c.strip() for c in ",".split(channels) if len(c.strip()) > 0
+            c.strip() for c in channels.split(",") if len(c.strip()) > 0
         ]
 
     return name, channels
@@ -161,13 +161,16 @@ def create_histogram_specs(
             # Iterate through all selected variables
             for variable in variables:
                 # Parse the variable name to extract 'pure' name and channels
-                name, channels = _parse_variable_name(variable)
+                name, variable_channels = _parse_variable_name(variable)
 
-                # If channels is 'None', no constraint is put on the variable.
-                # If channels is a list of channel names, it needs to be checked
+                # If variable_channels is 'None', no constraint is put on the variable.
+                # If variable_channels is a list of channel names, it needs to be checked
                 # whether the variable is assigned to be processed in the
                 # currently considered channel.
-                if channels is not None and channel_inst.name not in channels:
+                if (
+                    variable_channels is not None
+                    and channel_inst.name not in variable_channels
+                ):
                     logger.debug(
                         f"Skipping variable {name} in channel "
                         + channel_inst.name
