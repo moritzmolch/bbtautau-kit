@@ -68,6 +68,22 @@ class Binned:
             self.edges, self.values * factor, self.variances * factor**2
         )
 
+    def redistribute(self, edges: np.ndarray) -> "Binned":
+        """
+        Redistribute the contents onto other bin edges, assuming a uniform
+        density within each bin. The edges must include all edges of this
+        histogram that lie within the new range, otherwise events are split
+        arbitrarily. Contents outside of the range of this histogram are zero.
+        The uncertainties of the parts of a bin are treated as independent.
+        """
+        edges = np.asarray(edges, dtype=float)
+        low = np.maximum(edges[:-1, None], self.edges[None, :-1])
+        high = np.minimum(edges[1:, None], self.edges[None, 1:])
+        fraction = np.clip(high - low, 0.0, None) / np.diff(self.edges)
+        return Binned(
+            edges, fraction @ self.values, fraction**2 @ self.variances
+        )
+
     def rebin(self, factor: int) -> "Binned":
         """Merge `factor` adjacent bins."""
         n_bins = len(self.values)
@@ -122,6 +138,11 @@ def concatenate(first: Binned, second: Binned) -> Binned:
         np.append(first.values, second.values),
         np.append(first.variances, second.variances),
     )
+
+
+def common_edges(hists: list[Binned]) -> np.ndarray:
+    """The union of the bin edges of all histograms."""
+    return np.unique(np.round(np.concatenate([h.edges for h in hists]), 9))
 
 
 def sum_binned(hists: list[Binned]) -> Binned:

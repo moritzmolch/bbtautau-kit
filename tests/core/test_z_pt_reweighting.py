@@ -281,3 +281,18 @@ def test_concatenate_and_slice():
     assert joined.values.tolist() == h.values.tolist()
     with pytest.raises(ValueError):
         concatenate(h.slice(0, 1), h.slice(2))
+
+
+def test_redistribute_conserves_content_and_uses_union_edges():
+    from xyh.core.z_pt_reweighting import common_edges
+
+    a = Binned([0, 10, 30], [10.0, 40.0], [10.0, 40.0])
+    b = Binned([0, 20, 30], [1.0, 1.0], [1.0, 1.0])
+    edges = common_edges([a, b])
+    assert list(edges) == [0, 10, 20, 30]
+    moved = a.redistribute(edges)
+    assert list(moved.values) == pytest.approx([10.0, 20.0, 20.0])
+    assert moved.values.sum() == pytest.approx(a.values.sum())
+    # Outside the range of the histogram the content is zero
+    wide = a.redistribute([0, 10, 30, 50])
+    assert wide.values[-1] == 0.0

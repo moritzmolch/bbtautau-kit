@@ -30,6 +30,7 @@ from xyh.core.z_pt_reweighting import (
     compute_normalization,
     compute_pt_correction,
     compute_pt_ratio,
+    common_edges,
     concatenate,
     find_merge_groups,
     is_possible_category,
@@ -188,6 +189,21 @@ def derive_z_pt_weights(
             datas.append(d)
             zs.append(z.scale(normalizations[category]))
             others.extend(o)
+        # The binning may differ between the categories, e.g. with a binning
+        # derived from the data of each category. Move all histograms onto
+        # the union of the bin edges before summing them.
+        edges = common_edges(datas)
+        if any(len(h.edges) != len(edges) for h in datas):
+            logger.info(
+                "%s, %s: the categories have different pt binnings, using "
+                "the union of the bin edges (%d bins)",
+                campaign,
+                jet_cat,
+                len(edges) - 1,
+            )
+        datas = [h.redistribute(edges) for h in datas]
+        zs = [h.redistribute(edges) for h in zs]
+        others = [h.redistribute(edges) for h in others]
         data, z = sum_binned(datas), sum_binned(zs)
         if settings.rebin > 1:
             data, z = data.rebin(settings.rebin), z.rebin(settings.rebin)

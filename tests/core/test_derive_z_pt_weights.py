@@ -98,3 +98,49 @@ def test_two_stage_derivation(tmp_path, monkeypatch):
             assert cset["z_pt_correction"].evaluate(
                 n_jets, float(pt)
             ) == pytest.approx(expected)
+
+
+def test_derivation_with_different_binnings(tmp_path, monkeypatch):
+    import correctionlib
+    import numpy as np
+
+    from xyh.core.z_pt_reweighting import Binned
+    from xyh.shape_processor import derive_z_pt_weights as stage
+
+    # Every category has its own pt binning. The densities are flat, so the
+    # redistribution is exact and the correction must be one everywhere.
+    edges = {
+        "mm_eq2j_eq0b": np.array([0.0, 10, 30, 60, 100]),
+        "mm_eq2j_eq1b": np.array([0.0, 20, 40, 100]),
+    }
+    true_norm = {"mm_eq2j_eq0b": 0.8, "mm_eq2j_eq1b": 1.2}
+
+    def read(base_dir, inventory, category, variable):
+        if variable == "yield":
+            z, bkg = np.array([10.0]), np.array([1.0])
+            data = true_norm[category] * z + bkg
+            e = np.array([0.0, 1.0])
+        else:
+            e = edges[category]
+            z, bkg = 5.0 * np.diff(e), 0.5 * np.diff(e)
+            data = true_norm[category] * z + bkg
+        wrap = lambda v: Binned(e, v, v)  # noqa: E731
+        return wrap(data), wrap(z), [wrap(bkg)]
+
+    monkeypatch.setattr(stage, "_read_processes", read)
+    monkeypatch.setattr(stage, "load_inventory", lambda *a, **k: None)
+    output = tmp_path / "out.json"
+    stage.derive_z_pt_weights(
+        "unused",
+        {},
+        "2024_nano_v15",
+        "mm",
+        list(true_norm),
+        tmp_path,
+        output,
+        {"default": {"smoothing_sigma": None}},
+    )
+
+    cset = correctionlib.CorrectionSet.from_file(str(output))
+    for pt in (5.0, 25.0, 50.0, 90.0):
+        assert cset["z_pt_correction"].evaluate(2, pt) == pytest.approx(1.0)
