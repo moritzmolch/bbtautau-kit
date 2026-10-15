@@ -1,0 +1,743 @@
+"""
+Derivation of Z boson normalization and pt reweighting corrections.
+
+The corrections are derived from control region histograms by subtracting all
+non-Z backgrounds from data and comparing the result to the Z prediction:
+
+1. The *normalization* is the ratio of the background-subtracted data yield to
+   the Z yield, derived per jet and b-jet multiplicity category.
+2. The *pt correction* is the binwise ratio of the background-subtracted data
+   to the Z prediction in a pt distribution, derived per jet multiplicity. The
+   Z prediction is first scaled with the normalization of its jet
+   multiplicity, derived from the yields like the normalizations of the
+   b-jet categories.
+
+All corrections are stored in a correctionlib `CorrectionSet`.
+"""
+
+import re
+from dataclasses import dataclass
+
+import numpy as np
+from correctionlib import schemav2
+
+# Upper edge used for the open-ended jet and b-jet multiplicity bins
+MULTIPLICITY_UPPER_EDGE = 100.0
+
+_N_JETS_PATTERN = re.compile(r"_(?:eq|geq)(\d+)j(?:_|$)")
+_OPEN_JETS_PATTERN = re.compile(r"_geq\d+j(?:_|$)")
+_N_BJETS_PATTERN = re.compile(r"_(?:eq|geq)(\d+)b(?:_|$)")
+_BJET_SUFFIX_PATTERN = re.compile(r"_(?:eq|geq)\d+b$")
+
+
+@dataclass
+class Binned:
+    """A one-dimensional histogram with bin contents and their variances."""
+
+    edges: np.ndarray
+    values: np.ndarray
+    variances: np.ndarray
+
+    def __post_init__(self):
+        self.edges = np.asarray(self.edges, dtype=float)
+        self.values = np.asarray(self.values, dtype=float)
+        self.variances = np.asarray(self.variances, dtype=float)
+        if not (
+            len(self.edges) == len(self.values) + 1
+            and self.values.shape == self.variances.shape
+        ):
+            raise ValueError("Inconsistent histogram shapes")
+
+    def __sub__(self, other: "Binned") -> "Binned":
+        self._check_compatible(other)
+        return Binned(
+            self.edges,
+            self.values - other.values,
+            self.variances + other.variances,
+        )
+
+    def _check_compatible(self, other: "Binned"):
+        if self.edges.shape != other.edges.shape or not np.allclose(
+            self.edges, other.edges
+        ):
+            raise ValueError("Histograms have different binning")
+
+    def scale(self, factor: float) -> "Binned":
+        """Scale the contents by a constant factor without uncertainty."""
+        return Binned(
+            self.edges, self.values * factor, self.variances * factor**2
+        )
+
+    def rebin(self, factor: int) -> "Binned":
+        """Merge `factor` adjacent bins."""
+        n_bins = len(self.values)
+        if factor < 1 or n_bins % factor != 0:
+            raise ValueError(
+                f"Cannot rebin {n_bins} bins by a factor of {factor}"
+            )
+        return Binned(
+            self.edges[::factor],
+            self.values.reshape(-1, factor).sum(axis=1),
+            self.variances.reshape(-1, factor).sum(axis=1),
+        )
+
+    def merge_above(self, pt_clip: float) -> tuple["Binned", bool]:
+        """
+        Merge all bins with a lower edge at or above `pt_clip` into a single
+        bin. Returns the histogram and whether a tail bin has been formed,
+        i.e. whether `pt_clip` lies below the upper edge. A bin that contains
+        `pt_clip` in its interior is kept as it is.
+        """
+        n_bins = len(self.values)
+        first = int(np.searchsorted(self.edges[:-1], pt_clip - 1e-9))
+        if first >= n_bins:
+            return self, False
+        return self.merge([*range(first), first]), True
+
+    def slice(self, start: int, stop: int | None = None) -> "Binned":
+        """The bins with indices from `start` up to `stop`."""
+        stop = len(self.values) if stop is None else stop
+        return Binned(
+            self.edges[start : stop + 1],
+            self.values[start:stop],
+            self.variances[start:stop],
+        )
+
+    def merge(self, starts: list[int]) -> "Binned":
+        """Merge bins into groups beginning at the given bin indices."""
+        idx = np.asarray(starts, dtype=int)
+        return Binned(
+            np.append(self.edges[idx], self.edges[-1]),
+            np.add.reduceat(self.values, idx),
+            np.add.reduceat(self.variances, idx),
+        )
+
+
+def concatenate(first: Binned, second: Binned) -> Binned:
+    """Join two histograms where the first ends where the second begins."""
+    if not np.isclose(first.edges[-1], second.edges[0]):
+        raise ValueError("Histograms are not adjacent")
+    return Binned(
+        np.append(first.edges, second.edges[1:]),
+        np.append(first.values, second.values),
+        np.append(first.variances, second.variances),
+    )
+
+
+def sum_binned(hists: list[Binned]) -> Binned:
+    """Sum a non-empty list of histograms with identical binning."""
+    total = hists[0]
+    for h in hists[1:]:
+        total._check_compatible(h)
+        total = Binned(
+            total.edges, total.values + h.values, total.variances + h.variances
+        )
+    return total
+
+
+def find_merge_groups(
+    data: Binned,
+    z: Binned,
+    others: list[Binned],
+    max_rel_error: float,
+) -> list[int]:
+    """
+    Group adjacent bins from low to high such that the statistical uncertainty
+    of the data-over-Z ratio is below `max_rel_error` in every group. Returns
+    the start indices of the groups. A remainder that does not reach the
+    threshold is merged into the last group. The uncertainty of the
+    normalization is common to all bins and therefore not considered.
+    """
+    subtracted = data - sum_binned(others) if others else data
+    n_bins = len(data.values)
+    starts = [0]
+    sum_data = sum_var_data = sum_z = sum_var_z = 0.0
+    open_group = True
+    for i in range(n_bins):
+        sum_data += subtracted.values[i]
+        sum_var_data += subtracted.variances[i]
+        sum_z += z.values[i]
+        sum_var_z += z.variances[i]
+        if sum_data > 0 and sum_z > 0:
+            rel_var = sum_var_data / sum_data**2 + sum_var_z / sum_z**2
+            if rel_var < max_rel_error**2:
+                starts.append(i + 1)
+                open_group = False
+                sum_data = sum_var_data = sum_z = sum_var_z = 0.0
+                continue
+        open_group = True
+    # The last start is either past the end or begins an incomplete group,
+    # which is merged into the previous one
+    if len(starts) > 1 and (open_group or starts[-1] >= n_bins):
+        starts.pop()
+    return starts
+
+
+def compute_normalization(
+    data: Binned, z: Binned, others: list[Binned]
+) -> tuple[float, float]:
+    """
+    Normalization of Z such that its integral matches the background-subtracted
+    data. Returns the factor and its statistical uncertainty. A factor of 1 is
+    returned if the Z yield is not positive.
+    """
+    n_data, var_data = data.values.sum(), data.variances.sum()
+    n_others = sum(h.values.sum() for h in others)
+    var_others = sum(h.variances.sum() for h in others)
+    n_z, var_z = z.values.sum(), z.variances.sum()
+    if n_z <= 0:
+        return 1.0, 0.0
+    num = n_data - n_others
+    var_num = var_data + var_others
+    factor = num / n_z
+    error = np.sqrt(var_num / n_z**2 + var_z * num**2 / n_z**4)
+    return float(factor), float(error)
+
+
+def compute_pt_correction(
+    data: Binned,
+    z: Binned,
+    others: list[Binned],
+    normalization: float = 1.0,
+) -> Binned:
+    """
+    Binwise correction factors for Z such that the (normalized) Z prediction
+    matches the background-subtracted data. Bins without a positive Z
+    prediction or with a non-positive subtracted data content get a factor
+    of 1. The result holds the factors and their variances.
+
+    The variances contain only the statistical uncertainties of the bin
+    contents, which are uncorrelated between the bins. The uncertainty of the
+    normalization is common to all bins and anti-correlated to the factors
+    (the product of both is fixed by the data in each bin), so it is treated
+    separately, see `compute_normalization`.
+    """
+    ratio, _ = compute_pt_ratio(data, z, others, normalization)
+    subtracted = data - sum_binned(others) if others else data
+    ok = (z.values > 0) & (subtracted.values > 0) & (normalization > 0)
+    values = np.where(ok, ratio.values, 1.0)
+    variances = np.where(ok, ratio.variances, 0.0)
+    return Binned(z.edges, values, variances)
+
+
+def compute_pt_ratio(
+    data: Binned,
+    z: Binned,
+    others: list[Binned],
+    normalization: float = 1.0,
+) -> tuple[Binned, np.ndarray]:
+    """
+    Unbiased input for the smoothing of the pt correction.
+
+    Returns the raw binwise ratio of background-subtracted data to the
+    normalized Z prediction, including bins with a zero or negative content,
+    which must not be dropped in order not to bias the average. Bins without a
+    positive Z prediction get a ratio of 1 and a vanishing weight. The
+    variances are the observed statistical variances of the ratios.
+
+    The second return value are the weights for the averaging: the inverse of
+    the variance expected for a ratio of 1. Using the expectation instead of
+    the observed variance avoids the bias that arises when bins with
+    downward fluctuations get a larger weight.
+    """
+    subtracted = data - sum_binned(others) if others else data
+    z_norm = z.scale(normalization)
+    ok = z_norm.values > 0
+    safe_z = np.where(ok, z_norm.values, 1.0)
+    background = (
+        sum_binned(others)
+        if others
+        else Binned(z.edges, 0 * z.values, 0 * z.values)
+    )
+
+    values = np.where(ok, subtracted.values / safe_z, 1.0)
+    variances = np.where(
+        ok,
+        subtracted.variances / safe_z**2
+        + z_norm.variances * subtracted.values**2 / safe_z**4,
+        0.0,
+    )
+    expected_variance = (
+        safe_z + background.values + background.variances + z_norm.variances
+    ) / safe_z**2
+    weights = np.where(ok, 1.0 / expected_variance, 0.0)
+    return Binned(z.edges, values, variances), weights
+
+
+# Conversion of the bandwidth to the width of the Gaussian kernel. The kernels
+# are scaled such that their quartiles are at +-0.25 bandwidth, as in
+# `TGraphSmooth::SmoothKern` and R's `ksmooth`: 0.25 / qnorm(0.75)
+KERNEL_SCALE = 0.3706506
+# The kernel is truncated at this many kernel widths
+KERNEL_CUTOFF = 4.0
+
+BAND_VARIATIONS = (
+    "band_high_up",
+    "band_high_down",
+    "band_low_up",
+    "band_low_down",
+    "band_asym_up",
+    "band_asym_down",
+)
+
+
+@dataclass
+class SmoothedCorrection:
+    """
+    A smoothed correction on a dense grid.
+
+    `nominal` holds the mean of the smoothed samples and, as variances, the
+    squared standard deviation of the smoothed samples (statistical
+    uncertainty). `variations` holds the curves of the bandwidth variations,
+    keyed by `BAND_VARIATIONS`, on the same edges.
+    """
+
+    nominal: Binned
+    variations: dict[str, np.ndarray]
+
+
+def _nadaraya_watson(
+    grid: np.ndarray, x: np.ndarray, y: np.ndarray, bandwidth: float
+) -> np.ndarray:
+    """
+    Nadaraya-Watson estimator with a Gaussian kernel at the points `grid` for
+    the rows of `y` (bins) and all its columns (samples). Far away from all
+    points, where the truncated kernel vanishes, the value of the nearest
+    point is used.
+    """
+    width = KERNEL_SCALE * bandwidth
+    out = np.empty((len(grid), y.shape[1]))
+    # Process the grid in chunks to bound the size of the kernel matrix
+    for start in range(0, len(grid), 2000):
+        chunk = grid[start : start + 2000]
+        u = (chunk[:, None] - x[None, :]) / width
+        w = np.exp(-0.5 * u**2)
+        w[np.abs(u) > KERNEL_CUTOFF] = 0.0
+        norm = w.sum(axis=1)
+        ok = norm > 0
+        result = np.empty((len(chunk), y.shape[1]))
+        result[ok] = (w[ok] @ y) / norm[ok, None]
+        if (~ok).any():
+            nearest = np.abs(chunk[~ok][:, None] - x[None, :]).argmin(axis=1)
+            result[~ok] = y[nearest]
+        out[start : start + 2000] = result
+    return out
+
+
+def smooth_kernel(
+    hist: Binned,
+    bandwidth: float,
+    valid: np.ndarray | None = None,
+    *,
+    stat_sigma: float = 1.0,
+    bandwidth_variations: tuple[float, float] = (0.5, 1.5),
+    n_samples: int = 100,
+    seed: int = 19,
+    grid_factor: int = 100,
+) -> SmoothedCorrection:
+    """
+    Smooth binwise correction factors with Nadaraya-Watson kernel regression
+    as done for the fake factor corrections in TauFakeFactors
+    (`TGraphSmooth::SmoothKern` with the "normal" kernel).
+
+    The bin contents are sampled `n_samples` times from Gaussians with the
+    bin content as mean and `stat_sigma` times the bin uncertainty as width,
+    negative samples being set to zero. Every sample is smoothed with the
+    kernel regression on a grid of `grid_factor` times the number of bins
+    points that spans the full range of the histogram. The nominal curve is
+    the mean and its statistical uncertainty the standard deviation of the
+    smoothed samples. The Gaussian kernel has the width `KERNEL_SCALE *
+    bandwidth`, and the bin centers are the positions of the bins.
+
+    The bandwidth variations are obtained by repeating the smoothing, with
+    the same samples, for the bandwidth multiplied with the low and high
+    factor `bandwidth_variations`. With the nominal curve m and the curves
+    m_high and m_low, the variations are
+    * band_high: up m_high, down 2 m - m_high,
+    * band_low: up m_low, down 2 m - m_low,
+    * band_asym: up m_high, down m_low.
+    They are not negative.
+
+    Only bins in `valid` (by default all) contribute, e.g. those without a
+    meaningful correction factor are excluded.
+    """
+    if bandwidth <= 0:
+        raise ValueError("The bandwidth must be positive")
+    if valid is None:
+        valid = np.ones(len(hist.values), dtype=bool)
+    n_grid = grid_factor * len(hist.values)
+    edges = np.linspace(hist.edges[0], hist.edges[-1], n_grid + 1)
+    if not valid.any():
+        return SmoothedCorrection(
+            Binned(edges, np.ones(n_grid), np.zeros(n_grid)),
+            {name: np.ones(n_grid) for name in BAND_VARIATIONS},
+        )
+
+    centers = 0.5 * (hist.edges[:-1] + hist.edges[1:])[valid]
+    sigma = np.sqrt(hist.variances[valid])
+    rng = np.random.default_rng(seed)
+    samples = rng.normal(
+        hist.values[valid, None],
+        stat_sigma * sigma[:, None],
+        size=(len(centers), n_samples),
+    )
+    samples = np.clip(samples, 0.0, None)
+
+    grid = 0.5 * (edges[:-1] + edges[1:])
+    curves = {
+        name: _nadaraya_watson(grid, centers, samples, bandwidth * factor)
+        for name, factor in (
+            ("nominal", 1.0),
+            ("low", bandwidth_variations[0]),
+            ("high", bandwidth_variations[1]),
+        )
+    }
+    nominal = curves["nominal"].mean(axis=1)
+    high = curves["high"].mean(axis=1)
+    low = curves["low"].mean(axis=1)
+    variations = {
+        "band_high_up": high,
+        "band_high_down": 2 * nominal - high,
+        "band_low_up": low,
+        "band_low_down": 2 * nominal - low,
+        "band_asym_up": high,
+        "band_asym_down": low,
+    }
+    variations = {k: np.clip(v, 0.0, None) for k, v in variations.items()}
+    return SmoothedCorrection(
+        Binned(edges, nominal, curves["nominal"].std(axis=1) ** 2), variations
+    )
+
+
+def sparsify(
+    edges: np.ndarray, values: np.ndarray, threshold: float = 0.01
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Reduce a piecewise constant curve on a dense grid. A bin is kept if the
+    cumulative absolute change of the values since the last kept bin reaches
+    `threshold` times the range of the values; the first and the last bin are
+    always kept. Returns the edges and values of the kept bins, each bin
+    extending up to the next kept one.
+    """
+    edges, values = np.asarray(edges), np.asarray(values)
+    if len(edges) != len(values) + 1:
+        raise ValueError("Shape mismatch: edges must be len(values) + 1")
+    step = (values.max() - values.min()) * threshold
+    if step == 0:
+        return np.array([edges[0], edges[-1]]), np.array([values[0]])
+
+    activity = np.concatenate(([0.0], np.cumsum(np.abs(np.diff(values)))))
+    targets = np.arange(0, activity[-1], step)
+    selected = np.unique(np.searchsorted(activity, targets))
+    selected = selected[selected < len(values)]
+    selected = np.unique(np.concatenate(([0], selected, [len(values) - 1])))
+    return np.append(edges[selected], edges[-1]), values[selected]
+
+
+def parse_n_jets(category: str) -> int:
+    """
+    Extract the lower edge of the jet multiplicity bin from a category name
+    such as `mm_geq4j` or `mm_geq4j_eq1b`.
+    """
+    m_jets = _N_JETS_PATTERN.search(category)
+    if m_jets is None:
+        raise ValueError(f"Cannot determine jet multiplicity of '{category}'")
+    return int(m_jets.group(1))
+
+
+def parse_multiplicities(category: str) -> tuple[int, int]:
+    """
+    Extract the lower edges of the jet and b-jet multiplicity bins from a
+    category name such as `mm_geq4j_eq2b`.
+    """
+    m_bjets = _N_BJETS_PATTERN.search(category)
+    if m_bjets is None:
+        raise ValueError(f"Cannot determine b-jet multiplicity of '{category}'")
+    return parse_n_jets(category), int(m_bjets.group(1))
+
+
+def is_possible_category(category: str) -> bool:
+    """
+    Whether a category with exclusive jet and b-jet multiplicities can hold
+    events. There are no events with more b-tagged jets than jets, e.g.
+    `mm_eq0j_eq1b` or `mm_eq2j_geq3b` are empty by construction.
+    """
+    n_jets, n_bjets = parse_multiplicities(category)
+    if _OPEN_JETS_PATTERN.search(category):
+        return True
+    return n_bjets <= n_jets
+
+
+def jet_category(category: str) -> str:
+    """Name of the category inclusive in b jets, `mm_eq2j_eq1b` -> `mm_eq2j`."""
+    parse_multiplicities(category)
+    return _BJET_SUFFIX_PATTERN.sub("", category)
+
+
+def _multiplicity_binning(
+    input_name: str, lower_edges: list[int], content: list
+) -> schemav2.Binning:
+    return schemav2.Binning(
+        nodetype="binning",
+        input=input_name,
+        edges=[float(e) for e in lower_edges] + [MULTIPLICITY_UPPER_EDGE],
+        content=content,
+        flow="clamp",
+    )
+
+
+def _jet_binning(leaves: dict[int, object]) -> schemav2.Binning:
+    """
+    Binning in `n_jets` with the given leaves, keyed by the lower edges of
+    the jet bins. Out-of-range values are clamped.
+    """
+    jet_edges = sorted(leaves)
+    return _multiplicity_binning(
+        "n_jets", jet_edges, [leaves[j] for j in jet_edges]
+    )
+
+
+def _nested_binning(leaves: dict[tuple[int, int], object]) -> schemav2.Binning:
+    """
+    Nested binning in `n_jets` and `n_bjets` with the given leaves, keyed by
+    the lower edges of the jet and b-jet bins. Out-of-range values are clamped.
+    """
+    return _jet_binning(
+        {
+            j: _multiplicity_binning(
+                "n_bjets",
+                sorted(b for jj, b in leaves if jj == j),
+                [
+                    leaves[(j, b)]
+                    for b in sorted(b for jj, b in leaves if jj == j)
+                ],
+            )
+            for j in sorted({j for j, _ in leaves})
+        }
+    )
+
+
+def _pt_binning(edges, content) -> schemav2.Binning:
+    return schemav2.Binning(
+        nodetype="binning",
+        input="genboson_pt",
+        edges=[float(e) for e in edges],
+        content=[float(v) for v in content],
+        flow="clamp",
+    )
+
+
+def build_correction_set(
+    normalizations: dict[str, float],
+    pt_corrections: dict[str, Binned],
+    normalization_errors: dict[str, float] | None = None,
+    description: str = "",
+    raw_pt_ratios: dict[str, Binned] | None = None,
+    pt_stat_uncs: dict[str, Binned] | None = None,
+    pt_variations: dict[str, dict[str, Binned]] | None = None,
+    jet_normalizations: dict[str, float] | None = None,
+    jet_normalization_errors: dict[str, float] | None = None,
+) -> schemav2.CorrectionSet:
+    """
+    Build the correctionlib set with the corrections `z_normalization`
+    (inputs `n_jets`, `n_bjets`) and `z_pt_correction` (inputs `n_jets`,
+    `genboson_pt`). The normalizations are keyed by the names of categories
+    with exclusive jet and b-jet multiplicities (`mm_eq2j_eq1b`), the pt
+    corrections by the names of categories with exclusive jet multiplicities
+    (`mm_eq2j`).
+
+    If given, the binwise ratios before smoothing are stored for reference
+    (e.g. for control plots) as `z_pt_ratio_unsmoothed` and
+    `z_pt_ratio_unsmoothed_stat_unc`. They are not meant to be applied.
+
+    If given, the normalizations derived in the categories with exclusive jet
+    multiplicities (`mm_eq2j`), inclusive in b jets, are stored as
+    `z_normalization_jets` (input `n_jets`), with their uncertainties as
+    `z_normalization_jets_stat_unc`. They are for reference and not meant to
+    be applied.
+
+    The statistical uncertainty of the pt corrections is taken from the
+    variances of `pt_corrections`, or, if given, from the values of
+    `pt_stat_uncs`, which may have another binning. `pt_variations` maps the
+    names of variations (see `BAND_VARIATIONS`) to the varied pt corrections
+    (values), which are stored as `z_pt_correction_<variation>`.
+
+    The statistical uncertainties are stored as `z_pt_correction_stat_unc`
+    (uncorrelated between pt bins, normalization uncertainty not included) and,
+    if given, `z_normalization_stat_unc`.
+    """
+    norm_leaves = {}
+    norm_error_leaves = {}
+    for category, norm in normalizations.items():
+        key = parse_multiplicities(category)
+        norm_leaves[key] = float(norm)
+        if normalization_errors is not None:
+            norm_error_leaves[key] = float(normalization_errors[category])
+
+    pt_leaves = {}
+    pt_error_leaves = {}
+    for category, hist in pt_corrections.items():
+        key = parse_n_jets(category)
+        pt_leaves[key] = _pt_binning(hist.edges, hist.values)
+        if pt_stat_uncs is not None and category in pt_stat_uncs:
+            err = pt_stat_uncs[category]
+            pt_error_leaves[key] = _pt_binning(err.edges, err.values)
+        else:
+            pt_error_leaves[key] = _pt_binning(
+                hist.edges, np.sqrt(hist.variances)
+            )
+
+    variation_leaves = {
+        name: {
+            parse_n_jets(category): _pt_binning(hist.edges, hist.values)
+            for category, hist in by_category.items()
+        }
+        for name, by_category in (pt_variations or {}).items()
+    }
+
+    raw_leaves = {}
+    raw_error_leaves = {}
+    for category, hist in (raw_pt_ratios or {}).items():
+        key = parse_n_jets(category)
+        raw_leaves[key] = _pt_binning(hist.edges, hist.values)
+        raw_error_leaves[key] = _pt_binning(hist.edges, np.sqrt(hist.variances))
+
+    jet_input = schemav2.Variable(
+        name="n_jets", type="int", description="Number of jets"
+    )
+    norm_inputs = [
+        jet_input,
+        schemav2.Variable(
+            name="n_bjets", type="int", description="Number of b-tagged jets"
+        ),
+    ]
+    pt_inputs = [
+        jet_input,
+        schemav2.Variable(
+            name="genboson_pt",
+            type="real",
+            description="Generator-level pt of the boson in GeV",
+        ),
+    ]
+    output = schemav2.Variable(name="weight", type="real")
+    return schemav2.CorrectionSet(
+        schema_version=2,
+        description=description,
+        corrections=[
+            schemav2.Correction(
+                name="z_normalization",
+                description="Normalization factor of the Z boson process",
+                version=1,
+                inputs=norm_inputs,
+                output=output,
+                data=_nested_binning(norm_leaves),
+            ),
+            *(
+                [
+                    schemav2.Correction(
+                        name="z_normalization_stat_unc",
+                        description=(
+                            "Statistical uncertainty of z_normalization"
+                        ),
+                        version=1,
+                        inputs=norm_inputs,
+                        output=output,
+                        data=_nested_binning(norm_error_leaves),
+                    )
+                ]
+                if normalization_errors is not None
+                else []
+            ),
+            schemav2.Correction(
+                name="z_pt_correction",
+                description=(
+                    "Binwise correction of the Z boson pt spectrum, to be "
+                    "applied together with the normalization. Derived from "
+                    "the reconstructed pt of the dilepton system on the "
+                    "normalized Z prediction."
+                ),
+                version=1,
+                inputs=pt_inputs,
+                output=output,
+                data=_jet_binning(pt_leaves),
+            ),
+            schemav2.Correction(
+                name="z_pt_correction_stat_unc",
+                description=(
+                    "Statistical uncertainty of z_pt_correction from the "
+                    "bin contents, uncorrelated between pt bins. The "
+                    "uncertainty of the normalization is not included, as "
+                    "it is anti-correlated to the pt correction"
+                ),
+                version=1,
+                inputs=pt_inputs,
+                output=output,
+                data=_jet_binning(pt_error_leaves),
+            ),
+            *(
+                [
+                    schemav2.Correction(
+                        name=name,
+                        description=description,
+                        version=1,
+                        inputs=pt_inputs,
+                        output=output,
+                        data=_jet_binning(leaves),
+                    )
+                    for name, description, leaves in (
+                        (
+                            "z_pt_ratio_unsmoothed",
+                            "Binwise ratio before smoothing, for reference",
+                            raw_leaves,
+                        ),
+                        (
+                            "z_pt_ratio_unsmoothed_stat_unc",
+                            "Statistical uncertainty of the unsmoothed ratio",
+                            raw_error_leaves,
+                        ),
+                    )
+                ]
+                if raw_pt_ratios
+                else []
+            ),
+            *(
+                schemav2.Correction(
+                    name=name,
+                    description=description,
+                    version=1,
+                    inputs=[jet_input],
+                    output=output,
+                    data=_jet_binning(
+                        {parse_n_jets(c): float(v) for c, v in values.items()}
+                    ),
+                )
+                for name, description, values in (
+                    (
+                        "z_normalization_jets",
+                        "Z normalization per jet multiplicity, for reference",
+                        jet_normalizations or {},
+                    ),
+                    (
+                        "z_normalization_jets_stat_unc",
+                        "Statistical uncertainty of z_normalization_jets",
+                        jet_normalization_errors or {},
+                    ),
+                )
+                if values
+            ),
+            *(
+                schemav2.Correction(
+                    name=f"z_pt_correction_{name}",
+                    description=(
+                        f"Variation {name} of z_pt_correction, e.g. from the "
+                        "smoothing bandwidth"
+                    ),
+                    version=1,
+                    inputs=pt_inputs,
+                    output=output,
+                    data=_jet_binning(leaves),
+                )
+                for name, leaves in variation_leaves.items()
+            ),
+        ],
+    )

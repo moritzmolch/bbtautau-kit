@@ -7,3 +7,4 @@ histograms_dir: data/output/${tags.shapes_tag}/histograms
 snapshots_dir: /ceph/mmolch/xyh-bbtautau-crown/bbtautau-kit/data/output/${tags.shapes_tag}/snapshots
 merged_histograms_dir: data/output/${tags.shapes_tag}/merged_histograms
 control_plots_dir: data/output/${tags.shapes_tag}/control_plots
+z_pt_weights_dir: data/output/${tags.shapes_tag}/z_pt_weights

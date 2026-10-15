@@ -3,7 +3,17 @@
 Run with, e.g.::
 
     law run xyh.Shapes --overrides "tags.shapes_tag=foo" --fake-factors
+
+To apply the data-driven Z corrections, set the production they are derived
+from (`z_pt_weights.tag`, see `base/global.yaml`). The workflow then first
+produces and merges that production, derives the corrections from it and
+applies them in the production `tags.shapes_tag`::
+
+    law run xyh.Shapes --overrides \\
+        "tags.shapes_tag=foo z_pt_weights.tag=foo-z-pt-derivation"
 """
+
+import shlex
 
 import law
 import luigi
@@ -19,6 +29,12 @@ class RunGraphs(DirStageTask):
     """
 
     stage = "run_graphs"
+
+    def requires(self):
+        # Corrections that are applied in this production must exist first
+        if self.applies_z_corrections:
+            return DeriveZPtWeights.req(self)
+        return super().requires()
 
 
 class RunGraphsSnapshots(RunGraphs):
@@ -61,6 +77,23 @@ class PlotShapes(DirStageTask):
 
     def requires(self):
         return MergeHistograms.req(self, fake_factors=self.fake_factors)
+
+
+class DeriveZPtWeights(DirStageTask):
+    """Derive the Z normalization and pt corrections.
+
+    The corrections are derived from the production `z_pt_weights.tag` with
+    the overrides `z_pt_weights.overrides` on top of the user overrides. This
+    production is run and merged without any Z corrections.
+    """
+
+    stage = "derive_z_pt_weights"
+    derives_z_corrections = True
+
+    def requires(self):
+        return MergeHistograms.req(
+            self, overrides=shlex.join(self.derivation_overrides)
+        )
 
 
 class Shapes(law.WrapperTask):

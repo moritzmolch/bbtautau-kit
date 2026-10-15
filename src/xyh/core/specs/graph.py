@@ -17,6 +17,7 @@ import networkx
 import numpy as np
 import ROOT
 
+from ..correctionlib_cpp import ensure_declared
 from ..parallel import _process_pool
 from .specs import Dataset, FiltersAndWeights, Histogram
 
@@ -452,6 +453,9 @@ def _weights(node: WeightsNode, artifacts: dict[str, Any]) -> dict[str, Any]:
             "Expect exactly one input artifact from predecessor node"
         )
     data_frame = next(iter(artifacts.values()))["data_frame"]
+
+    # Declare helper functions used in the weight expression, if any
+    ensure_declared(expression)
 
     # Define the new total weight
     data_frame = data_frame.Define("__total_weight", expression)

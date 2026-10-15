@@ -34,7 +34,7 @@ def default_weights(self) -> OrderedDict[str, str]:
             self.get_instance("pileup_weights").nominal().items(),
             # Theory weights
             self.get_instance("top_pt_reweighting").nominal().items(),
-            # self.get_instance("z_pt_reweighting").nominal().items(),
+            self.get_instance("z_pt_reweighting").nominal().items(),
             # Normalization weights
             self.get_instance("normalization").nominal().items(),
             self.get_instance("tt_normalization").nominal().items(),
@@ -52,6 +52,18 @@ def default_weights_without_bjet_weights(self) -> OrderedDict[str, str]:
 
     # Remove the b jet weight
     weights.pop("id_wgt_bjet_shape", None)
+
+    return weights
+
+
+@Wrapper.wrap
+def default_weights_without_z_weights(self) -> OrderedDict[str, str]:
+    # Get the default weights
+    weights = self.get_instance("default_weights").nominal()
+
+    # Remove the Z pt and Z normalization weights
+    weights.pop("z_normalization_weight", None)
+    weights.pop("z_pt_weight", None)
 
     return weights
 

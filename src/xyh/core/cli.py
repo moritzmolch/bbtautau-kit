@@ -1,3 +1,4 @@
+import os
 from collections.abc import Callable
 from typing import Any
 
@@ -29,6 +30,14 @@ def hydra_cli(config_name: str) -> Callable[[], None]:
             version_base=None,
         )
         def wrapper(cfg: DictConfig) -> Any:
+            # Enable the data-driven Z corrections, if configured. They are
+            # picked up by the weights via the environment variable.
+            z_pt_weights_dir = cfg.get("z_pt_weights", {}).get("input_dir")
+            if z_pt_weights_dir:
+                os.environ["XYH_Z_PT_WEIGHTS_DIR"] = str(
+                    ROOT_DIR / z_pt_weights_dir
+                )
+
             # The entry-point-specific group is merged into the top level of
             # the composed config, so no extra lookup is needed here.
             return fn(cfg)

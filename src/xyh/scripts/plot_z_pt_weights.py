@@ -1,0 +1,178 @@
+"""Plot the Z pt correction as a function of pt for each n_jets.
+
+Reads the correctionlib files written by ``xyh.shape_processor.
+derive_z_pt_weights`` and evaluates ``z_pt_correction`` at the pt bin centers
+for every jet multiplicity bin of the correction. One plot per
+multiplicity bin is written, with one curve per input file (campaign). The
+shaded band is the
+statistical uncertainty of the bin contents, if stored in the file. It is
+uncorrelated between pt bins (neighboring points are correlated if the
+correction is smoothed) and does not include the normalization uncertainty. The normalization
+factors are shown by ``plot_z_normalization``.
+
+Usage
+-----
+    python3 -m xyh.scripts.plot_z_pt_weights \\
+        data/output/<tag>/z_pt_weights/*.json --output-dir plots
+"""
+
+import argparse
+from pathlib import Path
+
+import correctionlib
+import matplotlib
+import matplotlib.pyplot as plt
+import mplhep
+import numpy as np
+from correctionlib import schemav2
+
+matplotlib.use("Agg")
+
+
+def _leaf_binnings(node) -> dict[int, object]:
+    """The pt binning of each n_jets bin of the binning."""
+    return {
+        int(j): leaf
+        for j, leaf in zip(node.edges[:-1], node.content, strict=True)
+    }
+
+
+def _evaluate(evaluator, name, n_jets, centers) -> np.ndarray:
+    return np.array([evaluator[name].evaluate(n_jets, pt) for pt in centers])
+
+
+def _load_raw(evaluator, cset, n_jets: int) -> dict | None:
+    """The binwise ratios before smoothing, if stored in the file."""
+    raw = next(c for c in cset.corrections if c.name == "z_pt_ratio_unsmoothed")
+    leaf = _leaf_binnings(raw.data).get(n_jets)
+    if leaf is None:
+        return None
+    edges = np.array(leaf.edges, dtype=float)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+    return {
+        "centers": centers,
+        "values": _evaluate(
+            evaluator, "z_pt_ratio_unsmoothed", n_jets, centers
+        ),
+        "errors": _evaluate(
+            evaluator, "z_pt_ratio_unsmoothed_stat_unc", n_jets, centers
+        ),
+    }
+
+
+def load(path: Path) -> dict:
+    """Evaluate the pt correction for all jet multiplicity bins.
+
+    The pt binning differs between the multiplicity bins. The statistical
+    uncertainty is `None` if the file does not contain it.
+    """
+    cset = schemav2.CorrectionSet.model_validate_json(path.read_text())
+    evaluator = correctionlib.CorrectionSet.from_file(str(path))
+    pt_corr = next(c for c in cset.corrections if c.name == "z_pt_correction")
+    has_unc = any(
+        c.name == "z_pt_correction_stat_unc" for c in cset.corrections
+    )
+    has_raw = any(c.name == "z_pt_ratio_unsmoothed" for c in cset.corrections)
+    result = {}
+    for n_jets, leaf in _leaf_binnings(pt_corr.data).items():
+        edges = np.array(leaf.edges, dtype=float)
+        centers = 0.5 * (edges[:-1] + edges[1:])
+        result[n_jets] = {
+            "edges": edges,
+            "values": _evaluate(evaluator, "z_pt_correction", n_jets, centers),
+            "errors": _evaluate(
+                evaluator, "z_pt_correction_stat_unc", n_jets, centers
+            )
+            if has_unc
+            else None,
+            "raw": _load_raw(evaluator, cset, n_jets) if has_raw else None,
+        }
+    return result
+
+
+def _label(n_jets: int, jets_open: bool):
+    j = f"$\\geq${n_jets}" if jets_open else f"{n_jets}"
+    return f"$n_{{jets}}$ = {j}"
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("inputs", nargs="+", type=Path)
+    parser.add_argument("--output-dir", type=Path, default=Path("."))
+    parser.add_argument("--format", default="png")
+    parser.add_argument("--log-y", action="store_true")
+    args = parser.parse_args()
+
+    data = {p.stem: load(p) for p in args.inputs}
+    all_bins = sorted({k for d in data.values() for k in d})
+    max_jets = max(all_bins)
+
+    matplotlib.style.use(mplhep.style.CMS)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    for n_jets in all_bins:
+        fig, ax = plt.subplots()
+        colors = {}
+        for name, d in data.items():
+            if n_jets not in d:
+                continue
+            h = d[n_jets]
+            step = ax.stairs(
+                h["values"],
+                h["edges"],
+                baseline=None,
+                label=name,
+            )
+            if h["errors"] is not None:
+                ax.stairs(
+                    h["values"] + h["errors"],
+                    h["edges"],
+                    baseline=h["values"] - h["errors"],
+                    fill=True,
+                    alpha=0.3,
+                    color=step.get_edgecolor(),
+                    linewidth=0,
+                )
+            colors[name] = step.get_edgecolor()
+        # Make sure the uncertainty bands are fully visible
+        lo, hi = ax.get_ylim()
+        for d in data.values():
+            h = d.get(n_jets)
+            if h is not None and h["errors"] is not None:
+                margin = 0.05 * (hi - lo)
+                lo = min(lo, (h["values"] - h["errors"]).min() - margin)
+                hi = max(hi, (h["values"] + h["errors"]).max() + margin)
+        if not args.log_y:
+            ax.set_ylim(lo, hi)
+        # Unsmoothed ratios do not enter the axis range, outliers are clipped
+        for name, d in data.items():
+            raw = d.get(n_jets, {}).get("raw")
+            if raw is not None:
+                ax.errorbar(
+                    raw["centers"],
+                    raw["values"],
+                    yerr=raw["errors"],
+                    fmt=".",
+                    markersize=3,
+                    linewidth=0.8,
+                    alpha=0.5,
+                    color=colors[name],
+                    label=f"{name} (unsmoothed)",
+                )
+        ax.axhline(1.0, color="gray", linestyle="--", linewidth=1)
+        ax.set_xlabel(r"$p_{T}$ [GeV]")
+        ax.set_ylabel("Z $p_{T}$ correction")
+        if args.log_y:
+            ax.set_yscale("log")
+        legend_title = _label(n_jets, n_jets == max_jets)
+        ax.legend(title=legend_title, fontsize=14, title_fontsize=14)
+        mplhep.cms.label(
+            ax=ax, data=True, com=13.6, lumi=None, text="Work in progress"
+        )
+        out = args.output_dir / f"z_pt_correction_{n_jets}j"
+        fig.savefig(f"{out}.{args.format}", dpi=150)
+        plt.close(fig)
+        print(f"Wrote {out}.{args.format}")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,102 @@
+# Load base parameters as default
+defaults:
+- base/global
+- base/artifacts@artifacts
+- base/ntuples@ntuples
+- base/tags@tags
+- inventory: control_regions_z_pt
+- _self_
+
+tags:
+  shapes_tag: "shapes-2026-10-14-for-zpt-reweighting"
+
+# Input (merged histograms of the shapes tag) and output directory
+merged_histograms_dir: ${artifacts.merged_histograms_dir}
+output_dir: ${artifacts.z_pt_weights_dir}
+
+# Campaigns to derive weights for. One correctionlib file per campaign
+campaigns: ${inventory.campaigns}
+
+# The weights are derived exclusively in this channel
+channel: mm
+
+# Categories with exclusive jet and b-jet multiplicities (those with more
+# b jets than jets are empty and left out). The derivation has two
+# stages:
+# 1. The Z normalization is derived in each of these categories from the
+#    yields.
+# 2. The pt correction is derived per jet multiplicity from the histograms of
+#    the category inclusive in b jets (e.g. mm_eq2j), with the Z prediction
+#    scaled by the normalization derived from the yields of that category.
+categories:
+- mm_eq0j_eq0b
+- mm_eq1j_eq0b
+- mm_eq1j_eq1b
+- mm_eq2j_eq0b
+- mm_eq2j_eq1b
+- mm_eq2j_eq2b
+- mm_eq3j_eq0b
+- mm_eq3j_eq1b
+- mm_eq3j_eq2b
+- mm_eq3j_geq3b
+- mm_geq4j_eq0b
+- mm_geq4j_eq1b
+- mm_geq4j_eq2b
+- mm_geq4j_geq3b
+
+# Histograms used for the normalization (yield) and for the pt correction
+yield_variable: yield
+pt_variable: pt_vis
+
+# Settings of the pt correction (stage 2). The keys of `default` apply to all
+# jet multiplicities. A jet multiplicity can override any of them with an
+# entry named like its category without b-jet selection (e.g. mm_eq2j),
+# listing only the keys that differ. Keys:
+#   rebin:               Merge this many adjacent pt bins of the histogram
+#                        before deriving the correction (1 = no merging).
+#   max_rel_error:       Merge adjacent pt bins (from low to high pt) until the
+#                        statistical uncertainty of the ratio in each bin is
+#                        below this value. null disables the merging. Ignored
+#                        if smoothing is enabled, which needs the fine binning.
+#   bandwidth:           Bandwidth in GeV of the Nadaraya-Watson kernel regression
+#                        that smooths the binwise ratios, as for the fake
+#                        factors in TauFakeFactors. The Gaussian kernel has the
+#                        width 0.3706506 * bandwidth and is evaluated at the bin
+#                        centers on a grid of 100 points per bin. null disables
+#                        the smoothing. If enabled, the ratios before smoothing
+#                        are stored too, for the control plots.
+#   stat_sigma:          The bin contents are sampled n_samples times from
+#                        Gaussians with this multiple of the bin uncertainty as
+#                        width. The mean and standard deviation of the smoothed
+#                        samples are the correction and its statistical
+#                        uncertainty.
+#   bandwidth_variations: Factors for the low and high variation of the
+#                        bandwidth, which define the band_{high,low,asym}
+#                        variations of the correction.
+#   n_samples, seed:     Number of samples and seed of the random generator.
+#   sparsify_threshold:  The stored curves keep only the bins at which the
+#                        values changed by this fraction of their range.
+#   pt_clip:             All pt bins above this value in GeV (lower edge at or
+#                        above it) are merged into a single tail bin, which is
+#                        not smoothed. null for no tail bin.
+derivation_settings:
+  default:
+    rebin: 1
+    max_rel_error: 1.0
+    bandwidth: 1.0
+    stat_sigma: 1.0
+    bandwidth_variations: [0.5, 1.5]
+    n_samples: 100
+    seed: 19
+    sparsify_threshold: 0.001
+    pt_clip: 200
+  mm_eq0j:
+    bandwidth: 1.0
+  mm_eq1j:
+    bandwidth: 2.0
+  mm_eq2j:
+    bandwidth: 2.0
+  mm_eq3j:
+    bandwidth: 5.0
+  mm_geq4j:
+    bandwidth: 10.0
