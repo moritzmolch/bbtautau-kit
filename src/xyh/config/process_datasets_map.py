@@ -216,17 +216,41 @@ def get_process_datasets_map(
     #     hh_2b2tau_datasets = ["gg_hh_2b2tau_powheg"]
 
     # Set up the process-datasets map for signals
-    xyh_process_datasets_map = {
-        f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}": [
-            f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph",
-        ]
-        for (y_decay_mode, h_decay_mode), (
-            m_x,
-            m_y,
-        ) in get_profile().iterate_signal_parameters(
-            campaign=campaign_inst.name,
-        )
-    }
+    xyh_process_datasets_map = {}
+    for (y_decay_mode, h_decay_mode), (
+        m_x,
+        m_y,
+    ) in get_profile().iterate_signal_parameters(campaign=campaign_inst.name):
+        process_name = f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"
+        datasets = [f"{process_name}_madgraph"]
+
+        # Append the dataset of the kit-private production of the signal
+        # sample if it is available in the campaign
+        kit_private_dataset = f"{process_name}_madgraph_kitprivate"
+        if kit_private_dataset in campaign_inst.datasets:
+            datasets.append(kit_private_dataset)
+
+        xyh_process_datasets_map[process_name] = datasets
+
+    # Some signal points are not covered by the official productions and only
+    # exist as kit-private samples. Since they are excluded from the iteration
+    # above (see missing signal samples in the profile), they are added to the
+    # map here if the corresponding kit-private dataset exists in the campaign.
+    for (y_decay_mode, h_decay_mode), (
+        m_x,
+        m_y,
+    ) in get_profile().iterate_signal_parameters():
+        process_name = f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"
+
+        # Skip signal points that have already been added to the map
+        if process_name in xyh_process_datasets_map:
+            continue
+
+        # Add the process to the map if the kit-private dataset exists in the
+        # campaign
+        kit_private_dataset = f"{process_name}_madgraph_kitprivate"
+        if kit_private_dataset in campaign_inst.datasets:
+            xyh_process_datasets_map[process_name] = [kit_private_dataset]
 
     # Helper function to unroll dictionary keys and clone corresponding
     # values

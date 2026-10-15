@@ -6,7 +6,7 @@ from order import Campaign
 
 from xyh.config.profiles import get_profile
 
-from ._util import add_dataset
+from ._util import add_dataset, add_kit_private_signal_datasets
 
 # ------------------------------------------------------------------------------
 # Campaign definition
@@ -198,3 +198,6 @@ dataset_nicks = {
 # Add datasets to the campaign
 for name, nicks in dataset_nicks.items():
     add_dataset(cpn_2024_nano_v15, name, nicks)
+
+# Add the kit-private signal samples to the campaign
+add_kit_private_signal_datasets(cpn_2024_nano_v15)

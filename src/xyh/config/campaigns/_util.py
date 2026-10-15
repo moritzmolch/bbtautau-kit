@@ -1,4 +1,5 @@
 import json
+import re
 import string
 from dataclasses import dataclass, field, fields
 from functools import cache
@@ -200,3 +201,80 @@ def add_dataset(
     )
 
     return dataset_inst
+
+
+# Decay modes of the kit-private NMSSM signal samples and the corresponding
+# Y/H decay modes used in the names of the signal datasets
+KIT_PRIVATE_DECAY_MODES = {
+    "2B2Tau": ("y2b", "h2tau"),
+    "2Tau2B": ("y2tau", "h2b"),
+}
+
+
+def add_kit_private_signal_datasets(
+    campaign_inst: Campaign,
+) -> list[Dataset]:
+    """
+    Add the kit-private NMSSM signal samples to the campaign.
+
+    The kit-private samples are private nanoAOD productions of the NMSSM
+    X -> Y H -> b b tau tau signal samples. They are provided in the sample
+    database with the `-kit-private` suffix and are discovered here for the
+    year of the given campaign. A dataset named `<name>_kitprivate` is created
+    for each covered signal point as a complement to the corresponding
+    official dataset.
+
+    Parameters
+    ----------
+    campaign_inst : Campaign
+        The campaign instance to which the kit-private signal datasets will be
+        added.
+
+    Returns
+    -------
+    list[Dataset]
+        The created `Dataset` instances.
+    """
+
+    # Get the sample database directory and the nanoAOD version
+    sample_database_dir = Path(Settings().get("sample_database_dir"))
+    nano_version = campaign_inst.x.nano_version
+
+    # Compile a pattern that matches the nicks of the kit-private NMSSM signal
+    # samples for the year of the campaign. Multiple productions of the same
+    # sample are marked with a '_1' suffix in the nick.
+    nick_pattern = re.compile(
+        r"^NMSSM-XtoYHto(?P<decay_mode>2B2Tau|2Tau2B)_"
+        r"Par-MX-(?P<m_x>\d+)-MY-(?P<m_y>\d+)_"
+        r"TuneCP5_13p6TeV_madgraph-pythia8(?:_1)?_"
+        + rf"RunIII{campaign_inst.x.year}Summer24NanoAODv15-150X-kit-private$"
+    )
+
+    # Map the dataset names to the nicks of the corresponding kit-private
+    # samples. Nicks of multiple productions of the same sample are grouped
+    # together.
+    dataset_nicks = {}
+    for nick in load_database(sample_database_dir, nano_version):
+        match = nick_pattern.match(nick)
+        if match is None:
+            continue
+
+        # Get the Y/H decay modes of the signal point from the nick
+        y_decay_mode, h_decay_mode = KIT_PRIVATE_DECAY_MODES[
+            match.group("decay_mode")
+        ]
+        m_x = int(match.group("m_x"))
+        m_y = int(match.group("m_y"))
+
+        # Group the nicks of the same signal point
+        name = (
+            f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph"
+            "_kitprivate"
+        )
+        dataset_nicks.setdefault(name, []).append(nick)
+
+    # Add the kit-private signal datasets to the campaign
+    return [
+        add_dataset(campaign_inst, name, nicks)
+        for name, nicks in sorted(dataset_nicks.items())
+    ]

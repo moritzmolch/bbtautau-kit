@@ -747,3 +747,155 @@ class TestAddDatasetList:
 
         assert dataset.aux["xsec"] is None
         assert dataset.aux["generator_weight"] is None
+
+
+# =============================================================================
+# Tests for add_kit_private_signal_datasets function
+# =============================================================================
+
+
+def kit_private_nick(
+    decay_mode,
+    m_x,
+    m_y,
+    year="2024",
+    variant="",
+):
+    """Create a nick of a kit-private NMSSM signal sample."""
+    return (
+        f"NMSSM-XtoYHto{decay_mode}_Par-MX-{m_x}-MY-{m_y}_"
+        f"TuneCP5_13p6TeV_madgraph-pythia8{variant}_"
+        f"RunIII{year}Summer24NanoAODv15-150X-kit-private"
+    )
+
+
+def kit_private_samples(*nicks, era="2024"):
+    """Create a sample database of kit-private Samples for the given nicks."""
+    from xyh.config.campaigns._util import Sample
+
+    return {
+        nick: Sample(
+            nick=nick,
+            era=era,
+            nevents=100000,
+            nfiles=10,
+            sample_type="nmssm_Ybb",
+            xsec=1.0,
+            generator_weight=1.0,
+        )
+        for nick in nicks
+    }
+
+
+class TestAddKitPrivateSignalDatasets:
+    """Tests for the add_kit_private_signal_datasets function."""
+
+    @pytest.fixture
+    def campaign_2024(self, mock_campaign):
+        """Fixture to create a mock campaign for the year 2024."""
+        mock_campaign.x.year = "2024"
+        return mock_campaign
+
+    def test_adds_dataset_for_each_signal_point(
+        self, campaign_2024, mock_settings
+    ):
+        """Test that a dataset is added for each kit-private signal point."""
+        from xyh.config.campaigns._util import (
+            add_kit_private_signal_datasets,
+        )
+
+        samples = kit_private_samples(
+            kit_private_nick("2B2Tau", 300, 60),
+            kit_private_nick("2B2Tau", 300, 100),
+            kit_private_nick("2Tau2B", 400, 150),
+        )
+
+        with patch("xyh.config.campaigns._util.load_database") as mock_db:
+            mock_db.return_value = samples
+
+            datasets = add_kit_private_signal_datasets(campaign_2024)
+
+        assert [dataset.name for dataset in datasets] == sorted(
+            [
+                "xyh_y2b_h2tau_mx300_my60_madgraph_kitprivate",
+                "xyh_y2b_h2tau_mx300_my100_madgraph_kitprivate",
+                "xyh_y2tau_h2b_mx400_my150_madgraph_kitprivate",
+            ]
+        )
+
+    def test_merges_multiple_productions_into_one_dataset(
+        self, campaign_2024, mock_settings
+    ):
+        """Test that multiple productions are merged into a single dataset."""
+        from xyh.config.campaigns._util import (
+            add_kit_private_signal_datasets,
+        )
+
+        nicks = [
+            kit_private_nick("2B2Tau", 1000, 100),
+            kit_private_nick("2B2Tau", 1000, 100, variant="_1"),
+        ]
+        from xyh.config.campaigns._util import Sample
+
+        samples = {
+            nick: Sample(
+                nick=nick,
+                era="2024",
+                nevents=(100000 if variant == "_1" else 2000),
+                nfiles=10,
+                sample_type="nmssm_Ybb",
+                xsec=1.0,
+                generator_weight=1.0,
+            )
+            for nick, variant in zip(nicks, ["", "_1"], strict=True)
+        }
+
+        with patch("xyh.config.campaigns._util.load_database") as mock_db:
+            mock_db.return_value = samples
+
+            datasets = add_kit_private_signal_datasets(campaign_2024)
+
+        assert len(datasets) == 1
+        dataset = datasets[0]
+        assert set(dataset.aux["nicks"]) == set(nicks)
+        # Events are summed over all nicks of the sample
+        assert dataset.n_events == 102000
+
+    def test_filters_nicks_by_year(self, campaign_2024, mock_settings):
+        """Test that only samples of the campaign's year are added."""
+        from xyh.config.campaigns._util import (
+            add_kit_private_signal_datasets,
+        )
+
+        samples = kit_private_samples(
+            kit_private_nick("2B2Tau", 300, 60, year="2024"),
+            kit_private_nick("2B2Tau", 300, 60, year="2025"),
+        )
+
+        with patch("xyh.config.campaigns._util.load_database") as mock_db:
+            mock_db.return_value = samples
+
+            datasets = add_kit_private_signal_datasets(campaign_2024)
+
+        assert len(datasets) == 1
+        assert datasets[0].aux["nicks"] == [
+            kit_private_nick("2B2Tau", 300, 60, year="2024")
+        ]
+
+    def test_ignores_non_matching_nicks(self, campaign_2024, mock_settings):
+        """Test that unrelated samples are ignored."""
+        from xyh.config.campaigns._util import (
+            add_kit_private_signal_datasets,
+        )
+
+        samples = kit_private_samples(
+            "TTto4Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
+            "NMSSM-XtoYHto2B2Tau_Par-MX-300-MY-60_TuneCP5_13p6TeV_madgraph-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
+        )
+
+        with patch("xyh.config.campaigns._util.load_database") as mock_db:
+            mock_db.return_value = samples
+
+            datasets = add_kit_private_signal_datasets(campaign_2024)
+
+        assert datasets == []
