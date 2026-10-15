@@ -535,6 +535,8 @@ def build_correction_set(
     raw_pt_ratios: dict[str, Binned] | None = None,
     pt_stat_uncs: dict[str, Binned] | None = None,
     pt_variations: dict[str, dict[str, Binned]] | None = None,
+    jet_normalizations: dict[str, float] | None = None,
+    jet_normalization_errors: dict[str, float] | None = None,
 ) -> schemav2.CorrectionSet:
     """
     Build the correctionlib set with the corrections `z_normalization`
@@ -547,6 +549,12 @@ def build_correction_set(
     If given, the binwise ratios before smoothing are stored for reference
     (e.g. for control plots) as `z_pt_ratio_unsmoothed` and
     `z_pt_ratio_unsmoothed_stat_unc`. They are not meant to be applied.
+
+    If given, the normalizations derived in the categories with exclusive jet
+    multiplicities (`mm_eq2j`), inclusive in b jets, are stored as
+    `z_normalization_jets` (input `n_jets`), with their uncertainties as
+    `z_normalization_jets_stat_unc`. They are for reference and not meant to
+    be applied.
 
     The statistical uncertainty of the pt corrections is taken from the
     variances of `pt_corrections`, or, if given, from the values of
@@ -691,6 +699,31 @@ def build_correction_set(
                 ]
                 if raw_pt_ratios
                 else []
+            ),
+            *(
+                schemav2.Correction(
+                    name=name,
+                    description=description,
+                    version=1,
+                    inputs=[jet_input],
+                    output=output,
+                    data=_jet_binning(
+                        {parse_n_jets(c): float(v) for c, v in values.items()}
+                    ),
+                )
+                for name, description, values in (
+                    (
+                        "z_normalization_jets",
+                        "Z normalization per jet multiplicity, for reference",
+                        jet_normalizations or {},
+                    ),
+                    (
+                        "z_normalization_jets_stat_unc",
+                        "Statistical uncertainty of z_normalization_jets",
+                        jet_normalization_errors or {},
+                    ),
+                )
+                if values
             ),
             *(
                 schemav2.Correction(

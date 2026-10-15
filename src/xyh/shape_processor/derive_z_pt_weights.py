@@ -184,6 +184,8 @@ def derive_z_pt_weights(
     # ones of the (n_jets, n_bjets) categories.
     jet_categories = list(dict.fromkeys(jet_category(c) for c in categories))
 
+    jet_normalizations = {}
+    jet_normalization_errors = {}
     pt_corrections = {}
     pt_stat_uncs = {}
     pt_variations = {}
@@ -203,6 +205,8 @@ def derive_z_pt_weights(
             jet_normalization,
             jet_norm_err,
         )
+        jet_normalizations[jet_cat] = jet_normalization
+        jet_normalization_errors[jet_cat] = jet_norm_err
         data, z, others = _read_processes(
             merged_histograms_dir, inventory, jet_cat, pt_variable
         )
@@ -307,6 +311,8 @@ def derive_z_pt_weights(
         raw_pt_ratios=raw_ratios or None,
         pt_stat_uncs=pt_stat_uncs or None,
         pt_variations=pt_variations or None,
+        jet_normalizations=jet_normalizations,
+        jet_normalization_errors=jet_normalization_errors,
         description=(
             f"Z normalization and pt corrections for {campaign}, derived in "
             f"the {channel} channel"

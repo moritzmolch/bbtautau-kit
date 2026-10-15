@@ -326,3 +326,20 @@ def test_correction_set_variations_and_stat_unc():
     assert cset["z_pt_correction_band_asym_up"].evaluate(
         2, 20.0
     ) == pytest.approx(2.0)
+
+
+def test_correction_set_jet_normalizations():
+    pts = {"mm_eq2j": Binned(EDGES, [1.0, 1.1, 1.2], [0.0] * 3)}
+    cset = correctionlib.CorrectionSet.from_string(
+        build_correction_set(
+            {"mm_eq2j_eq1b": 1.0},
+            pts,
+            jet_normalizations={"mm_eq2j": 0.9, "mm_geq4j": 1.3},
+            jet_normalization_errors={"mm_eq2j": 0.01, "mm_geq4j": 0.02},
+        ).model_dump_json(exclude_unset=True)
+    )
+    assert cset["z_normalization_jets"].evaluate(2) == pytest.approx(0.9)
+    assert cset["z_normalization_jets"].evaluate(5) == pytest.approx(1.3)
+    assert cset["z_normalization_jets_stat_unc"].evaluate(
+        4
+    ) == pytest.approx(0.02)
