@@ -68,7 +68,7 @@ def load_json(input_file) -> Any:
 
     else:
         # Use default json.load behavior otherwise
-        with input_file.open("w") as f:
+        with input_file.open("r") as f:
             data = json.load(f)
 
     logging.info(f"Loaded data from {input_file}")
