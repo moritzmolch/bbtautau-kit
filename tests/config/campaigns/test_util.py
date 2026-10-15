@@ -842,9 +842,7 @@ class TestGetKitPrivateSignalNicks:
 
             nicks_map = get_kit_private_signal_nicks(campaign_2024)
 
-        assert nicks_map == {
-            "xyh_y2b_h2tau_mx1000_my100_madgraph": nicks
-        }
+        assert nicks_map == {"xyh_y2b_h2tau_mx1000_my100_madgraph": nicks}
 
     def test_filters_nicks_by_year(self, campaign_2024, mock_settings):
         """Test that only samples of the campaign's year are returned."""
@@ -883,5 +881,123 @@ class TestGetKitPrivateSignalNicks:
             mock_db.return_value = samples
 
             nicks_map = get_kit_private_signal_nicks(campaign_2024)
+
+        assert nicks_map == {}
+
+
+# =============================================================================
+# Tests for get_signal_nicks function
+# =============================================================================
+
+
+class TestGetSignalNicks:
+    """Tests for the get_signal_nicks function."""
+
+    @pytest.fixture
+    def campaign_2024(self, mock_campaign):
+        """Fixture to create a mock campaign for the year 2024."""
+        mock_campaign.x.year = "2024"
+        mock_campaign.name = "2024_nano_v15"
+        return mock_campaign
+
+    @staticmethod
+    def _official_nick_of(y_decay_mode, h_decay_mode, m_x, m_y):
+        """Stub of an official nick naming function."""
+        return f"official_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"
+
+    @staticmethod
+    def _profile(*params):
+        """Create a mocked analysis profile for the given signal parameters."""
+        profile = Mock()
+        profile.iterate_signal_parameters.return_value = params
+        return profile
+
+    def test_uses_official_production(self, campaign_2024, mock_settings):
+        """Test that the official production is used if it exists."""
+        from xyh.config.campaigns._util import get_signal_nicks
+
+        official = self._official_nick_of("y2b", "h2tau", 300, 60)
+        samples = kit_private_samples(official)
+
+        with patch(
+            "xyh.config.campaigns._util.get_profile",
+            return_value=self._profile((("y2b", "h2tau"), (300, 60))),
+        ):
+            with patch(
+                "xyh.config.campaigns._util.load_database",
+                return_value=samples,
+            ):
+                nicks_map = get_signal_nicks(
+                    campaign_2024, self._official_nick_of
+                )
+
+        assert nicks_map == {"xyh_y2b_h2tau_mx300_my60_madgraph": [official]}
+
+    def test_appends_kit_private_productions(
+        self, campaign_2024, mock_settings
+    ):
+        """Test that kit-private productions are appended to the dataset."""
+        from xyh.config.campaigns._util import get_signal_nicks
+
+        official = self._official_nick_of("y2b", "h2tau", 300, 60)
+        kit_private = kit_private_nick("2B2Tau", 300, 60)
+        samples = kit_private_samples(official, kit_private)
+
+        with patch(
+            "xyh.config.campaigns._util.get_profile",
+            return_value=self._profile((("y2b", "h2tau"), (300, 60))),
+        ):
+            with patch(
+                "xyh.config.campaigns._util.load_database",
+                return_value=samples,
+            ):
+                nicks_map = get_signal_nicks(
+                    campaign_2024, self._official_nick_of
+                )
+
+        assert nicks_map == {
+            "xyh_y2b_h2tau_mx300_my60_madgraph": [official, kit_private]
+        }
+
+    def test_uses_kit_private_as_only_production(
+        self, campaign_2024, mock_settings
+    ):
+        """Test that kit-private is used without an official production."""
+        from xyh.config.campaigns._util import get_signal_nicks
+
+        kit_private = kit_private_nick("2B2Tau", 300, 60)
+        samples = kit_private_samples(kit_private)
+
+        with patch(
+            "xyh.config.campaigns._util.get_profile",
+            return_value=self._profile((("y2b", "h2tau"), (300, 60))),
+        ):
+            with patch(
+                "xyh.config.campaigns._util.load_database",
+                return_value=samples,
+            ):
+                nicks_map = get_signal_nicks(
+                    campaign_2024, self._official_nick_of
+                )
+
+        assert nicks_map == {"xyh_y2b_h2tau_mx300_my60_madgraph": [kit_private]}
+
+    def test_skips_points_without_production(
+        self, campaign_2024, mock_settings
+    ):
+        """Test that signal points without any production are skipped."""
+        from xyh.config.campaigns._util import get_signal_nicks
+
+        with patch(
+            "xyh.config.campaigns._util.get_profile",
+            return_value=self._profile((("y2b", "h2tau"), (300, 60))),
+        ):
+            with patch(
+                "xyh.config.campaigns._util.load_database",
+                return_value={},
+            ):
+                nicks_map = get_signal_nicks(
+                    campaign_2024, self._official_nick_of
+                )
 
         assert nicks_map == {}

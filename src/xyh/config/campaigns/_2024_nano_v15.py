@@ -4,9 +4,7 @@
 
 from order import Campaign
 
-from xyh.config.profiles import get_profile
-
-from ._util import add_dataset, get_kit_private_signal_nicks
+from ._util import add_dataset, get_signal_nicks
 
 # ------------------------------------------------------------------------------
 # Campaign definition
@@ -114,17 +112,7 @@ dataset_nicks = {
         "Tau_Run2024I-MINIv6NANOv15_v2-v1",
     ],
     # --- Signals --------------------------------------------------------------
-    **{
-        f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name(
-            y_decay_mode, h_decay_mode, m_x, m_y
-        )
-        for (y_decay_mode, h_decay_mode), (
-            m_x,
-            m_y,
-        ) in get_profile().iterate_signal_parameters(
-            campaign=cpn_2024_nano_v15.name
-        )
-    },
+    **get_signal_nicks(cpn_2024_nano_v15, xyh_name),
     # --- Top quark pair production --------------------------------------------
     "tt_4q_powheg": "TTto4Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "tt_lnu2q_powheg": "TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
@@ -195,15 +183,6 @@ dataset_nicks = {
     # "vbf_hh_2b2tau": ,  # no sample added yet to the sample database
 }
 
-
-# Add the kit-private productions of the signal samples to the corresponding
-# signal datasets
-for name, nicks in get_kit_private_signal_nicks(cpn_2024_nano_v15).items():
-    if name in dataset_nicks:
-        # The official signal sample is provided as a single nick
-        if isinstance(dataset_nicks[name], str):
-            dataset_nicks[name] = [dataset_nicks[name]]
-        dataset_nicks[name].extend(nicks)
 
 # Add datasets to the campaign
 for name, nicks in dataset_nicks.items():
