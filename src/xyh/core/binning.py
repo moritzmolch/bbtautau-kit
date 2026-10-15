@@ -78,7 +78,9 @@ def equipopulated_edges(
     if len(values) == 0:
         raise ValueError("No values to derive a binning from.")
 
-    edges = np.quantile(values, np.linspace(0.0, 1.0, n_bins + 1))
+    edges = np.quantile(
+        values, np.linspace(0.0, 1.0, n_bins + 1, endpoint=True)
+    )
     if range is not None:
         edges[0], edges[-1] = range
     if precision is not None:
@@ -90,8 +92,7 @@ def equipopulated_edges(
         raise ValueError("All values are identical, cannot define bins.")
     if len(edges) - 1 < n_bins:
         logger.warning(
-            f"Only {len(edges) - 1} of {n_bins} bins are distinct for "
-            "this data"
+            f"Only {len(edges) - 1} of {n_bins} bins are distinct for this data"
         )
 
     return [float(e) for e in edges]
@@ -151,7 +152,9 @@ def load_binning_overrides(path: Path | str) -> BinningOverrides:
     data: Any = load_json(Path(path))
     for campaign, channel, category, variable in iter_binning(data):
         edges = data[campaign][channel][category][variable]
-        if len(edges) < 2 or any(b <= a for a, b in zip(edges, edges[1:])):
+        if len(edges) < 2 or any(
+            b <= a for a, b in zip(edges, edges[1:], strict=False)
+        ):
             raise ValueError(
                 f"Invalid bin edges for {campaign}/{channel}/{category}/"
                 f"{variable}: {edges}"
