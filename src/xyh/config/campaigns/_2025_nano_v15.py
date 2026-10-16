@@ -4,9 +4,7 @@
 
 from order import Campaign
 
-from xyh.config.profiles import get_profile
-
-from ._util import add_dataset
+from ._util import add_dataset, get_signal_nicks
 
 # ------------------------------------------------------------------------------
 # Campaign definition
@@ -41,11 +39,12 @@ cpn_2025_nano_v15 = Campaign(
 
 signal_v3 = {
     # (m_x, m_y) of signal samples whose dataset uses nanoAOD version v3
-    "y2b":     set(),
+    "y2b": set(),
     "y2tau": {
         (650, 150),
     },
 }
+
 
 # Function to derive name of a signal sample from the signal parameters
 def xyh_name(
@@ -120,17 +119,7 @@ dataset_nicks = {
         "Tau_Run2025G-PromptReco-v1",
     ],
     # --- Signals --------------------------------------------------------------
-    **{
-        f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph": xyh_name(
-            y_decay_mode, h_decay_mode, m_x, m_y
-        )
-        for (y_decay_mode, h_decay_mode), (
-            m_x,
-            m_y,
-        ) in get_profile().iterate_signal_parameters(
-            campaign=cpn_2025_nano_v15.name
-        )
-    },
+    **get_signal_nicks(cpn_2025_nano_v15, xyh_name),
     # --- Top quark pair production --------------------------------------------
     "tt_4q_powheg": "TTto4Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "tt_lnu2q_powheg": "TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",

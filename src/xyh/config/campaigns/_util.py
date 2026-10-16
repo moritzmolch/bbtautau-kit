@@ -1,5 +1,7 @@
 import json
+import re
 import string
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from functools import cache
 from math import isclose
@@ -7,6 +9,7 @@ from pathlib import Path
 
 from order import Campaign, Dataset
 
+from xyh.config.profiles import get_profile
 from xyh.settings import Settings
 
 
@@ -200,3 +203,136 @@ def add_dataset(
     )
 
     return dataset_inst
+
+
+# Decay modes of the kit-private NMSSM signal samples and the corresponding
+# Y/H decay modes used in the names of the signal datasets
+KIT_PRIVATE_DECAY_MODES = {
+    "2B2Tau": ("y2b", "h2tau"),
+    "2Tau2B": ("y2tau", "h2b"),
+}
+
+
+def get_kit_private_signal_nicks(
+    campaign_inst: Campaign,
+) -> dict[str, list[str]]:
+    """
+    Get the nicks of the kit-private NMSSM signal samples for the campaign.
+
+    The kit-private samples are private nanoAOD productions of the NMSSM
+    X -> Y H -> b b tau tau signal samples. They are provided in the sample
+    database with the `-kit-private` suffix and are discovered here for the
+    year of the given campaign. The returned nicks are mapped to the names of
+    the corresponding official signal datasets, so that they can be added to
+    the datasets of the campaign.
+
+    Parameters
+    ----------
+    campaign_inst : Campaign
+        The campaign instance for which the kit-private signal samples should
+        be resolved.
+
+    Returns
+    -------
+    dict[str, list[str]]
+        A mapping of the names of the official signal datasets to the nicks of
+        the corresponding kit-private signal samples.
+    """
+
+    # Get the sample database directory and the nanoAOD version
+    sample_database_dir = Path(Settings().get("sample_database_dir"))
+    nano_version = campaign_inst.x.nano_version
+
+    # Compile a pattern that matches the nicks of the kit-private NMSSM signal
+    # samples for the year of the campaign. Multiple productions of the same
+    # sample are marked with a '_1' suffix in the nick.
+    nick_pattern = re.compile(
+        r"^NMSSM-XtoYHto(?P<decay_mode>2B2Tau|2Tau2B)_"
+        r"Par-MX-(?P<m_x>\d+)-MY-(?P<m_y>\d+)_"
+        r"TuneCP5_13p6TeV_madgraph-pythia8(?:_1)?_"
+        + rf"RunIII{campaign_inst.x.year}Summer24NanoAODv15-150X-kit-private$"
+    )
+
+    # Map the names of the official signal datasets to the nicks of the
+    # corresponding kit-private samples. Nicks of multiple productions of the
+    # same sample are grouped together.
+    dataset_nicks = {}
+    for nick in load_database(sample_database_dir, nano_version):
+        match = nick_pattern.match(nick)
+        if match is None:
+            continue
+
+        # Get the decay modes of the signal point from the nick
+        y_decay_mode, h_decay_mode = KIT_PRIVATE_DECAY_MODES[
+            match.group("decay_mode")
+        ]
+        m_x = int(match.group("m_x"))
+        m_y = int(match.group("m_y"))
+
+        # Group the nicks of the same signal point
+        name = f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph"
+        dataset_nicks.setdefault(name, []).append(nick)
+
+    return dataset_nicks
+
+
+def get_signal_nicks(
+    campaign_inst: Campaign,
+    official_nick_of: Callable[[str, str, int, int], str],
+) -> dict[str, list[str]]:
+    """
+    Resolve the nicks of the signal samples of the profile for the campaign.
+
+    For every signal point of the analysis profile, the nick of the official
+    production is used if it exists in the sample database. Kit-private
+    productions are added to the dataset if available. Signal points that are
+    not covered by an official production (e.g. the MX-2500-MY-800 sample in
+    the y2b channel and the MX-2500-MY-90 sample in the y2tau channel) use
+    only the kit-private productions.
+
+    Parameters
+    ----------
+    campaign_inst : Campaign
+        The campaign instance for which the signal samples should be resolved.
+
+    official_nick_of : Callable[[str, str, int, int], str]
+        Function that derives the name of the official production of a signal
+        sample from its decay modes and masses.
+
+    Returns
+    -------
+    dict[str, list[str]]
+        A mapping of the signal dataset names to the nicks of the
+        corresponding productions.
+    """
+
+    # Get the sample database directory and the nanoAOD version
+    sample_database_dir = Path(Settings().get("sample_database_dir"))
+    nano_version = campaign_inst.x.nano_version
+
+    # Load the sample database and resolve the kit-private productions
+    samples = load_database(sample_database_dir, nano_version)
+    kit_private_nicks = get_kit_private_signal_nicks(campaign_inst)
+
+    # Resolve the nicks of all signal points of the profile
+    signal_nicks = {}
+    for (y_decay_mode, h_decay_mode), (
+        m_x,
+        m_y,
+    ) in get_profile().iterate_signal_parameters(campaign=campaign_inst.name):
+        name = f"xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}_madgraph"
+        nicks = []
+
+        # Use the official production if it exists in the sample database
+        official_nick = official_nick_of(y_decay_mode, h_decay_mode, m_x, m_y)
+        if official_nick in samples:
+            nicks.append(official_nick)
+
+        # Append the kit-private productions of the signal sample
+        nicks.extend(kit_private_nicks.get(name, []))
+
+        # A signal dataset requires at least one production
+        if nicks:
+            signal_nicks[name] = nicks
+
+    return signal_nicks

@@ -285,16 +285,12 @@ XY_MASSES = [
 
 # Missing signal samples
 MISSING_SIGNAL_SAMPLES = {
-    "2024_nano_v15": [
-        # ((y_decay_mode, h_decay_mode), (m_x, m_y))
-        (("y2b", "h2tau"), (2500, 800)),
-        (("y2tau", "h2b"), (2500, 90)),
-    ],
-    "2025_nano_v15": [
-        # ((y_decay_mode, h_decay_mode), (m_x, m_y))
-        (("y2b", "h2tau"), (2500, 800)),
-        (("y2tau", "h2b"), (2500, 90)),
-    ],
+    # All signal samples of the profile are available. Signal points that are
+    # not covered by the official productions are provided as kit-private
+    # samples instead (see `get_signal_nicks`), e.g. the MX-2500-MY-800 sample
+    # in the y2b channel and the MX-2500-MY-90 sample in the y2tau channel.
+    "2024_nano_v15": [],
+    "2025_nano_v15": [],
 }
 
 
