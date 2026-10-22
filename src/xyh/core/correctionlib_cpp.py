@@ -83,6 +83,15 @@ inline double xyh_z_pt_correction(
       {n_jets, genboson_pt});
 }
 """,
+    "xyh_bjet_normalization": """
+inline double xyh_bjet_normalization(
+    const char* file, const std::string& channel,
+    const std::string& process, int n_jets) {
+  static thread_local xyh::CorrectionCache cache;
+  return xyh::get_correction(cache, file, "bjet_normalization")->evaluate(
+      {channel, process, n_jets});
+}
+""",
 }
 
 _declared: set[str] = set()
