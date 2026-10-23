@@ -1,0 +1,23 @@
+# Load base parameters as default
+defaults:
+- base/global
+- base/artifacts@artifacts
+- base/ntuples@ntuples
+- base/tags@tags
+- base/snapshots@snapshots
+- inventory: bjet_norm_without_bjet_weights
+- _self_
+
+# Merged histograms of the two productions, with and without b-tag weights
+merged_histograms_dir_with_btag_weight: data/output/shapes-2026-10-22-without-bjet-filters-with-bjet-weights/merged_histograms
+merged_histograms_dir_without_btag_weight: data/output/shapes-2026-10-22-without-bjet-filters-without-bjet-weights/merged_histograms
+
+# Output directory, one correctionlib file per era and channel
+output_dir: ${artifacts.btag_renormalization_dir}
+
+# Campaigns and channels of the derivation
+campaigns: ${inventory.campaigns}
+channels: ${inventory.channels}
+
+# Jet multiplicity selections whose categories enter the derivation
+jet_selections: [eq0j, eq1j, eq2j, geq3j]
