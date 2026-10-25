@@ -5,7 +5,7 @@ from xyh.core.wrapper import Wrapper
 
 # Import weight submodules to initialize wrapper subclasses
 from .event import normalization, pileup_weights
-from .jets import b_jet_weights
+from .jets import b_jet_weights, b_jet_weights_raw
 from .leptons import electron_weights, hadronic_tau_weights, muon_weights
 from .processes import (
     top_pt_reweighting,
@@ -108,7 +108,7 @@ def normalization_weight_with_bjet_weights(self) -> OrderedDict[str, str]:
 
     weights = OrderedDict(
         chain(
-            self.get_instance("b_jet_weights").nominal().items(),
+            self.get_instance("b_jet_weights_raw").nominal().items(),
             self.get_instance("normalization").nominal().items(),
         )
     )

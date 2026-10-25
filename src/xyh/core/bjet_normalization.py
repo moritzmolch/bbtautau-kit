@@ -5,7 +5,8 @@ The b-jet normalization factor of a simulated process compensates the effect
 of the b-jet weights (the `id_wgt_bjet_shape` weight) on its yield: it is the
 ratio of the yield without b-jet weights to the yield with them, derived per
 channel, process and jet multiplicity. See
-`xyh.scripts.calculate_bjet_weights_normalization` for the derivation.
+`xyh.btag_weight_renormalization.run_btag_weight_renormalization` for the
+derivation.
 
 All factors are stored in a correctionlib `CorrectionSet` with a single
 correction `bjet_normalization` that is evaluated with the parameters
