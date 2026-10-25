@@ -38,6 +38,17 @@ def hydra_cli(config_name: str) -> Callable[[], None]:
                     ROOT_DIR / z_pt_weights_dir
                 )
 
+            # Enable the b-tag weight normalization corrections, if
+            # configured. They are picked up by `b_jet_weights` via the
+            # environment variable, see `xyh.weights.jets`.
+            btag_renorm_weights_dir = cfg.get(
+                "btag_renorm_weights", {}
+            ).get("input_dir")
+            if btag_renorm_weights_dir:
+                os.environ["XYH_BTAG_RENORM_WEIGHTS_DIR"] = str(
+                    ROOT_DIR / btag_renorm_weights_dir
+                )
+
             # The entry-point-specific group is merged into the top level of
             # the composed config, so no extra lookup is needed here.
             return fn(cfg)
