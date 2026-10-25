@@ -131,7 +131,8 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         dataset_specs,
         histogram_specs,
         filters_and_weights_specs,
-        cfg["graph_processing"]["mode"],  # TODO also enable 'snapshot' mode
+        cfg["graph_processing"]["mode"],
+        columns=cfg["snapshots"].get("columns"),
     )
 
     # Dump specs to output file
