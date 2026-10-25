@@ -1,0 +1,37 @@
+# Settings for deriving an equipopulated binning from data in the `binning`
+# output mode of `run_graphs`, see `xyh.binning`. Loaded as the `binning`
+# defaults group of `run_graphs` and `derive_binning`.
+
+# Process group providing the events the binning is derived from. The
+# binning optimization runs on data only.
+data_process_group: "data"
+
+# Number of equipopulated bins for all campaigns, channels and categories.
+# Each variable in `variables` and each campaign, channel, or category scope
+# of `campaigns` can override the number of bins.
+n_bins: 100
+
+# Round the bin edges to this number of significant digits (null disables the
+# rounding)
+precision: null
+
+# Limit the number of ntuple files per dataset, e.g. for tests
+n_files: null
+
+# Variables to derive the binning for. Each entry can override `n_bins`,
+# `precision`, and `range: [low, high]`. Variables that are not defined for a
+# channel are skipped.
+variables:
+  pt_vis: {}
+
+# Optional overrides of `n_bins` and `precision` per campaign and, nested
+# below the channels, per channel and category. More specific scopes take
+# precedence over the top-level defaults, and `variables` entries take
+# precedence over all scopes.
+campaigns: {}
+
+# Output file to be set as `binning_overrides.file` in `run_graphs`, and
+# directory with control plots of the data with the derived binning. Both
+# are written by `run_graphs` in binning mode.
+output_file: ${artifacts.binning_dir}/binning.json
+plots_dir: ${artifacts.binning_dir}/plots

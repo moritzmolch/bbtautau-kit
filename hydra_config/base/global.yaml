@@ -23,8 +23,9 @@ z_pt_weights:
 btag_renorm_weights:
   input_dir: "data/output/btag_renorm_weights/btag-renorm-2026-10-22"
 
-# Binning that overrides the one of the inventory, see
-# `xyh.shape_processor.derive_binning`. Empty uses the inventory binning.
+# Binning that overrides the one of the inventory, derived by `run_graphs` in
+# binning mode, see `xyh.binning` and `hydra_config/base/binning.yaml`. Empty
+# uses the inventory binning.
 binning_overrides:
   file: ""
 

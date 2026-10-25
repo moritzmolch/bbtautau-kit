@@ -5,10 +5,13 @@ defaults:
 - base/ntuples@ntuples
 - base/tags@tags
 - base/snapshots@snapshots
+- base/binning@binning
 - inventory: default
 - _self_
 
-# Settings for multi-threaded graph processing
+# Settings for multi-threaded graph processing. The mode selects the produced
+# output files: "histogram" and "snapshot" for the production, "binning" to
+# derive the data-driven binning, see `xyh.binning`.
 graph_processing:
   num_workers: 8
   num_threads: 8
@@ -29,6 +32,7 @@ filters_and_weights_specs_file: ${artifacts.filters_and_weights_specs_file}
 graph_specs_file: ${artifacts.graph_specs_file}
 histograms_output_dir: ${artifacts.histograms_dir}
 snapshots_output_dir: ${artifacts.snapshots_dir}
+binning_output_dir: ${artifacts.binning_dir}
 
 # Output files for the profiling report
 profiling_report_file: data/output/${tags.shapes_tag}/profiling_report.json.gz
