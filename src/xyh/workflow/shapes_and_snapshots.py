@@ -13,9 +13,6 @@ applies them in the production `tags.shapes_tag`::
         "tags.shapes_tag=foo z_pt_weights.tag=foo-z-pt-derivation"
 """
 
-import shlex
-
-import law
 import luigi
 
 from xyh.workflow.base import DirStageTask
@@ -29,12 +26,6 @@ class RunGraphs(DirStageTask):
     """
 
     stage = "run_graphs"
-
-    def requires(self):
-        # Corrections that are applied in this production must exist first
-        if self.applies_z_corrections:
-            return DeriveZPtWeights.req(self)
-        return super().requires()
 
 
 class RunGraphsSnapshots(RunGraphs):
@@ -77,32 +68,3 @@ class PlotShapes(DirStageTask):
 
     def requires(self):
         return MergeHistograms.req(self, fake_factors=self.fake_factors)
-
-
-class DeriveZPtWeights(DirStageTask):
-    """Derive the Z normalization and pt corrections.
-
-    The corrections are derived from the production `z_pt_weights.tag` with
-    the overrides `z_pt_weights.overrides` on top of the user overrides. This
-    production is run and merged without any Z corrections.
-    """
-
-    stage = "derive_z_pt_weights"
-    derives_z_corrections = True
-
-    def requires(self):
-        return MergeHistograms.req(
-            self, overrides=shlex.join(self.derivation_overrides)
-        )
-
-
-class Shapes(law.WrapperTask):
-    """Full shape production, replacing ``bin/shapes_ff`` and ``bin/shapes_no_ff``."""
-
-    overrides = luigi.Parameter(default="")
-    fake_factors = luigi.BoolParameter(default=False)
-
-    task_namespace = "xyh"
-
-    def requires(self):
-        return PlotShapes.req(self)

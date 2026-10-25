@@ -3,11 +3,14 @@ import json
 import logging
 import multiprocessing
 import os
+import re
 import resource
 import tempfile
 from collections import OrderedDict
+from collections.abc import Sequence
 from concurrent.futures import as_completed
 from dataclasses import asdict, dataclass
+from fnmatch import fnmatch
 from functools import cached_property
 from pathlib import Path
 from time import monotonic, time
@@ -93,6 +96,7 @@ class SnapshotNode(GraphNode):
     process: str
     variation: str
     output_file: str
+    columns: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -216,11 +220,16 @@ def create_graph_specs(
     histogram_specs: list[Histogram],
     filters_and_weights_specs: list[FiltersAndWeights],
     mode,
+    columns: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     # Check if 'mode' has valid value
     modes = ["snapshot", "histogram"]
     if mode not in modes:
         raise ValueError(f"Argument node must be from {modes}")
+
+    # Explicit columns to write to snapshot output. `None` writes all columns
+    # of the input data frame.
+    snapshot_columns = tuple(columns) if columns else None
 
     # Create the graph object
     graph_builder = GraphBuilder()
@@ -303,6 +312,7 @@ def create_graph_specs(
                 process=process,
                 variation=variation,
                 output_file=snapshot_output_file,
+                columns=snapshot_columns,
             )
             graph_builder.add_node(snapshot_node, last_node=last_node)
 
@@ -465,6 +475,77 @@ def _weights(node: WeightsNode, artifacts: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _parse_snapshot_column(pattern: str) -> tuple[str, frozenset[str] | None]:
+    """Parse a snapshot column pattern into a (name, channels) pair.
+
+    Column patterns follow the inventory variable convention: the 'pure'
+    column name, optionally followed by a list of channels the column is
+    written for, '<name>[<channel 1>,<channel 2>,...]'. `None` channels mean
+    the column is written in all channels. Patterns that do not follow the
+    convention are used verbatim as shell-style glob patterns without channel
+    restriction.
+    """
+    m = re.match(r"^([^\[]+)(?:\[([^\]]+)\])?$", pattern)
+    if m is None:
+        return pattern, None
+    name = m.group(1).strip()
+    channels = m.group(2)
+    if channels is None:
+        return name, None
+    return name, frozenset(c.strip() for c in channels.split(",") if c.strip())
+
+
+def _prepare_snapshot_columns(
+    all_columns: list[str],
+    columns: tuple[str, ...] | None = None,
+    channel: str | None = None,
+) -> list[str]:
+    """Map friend-qualified column names and keep the configured columns.
+
+    Columns from friend trees are listed as "<tree>.<column>", which Snapshot
+    would save as "<tree>_<column>". They can be accessed by their plain
+    name, so the prefix is stripped to keep the original column names. If the
+    plain name clashes with another column, the qualified name is kept.
+
+    If `columns` is `None` or empty, all columns are kept. Otherwise only
+    columns matching any entry of `columns` are written to the snapshot.
+    Entries follow shell-style globbing (`fnmatch`) and are matched against
+    both the final (possibly stripped) column name and the original
+    friend-qualified name. Entries may restrict a column to a set of channels
+    via the '<name>[<channel 1>,<channel 2>,...]' convention; a column that
+    only matches a restricted entry is written solely if `channel` is in that
+    set (`channel=None` ignores the restriction).
+    """
+    patterns = [(_parse_snapshot_column(p)) for p in columns] if columns else []
+
+    def _matches(c: str, original: str) -> bool:
+        for pattern, channels in patterns:
+            if (
+                channel is not None
+                and channels is not None
+                and channel not in channels
+            ):
+                continue
+            if fnmatch(c, pattern) or fnmatch(original, pattern):
+                return True
+        return False
+
+    plain_columns = {c for c in all_columns if "." not in c}
+    selected = []
+    for c in all_columns:
+        original = c
+        if "." in c:
+            stripped = c.split(".", 1)[1]
+            if stripped not in plain_columns:
+                plain_columns.add(stripped)
+                c = stripped
+        if patterns and not _matches(c, original):
+            logger.debug(f"Skipping column {original} in snapshot")
+            continue
+        selected.append(c)
+    return selected
+
+
 def _snapshot(
     node: SnapshotNode, artifacts: dict[str, Any], output_dir: Path
 ) -> dict[str, Any]:
@@ -497,11 +578,32 @@ def _snapshot(
         output_file.parent.mkdir(parents=True)
         logger.debug(f"Created directory {output_file.parent}")
 
+    # Columns from friend trees are listed as "<tree>.<column>", which
+    # Snapshot would save as "<tree>_<column>". They can be accessed by their
+    # plain name, so strip the prefix to keep the original column names. If
+    # the plain name clashes with another column, keep the qualified name.
+    # `node.columns` restricts the snapshot to explicitly listed columns;
+    # entries may further restrict columns to a subset of channels.
+    columns = _prepare_snapshot_columns(
+        [str(c) for c in data_frame.GetColumnNames()],
+        node.columns,
+        node.channel,
+    )
+
+    # Columns that are not available for this particular sample (e.g. a
+    # missing friend or branch) are ignored instead of failing the snapshot.
+    available_columns = [c for c in columns if data_frame.HasColumn(c)]
+    for column in set(columns) - set(available_columns):
+        logger.warning(
+            f"Ignoring column {column} not available for this sample"
+        )
+    columns = available_columns
+
     # Trigger snapshot creation
     snapshot = data_frame.Snapshot(
         "ntuple",
         str(output_file),
-        data_frame.GetColumnNames(),
+        columns,
         options,
     )
 

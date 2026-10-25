@@ -4,6 +4,7 @@ defaults:
 - base/artifacts@artifacts
 - base/ntuples@ntuples
 - base/tags@tags
+- base/snapshots@snapshots
 - inventory: default
 - _self_
 

@@ -4,7 +4,7 @@ factory_fn_kwargs:
   process_set: "default"
 
 # Filter and weight functions
-filters_fn: "xyh.filters.default_filters_without_bjets"
+filters_fn: "xyh.filters.default_filters_for_z_corrections"
 weights_fn: "xyh.weights.default_weights_without_z_weights"
 
 # Analysis context: campaigns, channels, categories, and variables to process
@@ -19,23 +19,17 @@ categories:
 - "mm_eq0j"
 - "mm_eq1j"
 - "mm_eq2j"
-- "mm_eq3j"
-- "mm_geq4j"
+- "mm_geq3j"
 # Exclusive jet and b-jet multiplicities to derive the Z normalization
 - "mm_eq0j_eq0b"
 - "mm_eq1j_eq0b"
 - "mm_eq1j_eq1b"
 - "mm_eq2j_eq0b"
 - "mm_eq2j_eq1b"
-- "mm_eq2j_eq2b"
-- "mm_eq3j_eq0b"
-- "mm_eq3j_eq1b"
-- "mm_eq3j_eq2b"
-- "mm_eq3j_geq3b"
-- "mm_geq4j_eq0b"
-- "mm_geq4j_eq1b"
-- "mm_geq4j_eq2b"
-- "mm_geq4j_geq3b"
+- "mm_eq2j_geq2b"
+- "mm_geq3j_eq0b"
+- "mm_geq3j_eq1b"
+- "mm_geq3j_geq2b"
 variables:
 - "yield"
 - "m_vis"

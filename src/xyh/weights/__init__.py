@@ -5,7 +5,7 @@ from xyh.core.wrapper import Wrapper
 
 # Import weight submodules to initialize wrapper subclasses
 from .event import normalization, pileup_weights
-from .jets import b_jet_weights
+from .jets import b_jet_weights, b_jet_weights_raw
 from .leptons import electron_weights, hadronic_tau_weights, muon_weights
 from .processes import (
     top_pt_reweighting,
@@ -34,11 +34,23 @@ def default_weights(self) -> OrderedDict[str, str]:
             self.get_instance("pileup_weights").nominal().items(),
             # Theory weights
             self.get_instance("top_pt_reweighting").nominal().items(),
-            self.get_instance("z_pt_reweighting").nominal().items(),
+            (
+                self.get_instance("z_pt_reweighting").nominal().items()
+                if self.campaign_inst.x.year >= 2024
+                else []
+            ),
             # Normalization weights
             self.get_instance("normalization").nominal().items(),
-            self.get_instance("tt_normalization").nominal().items(),
-            self.get_instance("z_normalization").nominal().items(),
+            (
+                self.get_instance("tt_normalization").nominal().items()
+                if self.campaign_inst.x.year >= 2024
+                else []
+            ),
+            (
+                self.get_instance("z_normalization").nominal().items()
+                if self.campaign_inst.x.year >= 2024
+                else []
+            ),
         )
     )
 
@@ -75,5 +87,30 @@ def default_weights_without_muon_iso_weights(self) -> OrderedDict[str, str]:
 
     # Remove the muon isolation weight
     weights.pop("muon_iso_weight", None)
+
+    return weights
+
+
+@Wrapper.wrap
+def normalization_weight_without_bjet_weights(self) -> OrderedDict[str, str]:
+    # For data, do not apply any weights
+    if self.process_inst.is_data:
+        return OrderedDict([])
+
+    return self.get_instance("normalization").nominal()
+
+
+@Wrapper.wrap
+def normalization_weight_with_bjet_weights(self) -> OrderedDict[str, str]:
+    # For data, do not apply any weights
+    if self.process_inst.is_data:
+        return OrderedDict([])
+
+    weights = OrderedDict(
+        chain(
+            self.get_instance("b_jet_weights_raw").nominal().items(),
+            self.get_instance("normalization").nominal().items(),
+        )
+    )
 
     return weights

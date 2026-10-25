@@ -1,0 +1,49 @@
+# The factory function to set up the inventory
+factory_fn: "xyh.config.inventory.create_inventory"
+factory_fn_kwargs:
+  process_set: "default"
+
+# Filter and weight functions
+filters_fn: "xyh.filters.default_filters_without_bjets"
+weights_fn: "xyh.weights.normalization_weight_with_bjet_weights"
+
+# Analysis context: campaigns, channels, categories, and variables to process
+campaigns:
+- "2022_pre_ee_nano_v12"
+- "2022_post_ee_nano_v12"
+- "2023_pre_bpix_nano_v12"
+- "2023_post_bpix_nano_v12"
+channels:
+- "et"
+- "mt"
+- "tt"
+- "ee"
+- "mm"
+- "em"
+categories:
+- "et_eq0j"
+- "et_eq1j"
+- "et_eq2j"
+- "et_geq3j"
+- "mt_eq0j"
+- "mt_eq1j"
+- "mt_eq2j"
+- "mt_geq3j"
+- "tt_eq0j"
+- "tt_eq1j"
+- "tt_eq2j"
+- "tt_geq3j"
+- "ee_eq0j"
+- "ee_eq1j"
+- "ee_eq2j"
+- "ee_geq3j"
+- "mm_eq0j"
+- "mm_eq1j"
+- "mm_eq2j"
+- "mm_geq3j"
+- "em_eq0j"
+- "em_eq1j"
+- "em_eq2j"
+- "em_geq3j"
+variables:
+- "yield"

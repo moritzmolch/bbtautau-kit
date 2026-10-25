@@ -8,3 +8,4 @@ snapshots_dir: /ceph/mmolch/xyh-bbtautau-crown/bbtautau-kit/data/output/${tags.s
 merged_histograms_dir: data/output/${tags.shapes_tag}/merged_histograms
 control_plots_dir: data/output/${tags.shapes_tag}/control_plots
 z_pt_weights_dir: data/output/${tags.shapes_tag}/z_pt_weights
+btag_renormalization_dir: data/output/btag_renorm_weights/${tags.btag_renorm_tag}

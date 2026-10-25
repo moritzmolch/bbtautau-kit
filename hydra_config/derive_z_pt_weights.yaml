@@ -34,15 +34,10 @@ categories:
 - mm_eq1j_eq1b
 - mm_eq2j_eq0b
 - mm_eq2j_eq1b
-- mm_eq2j_eq2b
-- mm_eq3j_eq0b
-- mm_eq3j_eq1b
-- mm_eq3j_eq2b
-- mm_eq3j_geq3b
-- mm_geq4j_eq0b
-- mm_geq4j_eq1b
-- mm_geq4j_eq2b
-- mm_geq4j_geq3b
+- mm_eq2j_geq2b
+- mm_geq3j_eq0b
+- mm_geq3j_eq1b
+- mm_geq3j_geq2b
 
 # Histograms used for the normalization (yield) and for the pt correction
 yield_variable: yield
@@ -96,7 +91,5 @@ derivation_settings:
     bandwidth: 2.0
   mm_eq2j:
     bandwidth: 2.0
-  mm_eq3j:
+  mm_geq3j:
     bandwidth: 5.0
-  mm_geq4j:
-    bandwidth: 10.0

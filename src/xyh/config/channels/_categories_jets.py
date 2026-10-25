@@ -34,7 +34,7 @@ def add_jet_categories(channel_inst: Channel):
     # Base category, containing all events before categorization/classification
 
     # Categories in n_jets space
-    for n_jets_sel in ["eq0", "eq1", "eq2", "eq3", "geq4"]:
+    for n_jets_sel in ["eq0", "eq1", "eq2", "geq3"]:
         # Get the labels for n_jets and n_bjets selection
         label_n_jets = _get_label(r"$n_{\text{jets}}$", n_jets_sel)
 
@@ -54,8 +54,8 @@ def add_jet_categories(channel_inst: Channel):
 
     # Categories in (n_jets, n_bjets) space
     for n_jets_sel, n_bjets_sel in product(
-        ["eq0", "eq1", "eq2", "eq3", "geq4"],
         ["eq0", "eq1", "eq2", "geq3"],
+        ["eq0", "eq1", "geq2"],
     ):
         # Get the labels for n_jets and n_bjets selection
         label_n_jets = _get_label(r"$n_{\text{jets}}$", n_jets_sel)
