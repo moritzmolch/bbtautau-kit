@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Build the static control plot dashboard (compare eras) with the plot-dashboard skill.
+# Usage: bin/build_control_plot_dashboard OUTDIR [CAMPAIGN ...] [--all] [--mode symlink|copy|hardlink] [--clean]
+set -euo pipefail
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+out="${1:?usage: $0 OUTDIR [CAMPAIGN ...] [build.py options]}"
+shift
+exec python "${PLOT_DASHBOARD_DIR:-$HOME/.claude/skills/plot-dashboard}/build.py" \
+    "$repo/config/dashboard/control_plots.json" --root "$repo/data/output" --out "$out" "$@"
