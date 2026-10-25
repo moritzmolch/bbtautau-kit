@@ -8,7 +8,8 @@ overrides are stored as nested dictionaries
 
     {campaign: {channel: {category: {variable: [edge, ...]}}}}
 
-in a JSON file, see `xyh.shape_processor.derive_binning`.
+in a JSON file, see `xyh.binning` and the `binning` output mode of
+`run_graphs`.
 """
 
 import logging
