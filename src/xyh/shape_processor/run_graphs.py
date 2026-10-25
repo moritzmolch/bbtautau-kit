@@ -6,6 +6,7 @@ import pstats
 from dataclasses import asdict
 from pathlib import Path
 from time import time
+from typing import Any, cast
 
 from omegaconf import DictConfig, OmegaConf
 
@@ -227,11 +228,15 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
     if is_binning:
         from xyh.binning import derive_binning
 
+        binning_settings = cast(
+            dict[str, Any],
+            OmegaConf.to_container(cfg["binning"], resolve=True),
+        )
         derive_binning(
             Path(output_dir),
             ROOT_DIR / Path(cfg["binning"]["output_file"]),
             ROOT_DIR / Path(cfg["binning"]["plots_dir"]),
-            OmegaConf.to_container(cfg["binning"], resolve=True),
+            binning_settings,
             labels=binning_labels,
         )
 

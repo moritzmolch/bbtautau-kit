@@ -38,7 +38,7 @@ def _round_significant(values: np.ndarray, precision: int) -> np.ndarray:
 
 
 def equipopulated_edges(
-    values: Sequence[float],
+    values: Sequence[float] | np.ndarray,
     n_bins: int,
     *,
     range: tuple[float, float] | None = None,
@@ -49,7 +49,7 @@ def equipopulated_edges(
 
     Parameters
     ----------
-    values : Sequence[float]
+    values : Sequence[float] | np.ndarray
         The (unweighted) event values. Non-finite values are ignored.
 
     n_bins : int

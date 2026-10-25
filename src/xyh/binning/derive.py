@@ -67,7 +67,7 @@ def resolve_binning_settings(
     channel: str,
     category: str,
     variable: str,
-) -> tuple[int | None, int | None, Sequence[float] | None]:
+) -> tuple[int, int | None, Sequence[float] | None]:
     """Resolve the effective binning settings of a variable.
 
     The settings are resolved from the most specific to the most general
@@ -87,16 +87,13 @@ def resolve_binning_settings(
     effective = _apply_scope(effective, category_scope)
     variable_scope = (settings.get("variables") or {}).get(variable, {})
     effective = _apply_scope(effective, variable_scope)
-    if effective["n_bins"] is None:
+    n_bins = effective["n_bins"]
+    if n_bins is None:
         raise ValueError(
             "No number of bins configured for the binning of "
             f"{campaign}/{channel}/{category}/{variable}"
         )
-    return (
-        effective["n_bins"],
-        effective.get("precision"),
-        effective.get("range"),
-    )
+    return n_bins, effective.get("precision"), effective.get("range")
 
 
 def _plot(
@@ -155,7 +152,10 @@ def derive_binning(
         )
         try:
             edges = equipopulated_edges(
-                values, n_bins, range=rng, precision=precision
+                values,
+                n_bins,
+                range=(rng[0], rng[1]) if rng is not None else None,
+                precision=precision,
             )
         except ValueError as error:
             logger.warning(
