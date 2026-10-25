@@ -1,0 +1,45 @@
+{
+  "title": "bbtautau control plot inspector",
+  "root": "data/output",
+  "campaign_label": "Shapes campaign",
+  "campaign_filter": "^shapes-\\d{4}-\\d{2}-\\d{2}",
+  "pattern": "(?P<campaign>[^/]+)/control_plots/(?P<era>[^/]+)/(?P<channel>[^_/]+)__(?P<category>[^/]+)/(?P<name>[^/]+)\\.png",
+  "compare_by": "era",
+  "compare_order": [
+    "2022_pre_ee_nano_v12",
+    "2022_post_ee_nano_v12",
+    "2023_pre_bpix_nano_v12",
+    "2023_post_bpix_nano_v12"
+  ],
+  "group_by": [
+    "channel",
+    "category"
+  ],
+  "tags": [],
+  "facets": [
+    {
+      "key": "channel",
+      "label": "Channel",
+      "group": "channel",
+      "order": [
+        "tt",
+        "mt",
+        "et",
+        "em",
+        "mm",
+        "ee"
+      ]
+    },
+    {
+      "key": "category",
+      "label": "Category",
+      "group": "category"
+    },
+    {
+      "key": "variable",
+      "label": "Variables",
+      "group": "name",
+      "dropdown": true
+    }
+  ]
+}
