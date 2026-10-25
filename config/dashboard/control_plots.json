@@ -5,51 +5,41 @@
   "campaign_filter": "^shapes-\\d{4}-\\d{2}-\\d{2}",
   "pattern": "(?P<campaign>[^/]+)/control_plots/(?P<era>[^/]+)/(?P<channel>[^_/]+)__(?P<category>[^/]+)/(?P<name>[^/]+)\\.png",
   "compare_by": "era",
-  "compare_order": ["2022_nano_v15", "2023_nano_v15", "2024_nano_v15", "2025_nano_v15"],
-  "group_by": ["channel", "category"],
-  "tags": ["object", "kind"],
+  "compare_order": [
+    "2022_pre_ee_nano_v12",
+    "2022_post_ee_nano_v12",
+    "2023_pre_bpix_nano_v12",
+    "2023_post_bpix_nano_v12"
+  ],
+  "group_by": [
+    "channel",
+    "category"
+  ],
+  "tags": [],
   "facets": [
-    {"key": "channel", "label": "Channel", "group": "channel", "order": ["tt", "mt", "et", "em", "mm", "ee"]},
-    {"key": "category", "label": "Category", "group": "category"},
     {
-      "key": "object",
-      "label": "Object",
-      "order": ["bjets", "jets", "taus/leptons", "ditau", "MET", "fit", "event"],
-      "rules": [
-        {"match": "^bpair_", "value": "bjets"},
-        {"match": "^(jpt|jeta|jphi|jtag)_", "value": "jets"},
-        {"match": "^kinfit_", "value": "fit"},
-        {"match": "^(met|metphi)", "value": "MET"},
-        {"match": "fastmtt|^m_vis$|^pt_vis$|^mt_tot$|^deltaR_ditaupair$", "value": "ditau"},
-        {"match": "^(n_jets|n_bjets|yield)$", "value": "event"},
-        {"match": "^(pt|eta|phi|mass|iso|mt|tau_decaymode)_[12]$", "value": "taus/leptons"}
-      ],
-      "default": "other"
-    },
-    {
-      "key": "kind",
-      "label": "Quantity",
-      "rules": [
-        {"match": "(?:^|_)(pt|eta|phi|mass|m_inv|deltaR|btag_value|tag_value|chi2|iso|decaymode)(?:_|$)"}
+      "key": "channel",
+      "label": "Channel",
+      "group": "channel",
+      "order": [
+        "tt",
+        "mt",
+        "et",
+        "em",
+        "mm",
+        "ee"
       ]
     },
     {
-      "key": "reco",
-      "label": "Jet version",
-      "only": {"object": "jets"},
-      "rules": [
-        {"match": "regressed", "value": "regressed"},
-        {"match": "_raw_", "value": "raw"},
-        {"match": "_nano_", "value": "nano"},
-        {"match": "_l1_|_l2rel_|_l2l3res_", "value": "JEC steps"}
-      ],
-      "default": "corrected"
+      "key": "category",
+      "label": "Category",
+      "group": "category"
     },
     {
-      "key": "leg",
-      "label": "Leg",
-      "rules": [{"match": "_([12])$"}],
-      "labels": {"1": "leading", "2": "subleading"}
+      "key": "variable",
+      "label": "Variables",
+      "group": "name",
+      "dropdown": true
     }
   ]
 }
