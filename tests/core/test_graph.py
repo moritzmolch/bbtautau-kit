@@ -3,11 +3,14 @@ import logging
 from collections import OrderedDict
 
 import networkx
+import numpy as np
 import ROOT
 
 from xyh.core.parallel import _capture_logging_config, _init_worker_logging
 from xyh.core.specs.graph import (
+    BinningNode,
     SnapshotNode,
+    _binning,
     _enable_rdf_progress_bar,
     _list_leaf_nodes,
     _prepare_snapshot_columns,
@@ -471,3 +474,98 @@ def test_snapshot_ignores_columns_unavailable_for_sample(tmp_path):
     # `fEta` is unavailable for this sample and must be ignored
     assert branches == ["fM"]
     assert events == 9
+
+
+def test_create_graph_specs_binning_mode():
+    dataset_specs = [
+        Dataset(
+            campaign="2024_nano_v15",
+            channel="ee",
+            dataset="data_A",
+            nicks=["data"],
+            files={"main": ["ntuple.root"]},
+        )
+    ]
+    filters_and_weights_specs = [
+        FiltersAndWeights(
+            campaign="2024_nano_v15",
+            channel="ee",
+            category="ee_base",
+            process="data",
+            dataset="data_A",
+            variation="nominal",
+            filters=OrderedDict([("trigger_selection", "x > 0.0")]),
+            weights=OrderedDict([("weight", "1.0")]),
+        )
+    ]
+    histogram_specs = [
+        Histogram(
+            campaign="2024_nano_v15",
+            channel="ee",
+            category="ee_base",
+            variable="x",
+            expression="x",
+            bin_edges=[0.0, 10.0],
+        )
+    ]
+
+    graph = networkx.readwrite.json_graph.node_link_graph(
+        create_graph_specs(
+            dataset_specs,
+            histogram_specs,
+            filters_and_weights_specs,
+            "binning",
+        )
+    )
+    binning_nodes = [
+        data["spec"]
+        for data in graph.nodes.values()
+        if data["type"] == "BinningNode"
+    ]
+    assert len(binning_nodes) == 1
+    assert binning_nodes[0]["variable"] == "x"
+    assert binning_nodes[0]["expression"] == "x"
+    assert (
+        binning_nodes[0]["output_file"]
+        == "2024_nano_v15/ee__ee_base/x/data_A.npz"
+    )
+
+
+def _make_binning_data_frame(tmp_path):
+    """An RDataFrame with the column `x`, filtered on `x > 0`."""
+    f = ROOT.TFile(str(tmp_path / "main.root"), "RECREATE")
+    t = ROOT.TTree("ntuple", "ntuple")
+    x = array.array("f", [0.0])
+    t.Branch("x", x, "x/F")
+    for i in range(10):
+        x[0] = float(i)
+        t.Fill()
+    t.Write()
+    f.Close()
+
+    chain = ROOT.TChain("ntuple")
+    chain.Add(str(tmp_path / "main.root"))
+    return ROOT.RDataFrame(chain).Filter("x > 0", "sel")
+
+
+def test_binning_writes_value_file(tmp_path):
+    data_frame = _make_binning_data_frame(tmp_path)
+
+    node = BinningNode(
+        campaign="2024_nano_v15",
+        channel="ee",
+        category="ee_base",
+        dataset="data_A",
+        process="data",
+        variation="nominal",
+        variable="x",
+        expression="x",
+        output_file="ee__ee_base/x/data_A.npz",
+    )
+    result = _binning(node, {"id": {"data_frame": data_frame}}, tmp_path)
+
+    assert result["lazy_object_type"] == "binning"
+    assert result["n_events"] == 9
+    with np.load(result["output_file"]) as values_file:
+        values = values_file["values"]
+    assert np.allclose(np.sort(values), np.arange(1.0, 10.0))

@@ -113,6 +113,19 @@ class HistogramNode(GraphNode):
     output_file: str
 
 
+@dataclass(frozen=True)
+class BinningNode(GraphNode):
+    campaign: str
+    channel: str
+    category: str
+    dataset: str
+    process: str
+    variation: str
+    variable: str
+    expression: str
+    output_file: str
+
+
 # endregion
 
 
@@ -223,7 +236,7 @@ def create_graph_specs(
     columns: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     # Check if 'mode' has valid value
-    modes = ["snapshot", "histogram"]
+    modes = ["snapshot", "histogram", "binning"]
     if mode not in modes:
         raise ValueError(f"Argument node must be from {modes}")
 
@@ -347,6 +360,38 @@ def create_graph_specs(
                     output_file=histogram_output_file,
                 )
                 graph_builder.add_node(histogram_node, last_node=last_node)
+
+        elif mode == "binning":
+            for histogram_spec in _get_histogram_specs(
+                histogram_specs,
+                campaign,
+                channel,
+                category,
+            ):
+                # Define output file path for the binning node
+                binning_output_file = str(
+                    Path(
+                        campaign,
+                        f"{channel}__{category}",
+                        histogram_spec.variable,
+                        f"{dataset}.npz",
+                    )
+                )
+
+                # Create the binning node. Do not update the last node, as all
+                # value files shall be written from the same input node
+                binning_node = BinningNode(
+                    campaign=campaign,
+                    channel=channel,
+                    category=category,
+                    dataset=dataset,
+                    process=process,
+                    variation=variation,
+                    variable=histogram_spec.variable,
+                    expression=histogram_spec.expression,
+                    output_file=binning_output_file,
+                )
+                graph_builder.add_node(binning_node, last_node=last_node)
 
     # --- Create final graph ---------------------------------------------------
 
@@ -669,6 +714,58 @@ def _histogram(
     }
 
 
+def _binning(
+    node: BinningNode,
+    artifacts: dict[str, Any],
+    output_dir: Path,
+) -> dict[str, Any]:
+    logger.debug(
+        "\n".join(
+            [
+                "Declare binning values",
+                f"    campaign:   {node.campaign}",
+                f"    channel:    {node.channel}",
+                f"    category:   {node.category}",
+                f"    dataset:    {node.dataset}",
+                f"    variable:   {node.variable}",
+                f"    expression: {node.expression}",
+            ]
+        )
+    )
+    if len(artifacts) != 1:
+        raise ValueError(
+            "Expect exactly one input artifact from predecessor node"
+        )
+
+    # Load output data frame from predecessor node
+    data_frame = next(iter(artifacts.values()))["data_frame"]
+
+    # Declare helper functions used in the expression, if any, and define the
+    # variable values as a column
+    ensure_declared(node.expression)
+    column = f"__binning_{node.variable}"
+    data_frame = data_frame.Define(
+        column, f"static_cast<double>({node.expression})"
+    )
+
+    # Materialize the values and write them to a file. The equipopulated
+    # binning is derived from the raw, unweighted data events, so the weights
+    # of the weights node are not applied here.
+    values = data_frame.AsNumpy([column])[column]
+    output_file = output_dir / Path(node.output_file)
+    if not output_file.parent.exists():
+        output_file.parent.mkdir(parents=True)
+        logger.debug(f"Created directory {output_file.parent}")
+    np.savez_compressed(str(output_file), values=values)
+
+    return {
+        "values": values,
+        "lazy_object_type": "binning",
+        "output_file": output_file,
+        "n_events": len(values),
+    }
+
+
 def action(
     node: GraphNode,
     artifacts: dict[str, Any],
@@ -684,6 +781,8 @@ def action(
         return _snapshot(node, artifacts, output_dir)
     elif isinstance(node, HistogramNode):
         return _histogram(node, artifacts, output_dir)
+    elif isinstance(node, BinningNode):
+        return _binning(node, artifacts, output_dir)
     else:
         raise ValueError(f"Unknown node type: {type(node)}")
 
@@ -946,10 +1045,13 @@ def _run_subgraph(
     if len(leaf_nodes) > 0:
         # Run all RDataFrame graphs coming from this subgraph. This program
         # only triggers the production of artifacts that are not available yet
-        # as output file.
+        # as output file. The values of binning leafs are materialized already
+        # in the declaration phase and are not part of the RDataFrame graphs.
         logger.debug("Processing RDataFrame graphs")
         graph_elements = [
-            artifacts[leaf_node]["lazy_object"] for leaf_node in leaf_nodes
+            artifacts[leaf_node]["lazy_object"]
+            for leaf_node in leaf_nodes
+            if artifacts[leaf_node]["lazy_object_type"] != "binning"
         ]
 
         # In profiling mode, attach an RDataFrame report and an event counter
@@ -977,9 +1079,12 @@ def _run_subgraph(
         # needs to be added before the event loop is triggered below.
         _enable_rdf_progress_bar(subgraph, artifacts)
 
-        # Trigger the RDataFrame event loop and time it
+        # Trigger the RDataFrame event loop and time it. There is nothing to
+        # run if only binning leafs were declared, whose values have already
+        # been materialized above.
         run_start = monotonic()
-        ROOT.RDF.RunGraphs(graph_elements)
+        if graph_elements:
+            ROOT.RDF.RunGraphs(graph_elements)
         if stages:
             profile["times_s"]["run"] = monotonic() - run_start
 
@@ -993,31 +1098,35 @@ def _run_subgraph(
         write_start = monotonic()
         for leaf_node in leaf_nodes:
             a = artifacts[leaf_node]
-            output_object = a["lazy_object"]
+            output_object = a.get("lazy_object")
             object_type = a["lazy_object_type"]
             output_file = a["output_file"]
 
-            # Check if the lazy object has already been computed
-            if not output_object.IsReady():
-                raise RuntimeError(
-                    "Lazy object has not been materialized before writing it to a "
-                    + "file, processing is corrupted"
-                )
+            if object_type == "binning":
+                # The values are written by the action already
+                logger.debug(f"Wrote binning values to {output_file}")
+            else:
+                # Check if the lazy object has already been computed
+                if not output_object.IsReady():
+                    raise RuntimeError(
+                        "Lazy object has not been materialized before writing it to a "
+                        + "file, processing is corrupted"
+                    )
 
-            if object_type == "snapshot":
-                logger.debug(f"Wrote snapshot to {output_file}")
+                if object_type == "snapshot":
+                    logger.debug(f"Wrote snapshot to {output_file}")
 
-            if object_type == "histogram":
-                # Create the output file's parent directory
-                if not output_file.parent.exists():
-                    output_file.parent.mkdir(parents=True)
-                    logger.debug(f"Created directory {output_file.parent}")
+                if object_type == "histogram":
+                    # Create the output file's parent directory
+                    if not output_file.parent.exists():
+                        output_file.parent.mkdir(parents=True)
+                        logger.debug(f"Created directory {output_file.parent}")
 
-                # Dump histogram to output file
-                f = ROOT.TFile.Open(str(output_file), "UPDATE")
-                output_object.Write()
-                f.Close()
-                logger.debug(f"Wrote histogram to {output_file}")
+                    # Dump histogram to output file
+                    f = ROOT.TFile.Open(str(output_file), "UPDATE")
+                    output_object.Write()
+                    f.Close()
+                    logger.debug(f"Wrote histogram to {output_file}")
 
             # Collect the metadata of the produced leaf output file
             if profile is not None:
@@ -1050,6 +1159,8 @@ def _run_subgraph(
                             f.Close()
                         except Exception:
                             leaf_entry["events"] = -1
+                    elif object_type == "binning":
+                        leaf_entry["events"] = a.get("n_events", -1)
 
                 profile["leaf_nodes"].append(leaf_entry)
 
