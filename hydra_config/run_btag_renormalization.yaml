@@ -16,7 +16,11 @@ merged_histograms_dir_without_btag_weight: data/output/shapes-2026-10-22-without
 output_dir: ${artifacts.btag_renormalization_dir}
 
 # Campaigns and channels of the derivation
-campaigns: ${inventory.campaigns}
+campaigns:
+- 2022_pre_ee_nano_v12
+- 2022_post_ee_nano_v12
+- 2023_pre_bpix_nano_v12
+- 2023_post_bpix_nano_v12
 channels: ${inventory.channels}
 
 # Jet multiplicity selections whose categories enter the derivation
