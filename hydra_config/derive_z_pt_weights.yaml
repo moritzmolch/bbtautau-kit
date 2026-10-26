@@ -145,9 +145,9 @@ derivation_settings:
             mm_eq1j:
               bandwidth: 2.0
             mm_eq2j:
-              bandwidth: 20.0
+              bandwidth: 10.0
             mm_geq3j:
-              bandwidth: 30.0
+              bandwidth: 15.0
     2025_nano_v15:
       channels:
         mm:
@@ -157,6 +157,6 @@ derivation_settings:
             mm_eq1j:
               bandwidth: 2.0
             mm_eq2j:
-              bandwidth: 20.0
+              bandwidth: 10.0
             mm_geq3j:
-              bandwidth: 30.0
+              bandwidth: 15.0
