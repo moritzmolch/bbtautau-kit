@@ -9,6 +9,10 @@ weights_fn: "xyh.weights.default_weights_without_z_weights"
 
 # Analysis context: campaigns, channels, categories, and variables to process
 campaigns:
+- "2022_pre_ee_nano_v12"
+- "2022_post_ee_nano_v12"
+- "2023_pre_bpix_nano_v12"
+- "2023_post_bpix_nano_v12"
 - "2024_nano_v15"
 - "2025_nano_v15"
 channels:
