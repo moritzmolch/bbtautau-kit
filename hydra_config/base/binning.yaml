@@ -28,7 +28,79 @@ variables:
 # below the channels, per channel and category. More specific scopes take
 # precedence over the top-level defaults, and `variables` entries take
 # precedence over all scopes.
-campaigns: {}
+campaigns:
+  2022_pre_ee_nano_v12:
+    channels:
+      mm:
+        categories:
+          mm_eq0j:
+            n_bins: 50
+          mm_eq1j:
+            n_bins: 50
+          mm_eq2j:
+            n_bins: 10
+          mm_geq3j:
+            n_bins: 5
+  2022_post_ee_nano_v12:
+    channels:
+      mm:
+        categories:
+          mm_eq0j:
+            n_bins: 50
+          mm_eq1j:
+            n_bins: 50
+          mm_eq2j:
+            n_bins: 10
+          mm_geq3j:
+            n_bins: 5
+  2023_pre_bpix_nano_v12:
+    channels:
+      mm:
+        categories:
+          mm_eq0j:
+            n_bins: 50
+          mm_eq1j:
+            n_bins: 50
+          mm_eq2j:
+            n_bins: 10
+          mm_geq3j:
+            n_bins: 5
+  2023_post_bpix_nano_v12:
+    channels:
+      mm:
+        categories:
+          mm_eq0j:
+            n_bins: 50
+          mm_eq1j:
+            n_bins: 50
+          mm_eq2j:
+            n_bins: 10
+          mm_geq3j:
+            n_bins: 5
+  2024_nano_v15:
+    channels:
+      mm:
+        categories:
+          mm_eq0j:
+            n_bins: 100
+          mm_eq1j:
+            n_bins: 50
+          mm_eq2j:
+            n_bins: 20
+          mm_geq3j:
+            n_bins: 10
+  2025_nano_v15:
+    channels:
+      mm:
+        categories:
+          mm_eq0j:
+            n_bins: 100
+          mm_eq1j:
+            n_bins: 50
+          mm_eq2j:
+            n_bins: 20
+          mm_geq3j:
+            n_bins: 10
 
 # Output file to be set as `binning_overrides.file` in `run_graphs`, and
 # directory with control plots of the data with the derived binning. Both
