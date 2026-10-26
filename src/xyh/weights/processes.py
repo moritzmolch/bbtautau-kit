@@ -76,23 +76,24 @@ def tt_normalization(self) -> OrderedDict[str, str]:
     has been observed in an $\\text{e}\\mu$ control region.
     """
 
+    # Only apply the tt normalization to ttbar processes
     if not self.process_inst.has_tag("tt"):
         return OrderedDict([])
-
-    # tt normalization factors per era
-    normalization_factor = {
-        "2022_pre_ee_nano_v12": 1.0,
-        "2022_post_ee_nano_v12": 1.0,
-        "2023_pre_bpix_nano_v12": 1.0,
-        "2023_post_bpix_nano_v12": 1.0,
-        "2024_nano_v15": 0.95,
-        "2025_nano_v15": 0.93,
-    }[self.campaign_inst.name]
 
     # Do not apply a correction factor in the em channel, as this channel is
     # used to derive the correction factor
     if self.channel_inst.name == "em":
         return OrderedDict([])
+
+    # tt normalization factors per era
+    normalization_factor = {
+        "2022_pre_ee_nano_v12": 0.91,
+        "2022_post_ee_nano_v12": 0.90,
+        "2023_pre_bpix_nano_v12": 0.94,
+        "2023_post_bpix_nano_v12": 0.95,
+        "2024_nano_v15": 0.95,
+        "2025_nano_v15": 0.93,
+    }[self.campaign_inst.name]
 
     return OrderedDict(
         [
