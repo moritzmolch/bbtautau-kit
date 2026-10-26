@@ -38,22 +38,32 @@ def b_jet_weights(self) -> OrderedDict[str, str]:
     if self.process_inst.is_data:
         return OrderedDict([])
 
-    file = _btag_renormalization_file(
-        self.campaign_inst, self.channel_inst.name
-    )
-    if file is None:
-        return OrderedDict([("id_wgt_bjet_shape", "id_wgt_bjet")])
+    # Container for the b tagging weights
+    weights = OrderedDict([])
 
-    return OrderedDict(
-        [
-            (
-                "id_wgt_bjet_shape",
-                f'id_wgt_bjet * xyh_bjet_normalization("{file}", '
-                f'"{self.channel_inst.name}", "{self.process_inst.name}", '
-                f"n_jets)",
-            ),
-        ],
-    )
+    # Add the b jet tagging weight
+    weights["id_wgt_bjet_shape"] = "id_wgt_bjet"
+
+    # In 2022 and 2023, shape corrections are used and the b tagging weight must
+    # be renormalized accordingly to preserve the overall normalization when no
+    # b tagging criteria are applied.
+    if self.campaign_inst.x.year in [2022, 2023]:
+        file = _btag_renormalization_file(
+            self.campaign_inst, self.channel_inst.name
+        )
+        if file is None:
+            return OrderedDict([("id_wgt_bjet_shape", "id_wgt_bjet")])
+        btag_renorm_weight = (
+            "xyh_bjet_normalization("
+            + f'"{file}", '
+            + f'"{self.channel_inst.name}", '
+            + f'"{self.process_inst.name}", '
+            + "n_jets"
+            + ")"
+        )
+        weights["id_wgt_bjet_renorm"] = btag_renorm_weight
+
+    return weights
 
 
 @Wrapper.wrap
