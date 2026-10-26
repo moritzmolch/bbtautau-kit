@@ -17,6 +17,7 @@ import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import ROOT
@@ -119,20 +120,49 @@ class DerivationSettings:
     pt_clip: float | None = None
 
 
+def _apply_scope(
+    base: dict[str, Any], scope: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Overlay the settings of one nesting level of `scope` on `base`.
+
+    The structural keys `channels` and `categories` nest the next levels and
+    are not settings.
+    """
+    effective = dict(base)
+    for key in scope:
+        if key not in ("channels", "categories"):
+            effective[key] = scope[key]
+    return effective
+
+
 def resolve_settings(
-    derivation_settings: Mapping[str, Mapping], category: str
+    derivation_settings: Mapping[str, Any],
+    campaign: str,
+    channel: str,
+    category: str,
 ) -> DerivationSettings:
     """
-    Settings of the category: the keys of `default` overridden by the keys of
-    the entry named like the category, if there is one.
+    Settings of the category, resolved from the most specific to the most
+    general scope: category, channel, campaign, and finally the top-level
+    defaults, as for the binning settings, see
+    `xyh.binning.derive.resolve_binning_settings`. The category is the jet
+    multiplicity without b-jet selection (mm_eq2j etc.).
     """
-    merged = {
-        **derivation_settings.get("default", {}),
-        **derivation_settings.get(category, {}),
-    }
-    if "bandwidth_variations" in merged:
-        merged["bandwidth_variations"] = tuple(merged["bandwidth_variations"])
-    return DerivationSettings(**merged)
+    effective = dict(derivation_settings)
+    campaign_scope = (derivation_settings.get("campaigns") or {}).get(
+        campaign, {}
+    )
+    effective = _apply_scope(effective, campaign_scope)
+    channel_scope = (campaign_scope.get("channels") or {}).get(channel, {})
+    effective = _apply_scope(effective, channel_scope)
+    category_scope = (channel_scope.get("categories") or {}).get(category, {})
+    effective = _apply_scope(effective, category_scope)
+    effective.pop("campaigns", None)
+    if "bandwidth_variations" in effective:
+        effective["bandwidth_variations"] = tuple(
+            effective["bandwidth_variations"]
+        )
+    return DerivationSettings(**effective)
 
 
 def derive_z_pt_weights(
@@ -143,7 +173,7 @@ def derive_z_pt_weights(
     categories: list[str],
     merged_histograms_dir: Path,
     output_file: Path,
-    derivation_settings: Mapping[str, Mapping],
+    derivation_settings: Mapping[str, Any],
     yield_variable: str = "yield",
     pt_variable: str = "pt_vis",
 ):
@@ -191,7 +221,7 @@ def derive_z_pt_weights(
     pt_variations = {}
     raw_ratios = {}
     for jet_cat in jet_categories:
-        settings = resolve_settings(derivation_settings, jet_cat)
+        settings = resolve_settings(derivation_settings, campaign, channel, jet_cat)
         yield_data, yield_z, yield_others = _read_processes(
             merged_histograms_dir, inventory, jet_cat, yield_variable
         )

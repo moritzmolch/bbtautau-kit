@@ -15,7 +15,7 @@ z_pt_weights:
   - "inventory=control_regions_z_pt"
   # Directory with the correctionlib files that are applied in this
   # production. Empty disables the corrections. Set by the workflow.
-  input_dir: "data/output/shapes-2026-10-16-for-z-pt-reweighting/z_pt_weights"
+  input_dir: "data/output/shapes-2026-10-25-for-dy-corrections/z_pt_weights"
 
 # B-tag weight normalization corrections applied in `b_jet_weights`, see
 # `xyh.btag_weight_renormalization`. One file per era and channel is required
@@ -23,8 +23,9 @@ z_pt_weights:
 btag_renorm_weights:
   input_dir: "data/output/btag_renorm_weights/btag-renorm-2026-10-22"
 
-# Binning that overrides the one of the inventory, see
-# `xyh.shape_processor.derive_binning`. Empty uses the inventory binning.
+# Binning that overrides the one of the inventory, derived by `run_graphs` in
+# binning mode, see `xyh.binning` and `hydra_config/base/binning.yaml`. Empty
+# uses the inventory binning.
 binning_overrides:
   file: ""
 

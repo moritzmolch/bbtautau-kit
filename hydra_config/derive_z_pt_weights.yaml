@@ -43,10 +43,13 @@ categories:
 yield_variable: yield
 pt_variable: pt_vis
 
-# Settings of the pt correction (stage 2). The keys of `default` apply to all
-# jet multiplicities. A jet multiplicity can override any of them with an
-# entry named like its category without b-jet selection (e.g. mm_eq2j),
-# listing only the keys that differ. Keys:
+# Settings of the pt correction (stage 2). The top-level keys apply to all
+# campaigns, channels and jet multiplicities (categories inclusive in b jets),
+# and an entry of `campaigns` can override any of them for a campaign, channel,
+# and category, with the more specific scopes taking precedence over the less
+# specific ones, as for the binning settings, see `base/binning.yaml`. A key
+# can be set to null to disable the feature, overriding a default or a less
+# specific scope. Keys:
 #   rebin:               Merge this many adjacent pt bins of the histogram
 #                        before deriving the correction (1 = no merging).
 #   max_rel_error:       Merge adjacent pt bins (from low to high pt) until the
@@ -75,21 +78,85 @@ pt_variable: pt_vis
 #                        above it) are merged into a single tail bin, which is
 #                        not smoothed. null for no tail bin.
 derivation_settings:
-  default:
-    rebin: 1
-    max_rel_error: 1.0
-    bandwidth: 1.0
-    stat_sigma: 1.0
-    bandwidth_variations: [0.5, 1.5]
-    n_samples: 100
-    seed: 19
-    sparsify_threshold: 0.001
-    pt_clip: 200
-  mm_eq0j:
-    bandwidth: 1.0
-  mm_eq1j:
-    bandwidth: 2.0
-  mm_eq2j:
-    bandwidth: 2.0
-  mm_geq3j:
-    bandwidth: 5.0
+  rebin: 1
+  max_rel_error: 1.0
+  bandwidth: 1.0
+  stat_sigma: 1.0
+  bandwidth_variations: [0.5, 2.0]
+  n_samples: 100
+  seed: 19
+  sparsify_threshold: 0.001
+  # pt_clip: 200
+  campaigns:
+    2022_pre_ee_nano_v12:
+      channels:
+        mm:
+          categories:
+            mm_eq0j:
+              bandwidth: 1.0
+            mm_eq1j:
+              bandwidth: 2.0
+            mm_eq2j:
+              bandwidth: 20.0
+            mm_geq3j:
+              bandwidth: 30.0
+    2022_post_ee_nano_v12:
+      channels:
+        mm:
+          categories:
+            mm_eq0j:
+              bandwidth: 1.0
+            mm_eq1j:
+              bandwidth: 2.0
+            mm_eq2j:
+              bandwidth: 20.0
+            mm_geq3j:
+              bandwidth: 30.0
+    2023_pre_bpix_nano_v12:
+      channels:
+        mm:
+          categories:
+            mm_eq0j:
+              bandwidth: 1.0
+            mm_eq1j:
+              bandwidth: 2.0
+            mm_eq2j:
+              bandwidth: 20.0
+            mm_geq3j:
+              bandwidth: 30.0
+    2023_post_bpix_nano_v12:
+      channels:
+        mm:
+          categories:
+            mm_eq0j:
+              bandwidth: 1.0
+            mm_eq1j:
+              bandwidth: 2.0
+            mm_eq2j:
+              bandwidth: 20.0
+            mm_geq3j:
+              bandwidth: 30.0
+    2024_nano_v15:
+      channels:
+        mm:
+          categories:
+            mm_eq0j:
+              bandwidth: 1.0
+            mm_eq1j:
+              bandwidth: 2.0
+            mm_eq2j:
+              bandwidth: 10.0
+            mm_geq3j:
+              bandwidth: 15.0
+    2025_nano_v15:
+      channels:
+        mm:
+          categories:
+            mm_eq0j:
+              bandwidth: 1.0
+            mm_eq1j:
+              bandwidth: 2.0
+            mm_eq2j:
+              bandwidth: 10.0
+            mm_geq3j:
+              bandwidth: 15.0

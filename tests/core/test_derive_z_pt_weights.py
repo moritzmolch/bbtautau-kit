@@ -1,4 +1,5 @@
-"""Tests for the per-category settings of the Z pt weight derivation."""
+"""Tests for the per-campaign, per-channel, per-category settings of the Z pt
+weight derivation."""
 
 import pytest
 
@@ -10,26 +11,86 @@ from xyh.shape_processor.derive_z_pt_weights import (  # noqa: E402
 )
 
 SETTINGS = {
-    "default": {"rebin": 1, "bandwidth": 1.0, "pt_clip": 100},
-    "mm_eq2j": {"rebin": 2, "bandwidth": None},
+    "rebin": 1,
+    "bandwidth": 1.0,
+    "pt_clip": 100,
+    "campaigns": {
+        "2024_nano_v15": {
+            "channels": {
+                "mm": {
+                    "categories": {
+                        "mm_eq2j": {"rebin": 2, "bandwidth": None},
+                        "mm_eq3j": {"bandwidth": 3.0},
+                    },
+                },
+                "et": {
+                    "categories": {
+                        "et_eq2j": {"bandwidth": 4.0},
+                    },
+                },
+            },
+        },
+        "2022_pre_ee_nano_v12": {
+            "channels": {
+                "mm": {
+                    "categories": {
+                        "mm_eq2j": {"bandwidth": 5.0},
+                    },
+                },
+            },
+        },
+    },
 }
 
 
 def test_category_overrides_default():
-    assert resolve_settings(SETTINGS, "mm_eq2j") == DerivationSettings(
-        rebin=2, bandwidth=None, pt_clip=100
-    )
+    assert resolve_settings(
+        SETTINGS, "2024_nano_v15", "mm", "mm_eq2j"
+    ) == DerivationSettings(rebin=2, bandwidth=None, pt_clip=100)
 
 
 def test_unlisted_category_uses_default():
-    assert resolve_settings(SETTINGS, "mm_eq3j") == DerivationSettings(
-        rebin=1, bandwidth=1.0, pt_clip=100
-    )
+    assert resolve_settings(
+        SETTINGS, "2024_nano_v15", "mm", "mm_eq0j"
+    ) == DerivationSettings(rebin=1, bandwidth=1.0, pt_clip=100)
+
+
+def test_channel_overrides_default():
+    assert resolve_settings(
+        SETTINGS, "2024_nano_v15", "et", "et_eq2j"
+    ) == DerivationSettings(rebin=1, bandwidth=4.0, pt_clip=100)
+
+
+def test_campaign_overrides_default():
+    assert resolve_settings(
+        SETTINGS, "2022_pre_ee_nano_v12", "mm", "mm_eq2j"
+    ) == DerivationSettings(rebin=1, bandwidth=5.0, pt_clip=100)
 
 
 def test_unknown_key_raises():
     with pytest.raises(TypeError):
-        resolve_settings({"default": {"sigma": 1.0}}, "mm_eq2j")
+        resolve_settings(
+            {"default": {"sigma": 1.0}}, "2024_nano_v15", "mm", "mm_eq2j"
+        )
+    with pytest.raises(TypeError):
+        resolve_settings(
+            {
+                "campaigns": {
+                    "2024_nano_v15": {
+                        "channels": {
+                            "mm": {
+                                "categories": {
+                                    "mm_eq2j": {"sigma": 1.0},
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            "2024_nano_v15",
+            "mm",
+            "mm_eq2j",
+        )
 
 
 def test_two_stage_derivation(tmp_path, monkeypatch):
@@ -99,7 +160,7 @@ def test_two_stage_derivation(tmp_path, monkeypatch):
         [*true_norm, "mm_eq0j_eq1b"],
         tmp_path,
         output,
-        {"default": {}},
+        {},
     )
 
     cset = correctionlib.CorrectionSet.from_file(str(output))

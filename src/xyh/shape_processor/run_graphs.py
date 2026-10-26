@@ -1,21 +1,25 @@
 import cProfile
 import io
+import itertools
 import logging
 import pstats
 from dataclasses import asdict
 from pathlib import Path
 from time import time
+from typing import Any, cast
 
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from xyh import ROOT_DIR
 from xyh.core.binning import load_binning_overrides
 from xyh.core.cli import hydra_cli
+from xyh.core.config import load_inventory
 from xyh.core.io import dump_json
 from xyh.core.specs.dataset import create_dataset_specs
 from xyh.core.specs.filters_and_weights import create_filters_and_weights_specs
 from xyh.core.specs.graph import create_graph_specs, run_graph
 from xyh.core.specs.histogram import create_histogram_specs
+from xyh.core.specs.inputs import resolve_processes
 
 logger = logging.getLogger(__name__)
 
@@ -98,20 +102,38 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         ntuple_friends=cfg["ntuples"]["friends"],
     )
 
+    # Graph processing mode and whether the binning is derived in this run
+    mode = cfg["graph_processing"]["mode"]
+    is_binning = mode == "binning"
+
+    # In binning mode, optionally limit the ntuple files per dataset
+    n_files = cfg["binning"].get("n_files") if is_binning else None
+    if n_files:
+        for dataset_spec in dataset_specs:
+            dataset_spec.files = {
+                key: files[:n_files]
+                for key, files in dataset_spec.files.items()
+            }
+
     # Load the binning that overrides the one of the inventory, if configured
     binning_overrides = None
     binning_file = cfg.get("binning_overrides", {}).get("file")
     if binning_file:
         binning_overrides = load_binning_overrides(ROOT_DIR / binning_file)
 
-    # Create the histogram specs
+    # Create the histogram specs. In binning mode, only the variables of the
+    # `binning` configuration are considered.
     histogram_specs = create_histogram_specs(
         inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
         inventory_factory_kwargs=cfg["inventory"]["factory_fn_kwargs"],
         campaigns=cfg["inventory"]["campaigns"],
         channels=cfg["inventory"]["channels"],
         categories=cfg["inventory"]["categories"],
-        variables=cfg["inventory"]["variables"],
+        variables=(
+            list(cfg["binning"].get("variables", {}).keys())
+            if is_binning
+            else cfg["inventory"]["variables"]
+        ),
         binning_overrides=binning_overrides,
     )
 
@@ -126,12 +148,43 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         weights_fn_path=cfg["inventory"]["weights_fn"],
     )
 
+    # In binning mode, keep only the nominal data events: the equipopulated
+    # binning is optimized on data only. The axes labels of the variables are
+    # collected for the control plots.
+    binning_labels: dict[tuple[str, str], str] = {}
+    if is_binning:
+        data_processes = set()
+        for campaign, channel in itertools.product(
+            cfg["inventory"]["campaigns"],
+            cfg["inventory"]["channels"],
+        ):
+            inventory = load_inventory(
+                cfg["inventory"]["factory_fn"],
+                campaign,
+                channel,
+                **cfg["inventory"]["factory_fn_kwargs"],
+            )
+            data_processes.update(
+                resolve_processes(
+                    inventory, cfg["binning"]["data_process_group"]
+                )
+            )
+            for variable in inventory.variables:
+                binning_labels[(channel, variable.name)] = (
+                    variable.x_title or variable.name
+                )
+        filters_and_weights_specs = [
+            spec
+            for spec in filters_and_weights_specs
+            if spec.variation == "nominal" and spec.process in data_processes
+        ]
+
     # Build the graph from the individual specs
     graph_specs = create_graph_specs(
         dataset_specs,
         histogram_specs,
         filters_and_weights_specs,
-        cfg["graph_processing"]["mode"],
+        mode,
         columns=cfg["snapshots"].get("columns"),
     )
 
@@ -152,14 +205,14 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
 
     # Set output dir based on mode
     output_dir = None
-    if cfg["graph_processing"]["mode"] == "histogram":
+    if mode == "histogram":
         output_dir = cfg["histograms_output_dir"]
-    elif cfg["graph_processing"]["mode"] == "snapshot":
+    elif mode == "snapshot":
         output_dir = cfg["snapshots_output_dir"]
+    elif mode == "binning":
+        output_dir = cfg["binning_output_dir"]
     else:
-        raise ValueError(
-            f"Invalid graph processing mode: {cfg['graph_processing']['mode']}"
-        )
+        raise ValueError(f"Invalid graph processing mode: {mode}")
 
     # Run graph processing and production of output files
     graph_report = run_graph(
@@ -169,6 +222,23 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         cfg["graph_processing"]["num_threads"],
         profiling_options,
     )
+
+    # In binning mode, derive the equipopulated binning from the values that
+    # were written by the graphs and store it as binning overrides
+    if is_binning:
+        from xyh.binning import derive_binning
+
+        binning_settings = cast(
+            dict[str, Any],
+            OmegaConf.to_container(cfg["binning"], resolve=True),
+        )
+        derive_binning(
+            Path(output_dir),
+            ROOT_DIR / Path(cfg["binning"]["output_file"]),
+            ROOT_DIR / Path(cfg["binning"]["plots_dir"]),
+            binning_settings,
+            labels=binning_labels,
+        )
 
     # Finalize the profiling report
     if report is not None and graph_report is not None:

@@ -1,6 +1,6 @@
 # Tags for input and output artifacts
 ntuple_tag: "ntuples-2026-10-08"
-shapes_tag: "shapes-2026-10-16"
+shapes_tag: "shapes-2026-10-25"
 
 # Tag of the b-tag weight normalization output, see `run_btag_renormalization`
 btag_renorm_tag: "btag-renorm-2026-10-22"

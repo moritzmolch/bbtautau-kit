@@ -29,6 +29,17 @@ def test_compose_cfg_can_be_called_repeatedly():
     assert second.tags.shapes_tag == "b"
 
 
+def test_compose_cfg_exposes_binning_settings():
+    cfg = resolve_cfg(compose_cfg("run_graphs", ["tags.shapes_tag=foo"]))
+    assert cfg["binning"]["n_bins"] == 100
+    assert cfg["binning"]["data_process_group"] == "data"
+    assert cfg["binning_output_dir"] == "data/output/foo/binning"
+    assert (
+        cfg["binning"]["output_file"]
+        == "data/output/foo/binning/binning.json"
+    )
+
+
 def test_stage_command_appends_overrides():
     cmd = stage_command("run_graphs", ["a=1", "b=2"])
     assert cmd[1:3] == ["-m", "xyh.shape_processor.run_graphs"]
