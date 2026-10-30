@@ -149,6 +149,19 @@ class Weight(Spec):
 
 @dataclass(frozen=True, eq=False, kw_only=True)
 class WeightProduct(Spec):
+    """
+    Specification for building the total weight by multiplying a list of
+    individual weights.
+
+    Attributes
+    ----------
+    name : str
+        The name of the total weight.
+
+    weights : list[Weight]
+        The list of individual weights to be multiplied together.
+    """
+
     name: str
     weights: list[Weight]
 
