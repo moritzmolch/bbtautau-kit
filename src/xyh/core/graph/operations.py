@@ -1,6 +1,8 @@
 import logging
 from time import time
 
+import numpy as np
+
 from xyh.core.graph.node import Node
 
 # Set up logging
@@ -312,3 +314,76 @@ def weight_product(
     data_frame = data_frame.Define(TOTAL_WEIGHT_NAME, weight_expression)
 
     return Artifacts(data_frame=data_frame), OutputFiles()
+
+
+def histogram(
+    node: Node, artifacts_store: ArtifactsStore
+) -> tuple[Artifacts, OutputFiles]:
+    """
+    Declare a lazy `TH1D` histogram operation on the `RDataFrame`.
+
+    The artifacts object contains the `RDataFrame` as well as the lazy histogram
+    object.
+
+    Parameters
+    ----------
+    node : Node
+        The `"histogram"` operation node that is being processed.
+
+    artifacts_store : ArtifactsStore
+        The store for the artifacts.
+
+    Returns
+    -------
+    tuple[Artifacts, OutputFiles]
+        A tuple containing the artifacts and output files.
+    """
+    # Log context of this node
+    logger.debug(
+        "\n".join(
+            [
+                "Declare histogram",
+                f"    campaign:   {node.data.campaign}",
+                f"    channel:    {node.data.channel}",
+                f"    category:   {node.data.category}",
+                f"    dataset:    {node.data.dataset}",
+                f"    process:    {node.data.process}",
+                f"    variation:  {node.data.variation}",
+                f"    variable:   {node.data.variable}",
+                f"    expression: {node.data.expression}",
+            ]
+        )
+    )
+
+    # Assert that the node has exactly one parent and get that parent node
+    parent = _get_single_parent(node)
+
+    # Get the data frame from the parent
+    data_frame = artifacts_store.get(parent.hash).data_frame
+
+    # Define custom expression as column if provided
+    column = node.data.variable
+    if node.data.expression is not None:
+        column = f"__private__{node.data.variable}"
+        data_frame = data_frame.Define(column, node.data.expression)
+        logger.debug(
+            f"Defined custom expression for variable '{node.data.variable}' "
+            + f"as column with expression '{node.data.expresson}'"
+        )
+
+    # Declare the lazy histogram operation
+    lazy_hist = data_frame.Histo1D(
+        (
+            node.data.variable,
+            node.data.variable,
+            len(node.data.bin_edges) - 1,
+            np.array(node.data.bin_edges),
+        ),
+        column,
+        TOTAL_WEIGHT_NAME,
+    )
+
+    return Artifacts(
+        data_frame=data_frame,
+        lazy_hist=lazy_hist,
+    ), OutputFiles()
