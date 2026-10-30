@@ -177,6 +177,36 @@ class WeightProduct(Spec):
 
 @dataclass(frozen=True, eq=False, kw_only=True)
 class FiltersAndWeights(Spec):
+    """
+    Filter and weight setup for a specific context in the analysis.
+
+    Attributes
+    ----------
+    campaign : str
+        Name of the data-taking campaign.
+
+    channel : str
+        Name of the analysis channel.
+
+    category : str
+        Name of the category.
+
+    process : str
+        Name of the physics process.
+
+    dataset : str
+        Name of the dataset.
+
+    variation : str
+        Name of the variation.
+
+    filters : list[Filter]
+        List of filter specifications.
+
+    weights : list[Weight]
+        List of weight specifications.
+    """
+
     campaign: str
     channel: str
     category: str
