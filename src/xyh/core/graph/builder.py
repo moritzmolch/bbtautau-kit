@@ -66,3 +66,53 @@ def _build_context_nodes_for_filters_and_weights_operations(
     )
 
     return n
+
+
+def _build_context_nodes_for_histograms(
+    context: Context,
+    spec_storage: SpecsStorage,
+    variables: list[str],
+) -> list[Node]:
+    """
+    Build chain of nodes from input file loading, filter operations, weight
+    calculations, and histogram creation for a given `context`.
+
+    The function returns the leaf nodes of the constructed chain, which can be
+    used as parent for subsequent steps.
+
+    Parameters
+    ----------
+    context : Context
+        The context of the graph, including campaign, channel, category,
+        dataset, process, and variation.
+
+    specs_storage : SpecsStorage
+        The storage containing specifications for datasets, filters, weights,
+        and histograms.
+
+    Returns
+    -------
+    list[Node]
+        The leaf nodes in the chain of operations, which can be used as parents
+        for subsequent nodes in the graph.
+    """
+
+    # Construct the chain of nodes for input files, filters, and weights
+    n = _build_context_nodes_for_filters_and_weights_operations(
+        context=context,
+        specs_storage=spec_storage,
+    )
+
+    # Create the histogram nodes
+    leaf_nodes = []
+    for variable in variables:
+        histogram_spec = spec_storage.get_histogram_specs(context, variable)
+        leaf_nodes.append(
+            Node(
+                operation="histogram",
+                data=histogram_spec,
+                parents=(n,),
+            )
+        )
+
+    return leaf_nodes
