@@ -2,8 +2,22 @@ from collections import OrderedDict
 from dataclasses import dataclass
 
 
-@dataclass
-class Dataset:
+@dataclass(frozen=True, eq=False, kw_only=True)
+class Context:
+    """
+    Analysis context of an operation.
+
+    The context consists of the data-taking campaign, the channel, the category,
+    the dataset, the process, and the variation.
+    """
+
+    campaign: str
+    channel: str
+    category: str
+    dataset: str
+    process: str
+    variation: str
+
     campaign: str
     channel: str
     dataset: str
