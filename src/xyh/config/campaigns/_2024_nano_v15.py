@@ -162,11 +162,11 @@ dataset_nicks = {
     "zz_2nu2q_powheg": "ZZto2Nu2Q_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     # --- H -> tau tau production ----------------------------------------------
     "gg_h_2tau_powheg": "GluGluH-Hto2TauUncorrelatedDecay_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
-    # "vbf_h_2tau_powheg": ,  no sample added yet to the sample database
+    "vbf_h_2tau_powheg": "VBFH-Hto2TauUncorrelatedDecay_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     # --- H -> b b production --------------------------------------------------
     "gg_h_2b_powheg": [
         "GluGluH-Hto2B_Par-M-125_TuneCP5_13p6TeV_powhegMINLO-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
-        "GluGluH-Hto2B_Par-M-125_TuneCP5_13p6TeV_powhegMINLO-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2_ext1-v2",
+        # "GluGluH-Hto2B_Par-M-125_TuneCP5_13p6TeV_powhegMINLO-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2_ext1-v2",
     ],
     "vbf_h_2b_powheg": [
         "VBFH-Hto2B_Par-M-125_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
@@ -180,7 +180,6 @@ dataset_nicks = {
         "GluGluHHto2B2Tau_Par-c2-0p00-kl-1p00-kt-1p00_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-PowhegBugFix_150X_mcRun3_2024_realistic_v2-v2",
         "GluGluHHto2B2Tau_Par-c2-0p00-kl-1p00-kt-1p00_TuneCP5_13p6TeV_powheg-pythia8_RunIII2024Summer24NanoAODv15-PowhegBugFix_150X_mcRun3_2024_realistic_v2_ext1-v2",
     ],
-    # "vbf_hh_2b2tau": ,  # no sample added yet to the sample database
 }
 
 
