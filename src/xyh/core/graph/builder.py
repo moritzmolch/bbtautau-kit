@@ -2,9 +2,6 @@ from xyh.core.graph.node import Node
 from xyh.core.specs.specs import Context, WeightProduct
 from xyh.core.specs.storage import SpecsStorage
 
-# Name of the total weight
-TOTAL_WEIGHT_NAME = "__total_weight"
-
 
 def _build_context_nodes_for_filters_and_weights_operations(
     context: Context,
@@ -61,7 +58,7 @@ def _build_context_nodes_for_filters_and_weights_operations(
     # Create the total weight multiplication node
     n = Node(
         operation="weight_product",
-        data=WeightProduct(name=TOTAL_WEIGHT_NAME, weights=weights_spec),
+        data=WeightProduct(weights=weights_spec),
         parents=(n,),
     )
 

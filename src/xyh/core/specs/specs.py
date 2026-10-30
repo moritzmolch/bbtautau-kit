@@ -154,14 +154,10 @@ class WeightProduct(Spec):
 
     Attributes
     ----------
-    name : str
-        The name of the total weight.
-
     weights : list[Weight]
         The list of individual weights to be multiplied together.
     """
 
-    name: str
     weights: list[Weight]
 
     def __repr__(self) -> str:
