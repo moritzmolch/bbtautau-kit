@@ -1,5 +1,4 @@
-from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True, eq=False, kw_only=True)
@@ -231,6 +230,69 @@ class FiltersAndWeights(Spec):
         )
         return f"{self.__class__.__name__}<{attributes}>"
 
+
+@dataclass(frozen=True, eq=False, kw_only=True)
+class Histogram(Spec):
+    """
+    Histogram specification for a specific variable given the analysis context.
+
+    A custom `expression` can be provided to calculate the variable to be
+    histogrammed. If no expression is provided, the variable name will be
+    assumed to be present in the input `RDataFrame`.
+
+    Attributes
+    ----------
+
+    campaign : str
+        Name of the data-taking campaign.
+
+    channel : str
+        Name of the analysis channel.
+
+    category : str
+        Name of the category.
+
+    process : str
+        Name of the physics process.
+
+    dataset : str
+        Name of the dataset.
+
+    variation : str
+        Name of the variation.
+
+    variable : str
+        Name of the variable to be histogrammed.
+
+    expression : str
+        Expression to compute the variable to be histogrammed. Default: `None`.
+
+    bin_edges : list[int | float]
+        List of bin edges for the histogram.
+    """
+
+    campaign: str
+    channel: str
+    category: str
+    dataset: str
+    process: str
+    variation: str
+    variable: str
+    expression: str | None = field(default=None)
+    bin_edges: list[int | float]
+
+    def __repr__(self) -> str:
+        attributes = ", ".join(
+            [
+                f"campaign={self.campaign}",
+                f"channel={self.channel}",
+                f"category={self.category}",
+                f"dataset={self.dataset}",
+                f"process={self.process}",
+                f"variation={self.variation}",
+                f"variable={self.variable}",
+                f"expression={self.expression}",
+                f"bin_edges={self.bin_edges}",
             ]
         )
         return f"{self.__class__.__name__}<{attributes}>"
