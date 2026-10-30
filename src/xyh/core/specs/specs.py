@@ -31,11 +31,46 @@ class Spec:
 
 @dataclass(frozen=True, eq=False, kw_only=True)
 class Dataset(Spec):
+    """
+    Specification of a dataset with input `"*.root"` files from a `CROWN`
+    ntuple production.
+
+    The dictionary `files` contains the input file lists for each subtree of the
+     dataset. The main tree is identified by the key `"main"` and must always be
+     present. Optional friend trees are identified by their corresponding name.
+
+    Attributes
+    ----------
+    campaign : str
+        Name of the data-taking campaign.
+
+    channel : str
+        Name of the analysis channel.
+
+    dataset : str
+        Name of the dataset.
+
+    files: dict[str, list[str]]
+        Dictionary containing the input files for each subtree of the dataset.
+
+    Raises
+    ------
+    ValueError
+        If the main tree is not present in the `files` dictionary.
+    """
+
     campaign: str
     channel: str
     dataset: str
-    nicks: list[str]
     files: dict[str, list[str]]
+
+    def __post_init__(self):
+        # Check if the main tree is present in the filemap
+        if "main" not in self.files:
+            raise ValueError(
+                f"Dataset {self.dataset} must contain a main tree with key "
+                + "'main'."
+            )
 
     def __repr__(self) -> str:
         attributes = ", ".join(
@@ -43,7 +78,6 @@ class Dataset(Spec):
                 f"campaign={self.campaign}",
                 f"channel={self.channel}",
                 f"dataset={self.dataset}",
-                f"nicks=[{', '.join(n for n in self.nicks)}]",
                 f"files=<{', '.join(f for f in self.files)}>",
             ]
         )
