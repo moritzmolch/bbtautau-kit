@@ -7,6 +7,39 @@ from xyh.core.graph.node import Node
 logger = logging.getLogger(__name__)
 
 
+def _get_single_parent(node: Node) -> Node:
+    """
+    Get the single parent of a node.
+
+    The function is going to return a single parent of a node. If the node has
+    more than one parent, a `ValueError` is raised.
+
+    Parameters
+    ----------
+    node : Node
+        The node for which the parent is to be retrieved.
+
+    Returns
+    -------
+    Node
+        The single parent of the node.
+
+    Raises
+    ------
+    ValueError
+        If the node has more than one parent.
+    """
+
+    # Check if the node has more than one parent
+    if not len(node.parents) == 1:
+        raise ValueError(
+            f"Filter node {node.hash} must have exactly one parent, "
+            f"but has {len(node.parents)} parents."
+        )
+
+    return node.parents[0]
+
+
 class Artifacts(dict):
     """
     Artifacts object to store objects that persist in memory for the lifetime of
@@ -15,6 +48,17 @@ class Artifacts(dict):
 
     def __getattr__(self, key):
         return self[key]
+
+
+class ArtifactsStore:
+    def __init__(self):
+        self._artifacts: dict[str, Artifacts] = {}
+
+    def put(self, node_id: str, artifacts: Artifacts):
+        self._artifacts[node_id] = artifacts
+
+    def get(self, node_id: str) -> Artifacts:
+        return self._artifacts[node_id]
 
 
 class OutputFiles(dict):
@@ -27,7 +71,10 @@ class OutputFiles(dict):
         return self[key]
 
 
-def input_files(node: Node) -> tuple[Artifacts, OutputFiles]:
+def input_files(
+    node: Node,
+    artifacts_store: ArtifactsStore,
+) -> tuple[Artifacts, OutputFiles]:
     """
     Load input files into an `RDataFrame`.
 
@@ -51,6 +98,7 @@ def input_files(node: Node) -> tuple[Artifacts, OutputFiles]:
         "\n".join(
             [
                 "Initialize data frame from input files for",
+                f"    node:     {node.hash}",
                 f"    campaign: {node.data.campaign}",
                 f"    channel:  {node.data.channel}",
                 f"    dataset:  {node.data.dataset}",
@@ -93,3 +141,52 @@ def input_files(node: Node) -> tuple[Artifacts, OutputFiles]:
         main_chain=main_chain,
         friend_chains=chains,
     ), OutputFiles()
+
+
+def filter(
+    node: Node,
+    artifacts_store: ArtifactsStore,
+) -> tuple[Artifacts, OutputFiles]:
+    """
+    Declare a filter on an `RDataFrame` object.
+
+    The filter is applied to the `RDataFrame` and the modified `RDataFrame` is
+    stored as an artifact.
+
+    Parameters
+    ----------
+    node : Node
+        The `"filter"` operation node that is being processed.
+
+    artifacts_store : ArtifactsStore
+        The store for the artifacts.
+
+    Returns
+    -------
+    tuple[Artifacts, OutputFiles]
+        A tuple containing the artifacts and output files.
+    """
+
+    # Log context of the node
+    logger.debug(
+        "\n".join(
+            [
+                "Declare filter on data frame",
+                f"    node:       {node.hash}",
+                f"    parents:    {[p.hash for p in node.parents]}",
+                f"    name:       {node.data.name}",
+                f"    expression: {node.data.expression}",
+            ]
+        )
+    )
+
+    # Assert that the node has exactly one parent and get that parent node
+    parent = _get_single_parent(node)
+
+    # Get the data frame and define the filter on it
+    data_frame = artifacts_store.get(parent.hash).data_frame
+    data_frame = data_frame.Filter(node.data.expression, node.data.name)
+
+    return Artifacts(data_frame=data_frame), OutputFiles()
+
+
