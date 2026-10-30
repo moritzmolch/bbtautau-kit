@@ -6,6 +6,9 @@ from xyh.core.graph.node import Node
 # Set up logging
 logger = logging.getLogger(__name__)
 
+# Weight prefix to prepend to the name of weight columns
+WEIGHT_PREFIX = "__weight_"
+
 
 def _get_single_parent(node: Node) -> Node:
     """
@@ -190,3 +193,52 @@ def filter(
     return Artifacts(data_frame=data_frame), OutputFiles()
 
 
+def weight(
+    node: Node,
+    artifacts_store: ArtifactsStore,
+) -> tuple[Artifacts, OutputFiles]:
+    """
+    Declare a weight on an `RDataFrame` object.
+
+    The weight is defined to the `RDataFrame` and the modified `RDataFrame` is
+    stored as an artifact.
+
+    Parameters
+    ----------
+    node : Node
+        The `"weight"` operation node that is being processed.
+
+    artifacts_store : ArtifactsStore
+        The store for the artifacts.
+
+    Returns
+    -------
+    tuple[Artifacts, OutputFiles]
+        A tuple containing the artifacts and output files.
+    """
+
+    # Log context of the node
+    logger.debug(
+        "\n".join(
+            [
+                "Declare weight on data frame",
+                f"    node:       {node.hash}",
+                f"    parents:    {[p.hash for p in node.parents]}",
+                f"    name:       {node.data.name}",
+                f"    expression: {node.data.expression}",
+            ]
+        )
+    )
+
+    # Assert that the node has exactly one parent and get that parent node
+    parent = _get_single_parent(node)
+
+    # Get the data frame and define the weight on it. A custom weight prefix
+    # reduces the risk of collisions with existing column names.
+    data_frame = artifacts_store.get(parent.hash).data_frame
+    data_frame = data_frame.Define(
+        f"{WEIGHT_PREFIX}{node.data.name}",
+        node.data.expression,
+    )
+
+    return Artifacts(data_frame=data_frame), OutputFiles()
