@@ -3,7 +3,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from functools import cached_property
 
-from xyh.core.specs import Spec
+from xyh.core.specs.specs import Spec
 
 _operations = {
     "input_files",

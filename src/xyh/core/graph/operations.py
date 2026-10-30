@@ -2,6 +2,7 @@ import logging
 from time import time
 
 import numpy as np
+import ROOT
 
 from xyh.core.graph.node import Node
 
@@ -368,7 +369,7 @@ def histogram(
         data_frame = data_frame.Define(column, node.data.expression)
         logger.debug(
             f"Defined custom expression for variable '{node.data.variable}' "
-            + f"as column with expression '{node.data.expresson}'"
+            + f"as column with expression '{node.data.expression}'"
         )
 
     # Declare the lazy histogram operation
