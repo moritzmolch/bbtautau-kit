@@ -50,24 +50,79 @@ class Dataset(Spec):
         return f"{self.__class__.__name__}<{attributes}>"
 
 
-@dataclass
-class Histogram:
-    campaign: str
-    channel: str
-    category: str
-    variable: str
+@dataclass(frozen=True, eq=False, kw_only=True)
+class Filter(Spec):
+    """
+    Specification of a filter operation on an `RDataFrame` object.
+
+    The filter is defined by the `expression`. This is a `ROOT` expression which
+    yields a boolean value. The `name` is used to identify the filter in the
+    `RDataFrame` computation graph.
+
+    Attributes
+    ----------
+    name : str
+        The name of the filter operation.
+
+    expression : str
+        The expression defining the filter condition.
+    """
+
+    name: str
     expression: str
-    bin_edges: list[int | float]
 
     def __repr__(self) -> str:
         attributes = ", ".join(
             [
-                f"campaign={self.campaign}",
-                f"channel={self.channel}",
-                f"category={self.category}",
-                f"variable={self.variable}",
+                f"name={self.name}",
                 f"expression={self.expression}",
-                f"bin_edges={self.bin_edges}",
+            ]
+        )
+        return f"{self.__class__.__name__}<{attributes}>"
+
+
+@dataclass(frozen=True, eq=False, kw_only=True)
+class Weight(Spec):
+    """
+    Specification of a weight operation on an `RDataFrame` object.
+
+    The weight is defined by the `expression`. This is a `ROOT` expression which
+    yields a numerical value. The value will be stored in a new column. Together
+    with a fixed prefix, `name` is used to define the name of the new column in
+    the `RDataFrame` object.
+
+    Attributes
+    ----------
+    name : str
+        The name of the weight.
+
+    expression : str
+        The expression defining the weight.
+    """
+
+    name: str
+    expression: str
+
+    def __repr__(self) -> str:
+        attributes = ", ".join(
+            [
+                f"name={self.name}",
+                f"expression={self.expression}",
+            ]
+        )
+        return f"{self.__class__.__name__}<{attributes}>"
+
+
+@dataclass(frozen=True, eq=False, kw_only=True)
+class WeightProduct(Spec):
+    name: str
+    weights: list[Weight]
+
+    def __repr__(self) -> str:
+        attributes = ", ".join(
+            [
+                f"name={self.name}",
+                f"weights=<{', '.join(w.name for w in self.weights)}>",
             ]
         )
         return f"{self.__class__.__name__}<{attributes}>"
@@ -81,8 +136,8 @@ class FiltersAndWeights(Spec):
     process: str
     dataset: str
     variation: str
-    filters: OrderedDict[str, str]
-    weights: OrderedDict[str, str]
+    filters: list[Filter]
+    weights: list[Weight]
 
     def __repr__(self) -> str:
         attributes = ", ".join(
@@ -93,8 +148,12 @@ class FiltersAndWeights(Spec):
                 f"process={self.process}",
                 f"dataset={self.dataset}",
                 f"variation={self.variation}",
-                f"filters=<{', '.join(f for f in self.filters)}>",
-                f"weights=<{', '.join(w for w in self.weights)}>",
+                f"filters=<{', '.join(f.name for f in self.filters)}>",
+                f"weights=<{', '.join(w.name for w in self.weights)}>",
+            ]
+        )
+        return f"{self.__class__.__name__}<{attributes}>"
+
             ]
         )
         return f"{self.__class__.__name__}<{attributes}>"
