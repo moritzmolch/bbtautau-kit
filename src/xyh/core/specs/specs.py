@@ -18,6 +18,19 @@ class Context:
     process: str
     variation: str
 
+
+@dataclass(frozen=True, eq=False, kw_only=True)
+class Spec:
+    """
+    Base class for specifications serving as auxiliary data for a node in a
+    computational graph.
+    """
+
+    pass
+
+
+@dataclass(frozen=True, eq=False, kw_only=True)
+class Dataset(Spec):
     campaign: str
     channel: str
     dataset: str
@@ -60,8 +73,8 @@ class Histogram:
         return f"{self.__class__.__name__}<{attributes}>"
 
 
-@dataclass
-class FiltersAndWeights:
+@dataclass(frozen=True, eq=False, kw_only=True)
+class FiltersAndWeights(Spec):
     campaign: str
     channel: str
     category: str
