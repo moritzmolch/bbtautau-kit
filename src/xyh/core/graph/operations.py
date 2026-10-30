@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Weight prefix to prepend to the name of weight columns
 WEIGHT_PREFIX = "__weight_"
+TOTAL_WEIGHT_NAME = f"{WEIGHT_PREFIX}total"
 
 
 def _get_single_parent(node: Node) -> Node:
@@ -222,10 +223,11 @@ def weight(
         "\n".join(
             [
                 "Declare weight on data frame",
-                f"    node:       {node.hash}",
-                f"    parents:    {[p.hash for p in node.parents]}",
-                f"    name:       {node.data.name}",
-                f"    expression: {node.data.expression}",
+                f"    node:          {node.hash}",
+                f"    parents:       {[p.hash for p in node.parents]}",
+                f"    name:          {node.data.name}",
+                f"    prefixed name: {WEIGHT_PREFIX}{node.data.name}",
+                f"    expression:    {node.data.expression}",
             ]
         )
     )
@@ -240,5 +242,73 @@ def weight(
         f"{WEIGHT_PREFIX}{node.data.name}",
         node.data.expression,
     )
+
+    return Artifacts(data_frame=data_frame), OutputFiles()
+
+
+def weight_product(
+    node: Node,
+    artifacts_store: ArtifactsStore,
+) -> tuple[Artifacts, OutputFiles]:
+    """
+    Produce a total weight column by multiplying all weights declared in the
+    node data.
+
+    The total weight is defined on the `RDataFrame` and the modified
+    `RDataFrame` is stored as an artifact.
+
+    Parameters
+    ----------
+    node : Node
+        The `"weight_product"` operation node that is being processed.
+
+    artifacts_store : ArtifactsStore
+        The store for the artifacts.
+
+    Returns
+    -------
+    tuple[Artifacts, OutputFiles]
+        A tuple containing the artifacts and output files.
+    """
+
+    # Log context of the node
+    logger.debug(
+        "\n".join(
+            [
+                "Declare weight on data frame",
+                f"    node:       {node.hash}",
+                f"    parents:    {[p.hash for p in node.parents]}",
+                f"    weights:    {[f'{WEIGHT_PREFIX}{w.name}' for w in node.data.weights]}",
+                f"    total name: {TOTAL_WEIGHT_NAME}",
+            ]
+        )
+    )
+
+    # Assert that the node has exactly one parent and get that parent node
+    parent = _get_single_parent(node)
+
+    # Get the data frame from the parent
+    data_frame = artifacts_store.get(parent.hash).data_frame
+
+    # Get the weight columns to multiply and check that they are present in the
+    # data frame
+    weight_columns = [
+        f"{WEIGHT_PREFIX}{weight.name}" for weight in node.data.weights
+    ]
+    if not set(weight_columns).issubset(
+        str(c) for c in data_frame.GetColumnNames()
+    ):
+        raise ValueError(
+            "Not all weight columns are present in the data frame: "
+            + ", ".join(weight_columns)
+        )
+
+    # Define the weight expression and declare the total weight calculation
+    weight_expression = "1"
+    if len(weight_columns) > 0:
+        weight_expression = " * ".join(weight_columns)
+    else:
+        logger.debug("No weight columns found, setting total weight to 1")
+    data_frame = data_frame.Define(TOTAL_WEIGHT_NAME, weight_expression)
 
     return Artifacts(data_frame=data_frame), OutputFiles()
