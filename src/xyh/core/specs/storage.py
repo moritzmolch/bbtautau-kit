@@ -8,7 +8,7 @@ from xyh.core.specs.specs import (
 )
 
 
-class SpecStorage:
+class SpecsStorage:
     """
     Storage for specifications related to datasets, filters, weights, and
     histograms.
