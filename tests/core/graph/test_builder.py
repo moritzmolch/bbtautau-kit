@@ -1,8 +1,10 @@
 from unittest.mock import create_autospec
 
+import networkx as nx
 import pytest
 
 from xyh.core.graph import builder
+from xyh.core.graph.node import Node
 from xyh.core.specs.specs import Context, WeightProduct
 from xyh.core.specs.storage import SpecsStorage
 
@@ -130,3 +132,142 @@ class TestHistograms:
             builder._build_context_nodes_for_histograms(context, storage, [])
             == []
         )
+
+
+class TestBuildGraph:
+    def test_empty_leaf_list_gives_empty_graph(self):
+        graph = builder.build_graph([])
+        assert graph.number_of_nodes() == 0
+        assert graph.number_of_edges() == 0
+
+    def test_single_node_without_parents_gives_one_node_no_edges(
+        self, make_dataset
+    ):
+        node = Node(operation="input_files", data=make_dataset())
+        graph = builder.build_graph([node])
+        assert graph.number_of_nodes() == 1
+        assert graph.number_of_edges() == 0
+
+    def test_linear_chain_has_edges_from_parent_to_child(
+        self, make_dataset, make_filter, make_histogram
+    ):
+        inp = Node(operation="input_files", data=make_dataset())
+        flt = Node(operation="filter", data=make_filter(), parents=(inp,))
+        hist = Node(
+            operation="histogram", data=make_histogram(), parents=(flt,)
+        )
+        graph = builder.build_graph([hist])
+        assert graph.number_of_nodes() == 3
+        assert graph.number_of_edges() == 2
+        assert set(graph.edges) == {
+            (inp.hash, flt.hash),
+            (flt.hash, hist.hash),
+        }
+
+    def test_full_context_with_three_variables_counts(self, context, storage):
+        leaves = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt", "eta", "mass"]
+        )
+        graph = builder.build_graph(leaves)
+        assert graph.number_of_nodes() == 9
+        assert graph.number_of_edges() == 8
+        product = leaves[0].parents[0]
+        assert graph.out_degree(product.hash) == 3
+
+    def test_node_ids_are_hashes_and_attribute_is_original_node(
+        self, context, storage
+    ):
+        leaves = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt", "eta"]
+        )
+        graph = builder.build_graph(leaves)
+        for leaf in leaves:
+            assert leaf.hash in graph
+            assert graph.nodes[leaf.hash]["node"] is leaf
+        parent = leaves[0].parents[0]
+        assert graph.nodes[parent.hash]["node"] is parent
+
+    def test_equal_content_distinct_objects_collapse_to_one_node(
+        self, make_dataset
+    ):
+        a = Node(operation="input_files", data=make_dataset())
+        b = Node(operation="input_files", data=make_dataset())
+        assert a is not b
+        assert a.hash == b.hash
+        graph = builder.build_graph([a, b])
+        assert graph.number_of_nodes() == 1
+        assert graph.nodes[a.hash]["node"] is a
+
+    def test_duplicate_leaf_is_added_once(self, make_dataset, make_filter):
+        inp = Node(operation="input_files", data=make_dataset())
+        flt = Node(operation="filter", data=make_filter(), parents=(inp,))
+        graph = builder.build_graph([flt, flt])
+        assert graph.number_of_nodes() == 2
+        assert graph.number_of_edges() == 1
+
+    def test_diamond_adds_shared_grandparent_once(
+        self, make_dataset, make_filter, make_weight, make_histogram
+    ):
+        root = Node(operation="input_files", data=make_dataset())
+        left = Node(operation="filter", data=make_filter(), parents=(root,))
+        right = Node(operation="weight", data=make_weight(), parents=(root,))
+        child = Node(
+            operation="histogram",
+            data=make_histogram(),
+            parents=(left, right),
+        )
+        graph = builder.build_graph([child])
+        assert graph.number_of_nodes() == 4
+        assert graph.number_of_edges() == 4
+        assert graph.out_degree(root.hash) == 2
+        assert graph.in_degree(child.hash) == 2
+
+    def test_two_contexts_share_common_prefix_only(
+        self, context, storage, make_filter
+    ):
+        leaves_a = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt"]
+        )
+        # Second context differs from the first one from the second filter on
+        storage.get_filters_specs.return_value = [
+            make_filter(name="f1"),
+            make_filter(name="f3"),
+        ]
+        leaves_b = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt"]
+        )
+        graph = builder.build_graph(leaves_a + leaves_b)
+        # Shared: input_files and f1. Distinct: f2/f3 and everything after
+        # (2 weights, product, histogram) -> 2 + 5 + 5 nodes.
+        assert graph.number_of_nodes() == 12
+        assert graph.number_of_edges() == 11
+        shared = leaves_a[0].parents[0]
+        while shared.operation != "input_files":
+            shared = shared.parents[0]
+        assert graph.out_degree(shared.hash) == 1
+        f1 = next(iter(graph.successors(shared.hash)))
+        assert graph.out_degree(f1) == 2
+
+    def test_identical_contexts_collapse_completely(self, context, storage):
+        leaves_a = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt"]
+        )
+        leaves_b = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt"]
+        )
+        graph = builder.build_graph(leaves_a + leaves_b)
+        assert graph.number_of_nodes() == 7
+        assert graph.number_of_edges() == 6
+
+    def test_result_is_dag_with_leaves_as_sinks_and_input_as_source(
+        self, context, storage
+    ):
+        leaves = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt", "eta", "mass"]
+        )
+        graph = builder.build_graph(leaves)
+        assert nx.is_directed_acyclic_graph(graph)
+        assert all(graph.out_degree(n.hash) == 0 for n in leaves)
+        sources = [n for n in graph if graph.in_degree(n) == 0]
+        assert len(sources) == 1
+        assert graph.nodes[sources[0]]["node"].operation == "input_files"
