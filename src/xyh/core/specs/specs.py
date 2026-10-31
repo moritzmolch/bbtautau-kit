@@ -292,3 +292,30 @@ class Histogram(Spec):
             ]
         )
         return f"{self.__class__.__name__}<{attributes}>"
+
+
+@dataclass(frozen=True, eq=False, kw_only=True)
+class HistogramsOutput(Spec):
+    """
+    Specification for histogram output files.
+
+    Attributes
+    ----------
+    output_dir : str
+        Directory of the output file, to which the histograms will be written.
+
+    subgraph_hash : str
+        Hash of the subgraph for which the histograms are being written.
+    """
+
+    output_dir: str
+    subgraph_hash: str
+
+    def __repr__(self) -> str:
+        attributes = ", ".join(
+            [
+                f"output_dir={self.output_dir}",
+                f"subgraph_hash={self.subgraph_hash}",
+            ]
+        )
+        return f"{self.__class__.__name__}<{attributes}>"
