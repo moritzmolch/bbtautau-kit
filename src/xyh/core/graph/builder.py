@@ -1,3 +1,5 @@
+from networkx import DiGraph
+
 from xyh.core.graph.node import Node
 from xyh.core.specs.specs import Context, WeightProduct
 from xyh.core.specs.storage import SpecsStorage
@@ -113,3 +115,50 @@ def _build_context_nodes_for_histograms(
         )
 
     return leaf_nodes
+
+
+def build_graph(
+    leaf_nodes: list[Node],
+) -> DiGraph:
+    """
+    Build a `DiGraph` from a list of nodes.
+
+    The connections between nodes are established based on the parent-child
+    relationships. These are defined by the `parents` attribute of each node.
+    The list `nodes` only needs to contain the leaf nodes of the graph.
+
+    Parameters
+    ----------
+    leaf_nodes : list[Node]
+        The leaf nodes of the graph.
+
+    Returns
+    -------
+    DiGraph
+        A directed graph representing the relationships between computation
+        nodes.
+    """
+
+    # Create an empty directed grapb
+    graph = DiGraph()
+
+    # Function to recursively add nodes and edges starting from the leaves
+    def _add_nodes_and_edges(node: Node):
+        # Terminate if node has already been added to the graph
+        if node.hash in graph:
+            return
+
+        # Add the current node to the graph
+        graph.add_node(node.hash, node=node)
+
+        # Take care of parent nodes: add the nodes (with recursive function
+        # call) and add parent -> node edges when both nodes are present
+        for parent in node.parents:
+            _add_nodes_and_edges(parent)
+            graph.add_edge(parent.hash, node.hash)
+
+    # Fill the graph with the nodes and edges starting from the lead nodes
+    for leaf_node in leaf_nodes:
+        _add_nodes_and_edges(leaf_node)
+
+    return graph
