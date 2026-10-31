@@ -5,7 +5,7 @@ import pytest
 
 from xyh.core.graph import builder
 from xyh.core.graph.node import Node
-from xyh.core.specs.specs import Context, WeightProduct
+from xyh.core.specs.specs import Context, HistogramsOutput, WeightProduct
 from xyh.core.specs.storage import SpecsStorage
 
 
@@ -134,9 +134,9 @@ class TestHistograms:
         )
 
 
-class TestBuildGraph:
+class TestBuildGraphFromLeafNodes:
     def test_empty_leaf_list_gives_empty_graph(self):
-        graph = builder.build_graph([])
+        graph = builder.build_graph_from_leaf_nodes([])
         assert graph.number_of_nodes() == 0
         assert graph.number_of_edges() == 0
 
@@ -144,7 +144,7 @@ class TestBuildGraph:
         self, make_dataset
     ):
         node = Node(operation="input_files", data=make_dataset())
-        graph = builder.build_graph([node])
+        graph = builder.build_graph_from_leaf_nodes([node])
         assert graph.number_of_nodes() == 1
         assert graph.number_of_edges() == 0
 
@@ -156,7 +156,7 @@ class TestBuildGraph:
         hist = Node(
             operation="histogram", data=make_histogram(), parents=(flt,)
         )
-        graph = builder.build_graph([hist])
+        graph = builder.build_graph_from_leaf_nodes([hist])
         assert graph.number_of_nodes() == 3
         assert graph.number_of_edges() == 2
         assert set(graph.edges) == {
@@ -168,7 +168,7 @@ class TestBuildGraph:
         leaves = builder._build_context_nodes_for_histograms(
             context, storage, ["pt", "eta", "mass"]
         )
-        graph = builder.build_graph(leaves)
+        graph = builder.build_graph_from_leaf_nodes(leaves)
         assert graph.number_of_nodes() == 9
         assert graph.number_of_edges() == 8
         product = leaves[0].parents[0]
@@ -180,7 +180,7 @@ class TestBuildGraph:
         leaves = builder._build_context_nodes_for_histograms(
             context, storage, ["pt", "eta"]
         )
-        graph = builder.build_graph(leaves)
+        graph = builder.build_graph_from_leaf_nodes(leaves)
         for leaf in leaves:
             assert leaf.hash in graph
             assert graph.nodes[leaf.hash]["node"] is leaf
@@ -194,14 +194,14 @@ class TestBuildGraph:
         b = Node(operation="input_files", data=make_dataset())
         assert a is not b
         assert a.hash == b.hash
-        graph = builder.build_graph([a, b])
+        graph = builder.build_graph_from_leaf_nodes([a, b])
         assert graph.number_of_nodes() == 1
         assert graph.nodes[a.hash]["node"] is a
 
     def test_duplicate_leaf_is_added_once(self, make_dataset, make_filter):
         inp = Node(operation="input_files", data=make_dataset())
         flt = Node(operation="filter", data=make_filter(), parents=(inp,))
-        graph = builder.build_graph([flt, flt])
+        graph = builder.build_graph_from_leaf_nodes([flt, flt])
         assert graph.number_of_nodes() == 2
         assert graph.number_of_edges() == 1
 
@@ -216,7 +216,7 @@ class TestBuildGraph:
             data=make_histogram(),
             parents=(left, right),
         )
-        graph = builder.build_graph([child])
+        graph = builder.build_graph_from_leaf_nodes([child])
         assert graph.number_of_nodes() == 4
         assert graph.number_of_edges() == 4
         assert graph.out_degree(root.hash) == 2
@@ -236,7 +236,7 @@ class TestBuildGraph:
         leaves_b = builder._build_context_nodes_for_histograms(
             context, storage, ["pt"]
         )
-        graph = builder.build_graph(leaves_a + leaves_b)
+        graph = builder.build_graph_from_leaf_nodes(leaves_a + leaves_b)
         # Shared: input_files and f1. Distinct: f2/f3 and everything after
         # (2 weights, product, histogram) -> 2 + 5 + 5 nodes.
         assert graph.number_of_nodes() == 12
@@ -255,7 +255,7 @@ class TestBuildGraph:
         leaves_b = builder._build_context_nodes_for_histograms(
             context, storage, ["pt"]
         )
-        graph = builder.build_graph(leaves_a + leaves_b)
+        graph = builder.build_graph_from_leaf_nodes(leaves_a + leaves_b)
         assert graph.number_of_nodes() == 7
         assert graph.number_of_edges() == 6
 
@@ -265,9 +265,127 @@ class TestBuildGraph:
         leaves = builder._build_context_nodes_for_histograms(
             context, storage, ["pt", "eta", "mass"]
         )
-        graph = builder.build_graph(leaves)
+        graph = builder.build_graph_from_leaf_nodes(leaves)
         assert nx.is_directed_acyclic_graph(graph)
         assert all(graph.out_degree(n.hash) == 0 for n in leaves)
         sources = [n for n in graph if graph.in_degree(n) == 0]
         assert len(sources) == 1
         assert graph.nodes[sources[0]]["node"].operation == "input_files"
+
+
+BUG_LEAF_COMPREHENSION = (
+    "build_histograms_graph: leaf comprehension uses subgraph.out_degree(n) "
+    "before n is assigned (UnboundLocalError)"
+)
+BUG_STRUCTURAL_HASH = (
+    "weisfeiler_lehman_graph_hash without node attributes is purely "
+    "structural: same-structure subgraphs get the same subgraph_hash"
+)
+
+
+class TestBuildHistogramsGraph:
+    @pytest.fixture
+    def contexts(self, context):
+        return [
+            context,
+            Context(
+                campaign="c",
+                channel="ch",
+                category="cat",
+                dataset="ds2",
+                process="p",
+                variation="nominal",
+            ),
+        ]
+
+    @pytest.fixture
+    def storage_two_datasets(self, storage, make_dataset):
+        storage.get_dataset_spec.side_effect = lambda ctx: make_dataset(
+            dataset=ctx.dataset, files={"main": [f"{ctx.dataset}.root"]}
+        )
+        return storage
+
+    @staticmethod
+    def _write_nodes(graph):
+        return [
+            d["node"]
+            for _, d in graph.nodes(data=True)
+            if d["node"].operation == "write_histograms"
+        ]
+
+    def test_empty_contexts_returns_empty_list(self, storage, tmp_path):
+        assert (
+            builder.build_histograms_graph([], ["pt"], storage, tmp_path) == []
+        )
+
+    @pytest.mark.xfail(
+        strict=True, raises=UnboundLocalError, reason=BUG_LEAF_COMPREHENSION
+    )
+    def test_one_graph_per_dataset_and_graphs_are_disjoint(
+        self, contexts, storage_two_datasets, tmp_path
+    ):
+        graphs = builder.build_histograms_graph(
+            contexts, ["pt", "eta"], storage_two_datasets, tmp_path
+        )
+        assert len(graphs) == 2
+        assert not set(graphs[0].nodes) & set(graphs[1].nodes)
+
+    @pytest.mark.xfail(
+        strict=True, raises=UnboundLocalError, reason=BUG_LEAF_COMPREHENSION
+    )
+    def test_each_graph_has_one_write_node_over_histogram_leaves(
+        self, contexts, storage_two_datasets, tmp_path
+    ):
+        graphs = builder.build_histograms_graph(
+            contexts, ["pt", "eta"], storage_two_datasets, tmp_path
+        )
+        for graph in graphs:
+            writers = self._write_nodes(graph)
+            assert len(writers) == 1
+            writer = writers[0]
+            hist_nodes = {
+                h
+                for h, d in graph.nodes(data=True)
+                if d["node"].operation == "histogram"
+            }
+            assert len(hist_nodes) == 2
+            assert {p.hash for p in writer.parents} == hist_nodes
+            assert set(graph.predecessors(writer.hash)) == hist_nodes
+            sinks = [n for n in graph if graph.out_degree(n) == 0]
+            assert sinks == [writer.hash]
+
+    @pytest.mark.xfail(
+        strict=True, raises=UnboundLocalError, reason=BUG_LEAF_COMPREHENSION
+    )
+    def test_write_node_output_dir_is_stringified_output_dir(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_histograms_graph(
+            [context], ["pt"], storage, tmp_path
+        )
+        (writer,) = self._write_nodes(graph)
+        assert isinstance(writer.data, HistogramsOutput)
+        assert writer.data.output_dir == str(tmp_path)
+
+    @pytest.mark.xfail(
+        strict=True, raises=UnboundLocalError, reason=BUG_LEAF_COMPREHENSION
+    )
+    def test_graphs_are_dags(self, contexts, storage_two_datasets, tmp_path):
+        graphs = builder.build_histograms_graph(
+            contexts, ["pt"], storage_two_datasets, tmp_path
+        )
+        assert all(nx.is_directed_acyclic_graph(g) for g in graphs)
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=UnboundLocalError,
+        reason=f"{BUG_LEAF_COMPREHENSION}; additionally {BUG_STRUCTURAL_HASH}",
+    )
+    def test_same_structure_different_specs_give_different_subgraph_hash(
+        self, contexts, storage_two_datasets, tmp_path
+    ):
+        graphs = builder.build_histograms_graph(
+            contexts, ["pt"], storage_two_datasets, tmp_path
+        )
+        hashes = {self._write_nodes(g)[0].data.subgraph_hash for g in graphs}
+        assert len(hashes) == 2

@@ -10,7 +10,14 @@ def test_node_init_invalid_operation_raises_value_error(make_filter):
 
 @pytest.mark.parametrize(
     "operation",
-    ["input_files", "filter", "weight", "weight_product", "histogram"],
+    [
+        "input_files",
+        "filter",
+        "weight",
+        "weight_product",
+        "histogram",
+        "write_histograms",
+    ],
 )
 def test_node_init_valid_operation_accepted(operation, make_filter):
     node = Node(operation=operation, data=make_filter())
