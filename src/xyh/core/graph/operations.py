@@ -388,3 +388,78 @@ def histogram(
         data_frame=data_frame,
         lazy_hist=lazy_hist,
     ), OutputFiles()
+
+
+def write_histograms(
+    node: Node,
+    artifacts_store: ArtifactsStore,
+) -> tuple[Artifacts, OutputFiles]:
+    """ """
+
+    # Log context of this node
+    logger.debug(
+        "\n".join(
+            [
+                "Write histograms to output file",
+                f"    subgraph:   {node.data.subgraph_hash}",
+                f"    output_dir: {node.data.output_dir}",
+            ]
+        )
+    )
+
+    # Get data frame and lazy histogram artifacts from all parents
+    data_frames = []
+    lazy_hists = []
+    for parent in node.parents:
+        data_frames.append(artifacts_store.get(parent.hash).data_frame)
+        lazy_hists.append(
+            (node.data, artifacts_store.get(parent.hash).lazy_hist)
+        )
+
+    # Run the computational graphs on all input data frames
+    for data_frame in data_frames:
+        ROOT.RDF.RunGraphs(data_frame)
+
+    # Write histograms to output file
+    hists = []
+    output_file = os.path.join(
+        node.data.output_dir, f"hists_{node.data.subgraph_hash}.root"
+    )
+    root_file = ROOT.TFile.Open(
+        output_file,
+        "RECREATE",
+    )
+    for hist_spec, lazy_hist in lazy_hists:
+        # Get the histogram
+        hist = lazy_hist.GetValue()
+
+        # Set the histogram directory
+        dir_name = "/".join(
+            [
+                hist_spec.campaign,
+                hist_spec.channel,
+                hist_spec.category,
+                hist_spec.dataset,
+                hist_spec.process,
+            ]
+        )
+        directory = root_file.GetDirectory(dir_name)
+        if not directory:
+            directory = root_file.mkdir(dir_name)
+
+        # Set the histogram name and title
+        hist_name = f"{hist_spec.variable}__{hist_spec.variation}"
+        hist_title = hist_name
+        hist.SetName(hist_name)
+        hist.SetTitle(hist_title)
+        hist.Write()
+        hists.append((hist_spec, hist))
+
+    return (
+        Artifacts(
+            hists=hists,
+        ),
+        OutputFiles(
+            hists_file=output_file,
+        ),
+    )
