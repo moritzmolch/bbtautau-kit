@@ -1,5 +1,9 @@
+from pathlib import Path
+
 from networkx import (
     DiGraph,
+    weakly_connected_components,
+    weisfeiler_lehman_graph_hash,
 )
 
 from xyh.core.graph.node import Node
@@ -166,48 +170,85 @@ def _build_context_nodes_for_histograms(
     return leaf_nodes
 
 
-def build_graph(
-    leaf_nodes: list[Node],
-) -> DiGraph:
+def build_histograms_graph(
+    contexts: list[Context],
+    variables: list[str],
+    spec_storage: SpecsStorage,
+    output_dir: Path,
+) -> list[DiGraph]:
     """
-    Build a `DiGraph` from a list of nodes.
+    Build a directed graph of nodes for histogram creation.
 
-    The connections between nodes are established based on the parent-child
-    relationships. These are defined by the `parents` attribute of each node.
-    The list `nodes` only needs to contain the leaf nodes of the graph.
+    The result is returned as a list of graphs, which are disjoint from each
+    other and which can be processed independently.
 
     Parameters
     ----------
-    leaf_nodes : list[Node]
-        The leaf nodes of the graph.
+    contexts : list[Context]
+        A list of analysis contexts, each containing campaign, channel,
+        category, dataset, process, and variation information.
+
+    variables : list[str]
+        List of variables for which histograms will be created.
+
+    specs_storage : SpecsStorage
+        The storage containing specifications for datasets, filters, weights,
+        and histograms.
+
+    output_dir : Path
+        The directory where the generated histograms will be saved.
 
     Returns
     -------
-    DiGraph
-        A directed graph representing the relationships between computation
-        nodes.
+    list[DiGraph]
+        List of disjoint processing graphs for histogram creation.
     """
 
-    # Create an empty directed grapb
-    graph = DiGraph()
+    # Create a list to hold all leaf nodes for the graph
+    all_leaf_nodes = []
 
-    # Function to recursively add nodes and edges starting from the leaves
-    def _add_nodes_and_edges(node: Node):
-        # Terminate if node has already been added to the graph
-        if node.hash in graph:
-            return
+    # Iterate over each context to build the corresponding nodes
+    for context in contexts:
+        # Build the chain of nodes for the current context
+        leaf_nodes = _build_context_nodes_for_histograms(
+            context=context,
+            spec_storage=spec_storage,
+            variables=variables,
+        )
 
-        # Add the current node to the graph
-        graph.add_node(node.hash, node=node)
+        # Add the leaf nodes to the overall list
+        all_leaf_nodes.extend(leaf_nodes)
 
-        # Take care of parent nodes: add the nodes (with recursive function
-        # call) and add parent -> node edges when both nodes are present
-        for parent in node.parents:
-            _add_nodes_and_edges(parent)
-            graph.add_edge(parent.hash, node.hash)
+    # Build the directed graph from all leaf nodes for histogram creation
+    graph = build_graph_from_leaf_nodes(all_leaf_nodes)
 
-    # Fill the graph with the nodes and edges starting from the lead nodes
-    for leaf_node in leaf_nodes:
-        _add_nodes_and_edges(leaf_node)
+    # Find disjoint subgraphs
+    subgraphs = [
+        graph.subgraph(c).copy() for c in weakly_connected_components(graph)
+    ]
 
-    return graph
+    # Append a "write_histograms" node to each subgraph
+    for subgraph in subgraphs:
+        # Get the subgraph's hash for output file naming
+        subgraph_hash = weisfeiler_lehman_graph_hash(subgraph)
+
+        # Get the leaf nodes of the subgraph
+        leaf_nodes = [
+            subgraph.nodes[h]["node"]
+            for h in subgraph.nodes
+            if subgraph.out_degree(n) == 0
+        ]
+
+        # Append a "write_histograms" node with all leaf nodes as parents
+        n = Node(
+            operation="write_histograms",
+            data=HistogramsOutput(
+                output_dir=str(output_dir),
+                subgraph_hash=subgraph_hash,
+            ),
+            parents=tuple(leaf_nodes),
+        )
+        subgraph.add_node(n.hash, node=n)
+        subgraph.add_edges_from((l.hash, n.hash) for l in leaf_nodes)
+
+    return subgraphs
