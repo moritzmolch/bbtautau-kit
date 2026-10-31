@@ -1,4 +1,5 @@
 import logging
+import os
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -11,6 +12,7 @@ from xyh.core.graph.operations import (
     ArtifactsStore,
     OutputFiles,
 )
+from xyh.core.specs.specs import HistogramsOutput
 
 
 @pytest.fixture
@@ -308,3 +310,138 @@ class TestHistogram:
         node = Node(operation="histogram", data=make_histogram())
         with pytest.raises(ValueError, match="exactly one parent"):
             operations.histogram(node, store)
+
+
+BUG_OS_IMPORT = "write_histograms: os is not imported (NameError)"
+BUG_WRONG_SPEC = (
+    "write_histograms pairs lazy hists with node.data (HistogramsOutput) "
+    "instead of parent.data (Histogram)"
+)
+BUG_RUNGRAPHS = (
+    "write_histograms calls RunGraphs once per data frame instead of once "
+    "with the list of lazy results"
+)
+BUG_NO_CD = (
+    "write_histograms never cd()s into the directory before hist.Write()"
+)
+BUG_NO_CLOSE = "write_histograms never closes the TFile"
+
+
+class TestWriteHistograms:
+    @pytest.fixture
+    def root(self, monkeypatch):
+        mock_root = MagicMock()
+        monkeypatch.setattr(
+            "xyh.core.graph.operations.ROOT", mock_root, raising=False
+        )
+        return mock_root
+
+    @pytest.fixture
+    def setup(self, store, make_histogram, tmp_path):
+        """Build a write node with two histogram parents in the store."""
+        parents = []
+        lazies = []
+        dfs = []
+        for var in ("pt", "eta"):
+            parent = Node(
+                operation="histogram", data=make_histogram(variable=var)
+            )
+            df = MagicMock(name=f"df_{var}")
+            lazy = MagicMock(name=f"lazy_{var}")
+            store.put(parent.hash, Artifacts(data_frame=df, lazy_hist=lazy))
+            parents.append(parent)
+            dfs.append(df)
+            lazies.append(lazy)
+        node = Node(
+            operation="write_histograms",
+            data=HistogramsOutput(
+                output_dir=str(tmp_path), subgraph_hash="abc"
+            ),
+            parents=tuple(parents),
+        )
+        return node, parents, dfs, lazies
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=NameError,
+        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
+        "(AttributeError once os is imported)",
+    )
+    def test_write_histograms_returns_output_file_path(
+        self, root, store, setup, tmp_path
+    ):
+        node, *_ = setup
+        _, out = operations.write_histograms(node, store)
+        assert out == OutputFiles(
+            hists_file=os.path.join(str(tmp_path), "hists_abc.root")
+        )
+        root.TFile.Open.assert_called_once_with(out.hists_file, "RECREATE")
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=NameError,
+        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
+        "(AttributeError on campaign once os is imported)",
+    )
+    def test_write_histograms_directory_is_campaign_to_process_path(
+        self, root, store, setup
+    ):
+        node, *_ = setup
+        operations.write_histograms(node, store)
+        root_file = root.TFile.Open.return_value
+        root_file.GetDirectory.assert_called_with("c/ch/cat/ds/p")
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=NameError,
+        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
+        "(AttributeError on variable once os is imported)",
+    )
+    def test_write_histograms_sets_name_and_title_from_variable_variation(
+        self, root, store, setup
+    ):
+        node, _, _, lazies = setup
+        operations.write_histograms(node, store)
+        for lazy, var in zip(lazies, ("pt", "eta"), strict=True):
+            hist = lazy.GetValue.return_value
+            hist.SetName.assert_called_once_with(f"{var}__nominal")
+            hist.SetTitle.assert_called_once_with(f"{var}__nominal")
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=NameError,
+        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
+        f"(AttributeError once os is imported); {BUG_RUNGRAPHS}",
+    )
+    def test_write_histograms_runs_graphs_once_with_all_lazy_hists(
+        self, root, store, setup
+    ):
+        node, _, _, lazies = setup
+        operations.write_histograms(node, store)
+        root.RDF.RunGraphs.assert_called_once_with(lazies)
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=NameError,
+        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
+        f"(AttributeError once os is imported); {BUG_NO_CD}",
+    )
+    def test_write_histograms_writes_into_directory_not_top_level(
+        self, root, store, setup
+    ):
+        node, _, _, lazies = setup
+        operations.write_histograms(node, store)
+        directory = root.TFile.Open.return_value.GetDirectory.return_value
+        wrote_via_dir = directory.WriteObject.called
+        assert directory.cd.called or wrote_via_dir
+
+    @pytest.mark.xfail(
+        strict=True,
+        raises=NameError,
+        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
+        f"(AttributeError once os is imported); {BUG_NO_CLOSE}",
+    )
+    def test_write_histograms_closes_output_file(self, root, store, setup):
+        node, *_ = setup
+        operations.write_histograms(node, store)
+        root.TFile.Open.return_value.Close.assert_called_once_with()
