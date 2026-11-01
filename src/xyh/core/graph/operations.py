@@ -456,6 +456,9 @@ def write_histograms(
         hist.Write()
         hists.append((hist_spec, hist))
 
+    # Savely close the output file
+    root_file.Close()
+
     return (
         Artifacts(
             hists=hists,
