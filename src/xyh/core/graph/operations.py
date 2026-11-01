@@ -1,11 +1,11 @@
 import logging
-import os
 from collections.abc import Callable
 from time import time
 
 import numpy as np
 import ROOT
 
+from xyh.core.graph.artifacts import Artifacts
 from xyh.core.graph.node import Node
 
 # Set up logging
@@ -387,13 +387,15 @@ def write_histograms(
         The artifacts containing the evaluated histograms.
     """
 
+    # Get the output file
+    output_file = node.outputs["hists_file"].path
+
     # Log context of this node
     logger.debug(
         "\n".join(
             [
                 "Write histograms to output file",
-                f"    subgraph:   {node.data.subgraph_hash}",
-                f"    output_dir: {node.data.output_dir}",
+                f"    output_file: {output_file}",
             ]
         )
     )
@@ -410,9 +412,6 @@ def write_histograms(
 
     # Write histograms to output file
     hists = []
-    output_file = os.path.join(
-        node.data.output_dir, f"hists_{node.data.subgraph_hash}.root"
-    )
     root_file = ROOT.TFile.Open(
         output_file,
         "RECREATE",
