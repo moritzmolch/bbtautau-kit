@@ -49,37 +49,6 @@ def _get_single_parent(node: Node) -> Node:
     return node.parents[0]
 
 
-class Artifacts(dict):
-    """
-    Artifacts object to store objects that persist in memory for the lifetime of
-    the computation graph.
-    """
-
-    def __getattr__(self, key):
-        return self[key]
-
-
-class ArtifactsStore:
-    def __init__(self):
-        self._artifacts: dict[str, Artifacts] = {}
-
-    def put(self, node_id: str, artifacts: Artifacts):
-        self._artifacts[node_id] = artifacts
-
-    def get(self, node_id: str) -> Artifacts:
-        return self._artifacts[node_id]
-
-
-class OutputFiles(dict):
-    """
-    Persistent output files object to store output files that are generated
-    during the graph computation.
-    """
-
-    def __getattr__(self, key):
-        return self[key]
-
-
 def input_files(
     node: Node,
     artifacts: dict[str, Artifacts],
