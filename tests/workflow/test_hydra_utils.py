@@ -18,8 +18,20 @@ def test_compose_cfg_applies_overrides():
 
 def test_compose_cfg_resolves_artifact_paths_from_tag():
     cfg = resolve_cfg(compose_cfg("merge_histograms", ["tags.shapes_tag=foo"]))
+    assert cfg["histograms_dir"] == "data/output/foo/histograms"
+    assert (
+        cfg["merged_histograms_file"]
+        == "data/output/foo/histograms/merged_histograms.root"
+    )
+
+
+def test_compose_cfg_resolves_run_graphs_spec_paths_from_tag():
+    cfg = resolve_cfg(compose_cfg("run_graphs", ["tags.shapes_tag=foo"]))
     assert cfg["graph_specs_file"] == "data/output/foo/specs/graphs.json.gz"
-    assert cfg["output_dir"] == "data/output/foo/merged_histograms"
+    assert (
+        cfg["histogram_keys_file"]
+        == "data/output/foo/histograms/histogram_keys.json.gz"
+    )
 
 
 def test_compose_cfg_can_be_called_repeatedly():
@@ -35,8 +47,7 @@ def test_compose_cfg_exposes_binning_settings():
     assert cfg["binning"]["data_process_group"] == "data"
     assert cfg["binning_output_dir"] == "data/output/foo/binning"
     assert (
-        cfg["binning"]["output_file"]
-        == "data/output/foo/binning/binning.json"
+        cfg["binning"]["output_file"] == "data/output/foo/binning/binning.json"
     )
 
 
