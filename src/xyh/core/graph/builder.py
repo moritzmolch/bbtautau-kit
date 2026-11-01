@@ -160,7 +160,7 @@ def _build_context_nodes_for_histograms(
     # Create the histogram nodes
     leaf_nodes = []
     for variable in variables:
-        histogram_spec = spec_storage.get_histogram_specs(context, variable)
+        histogram_spec = spec_storage.get_histogram_spec(context, variable)
         leaf_nodes.append(
             Node(
                 operation="histogram",
