@@ -94,7 +94,7 @@ def create_binning_spec(
     )
 
 
-def create_histogram_specs(
+def create_binning_specs(
     inventory_factory_fn_path: str,
     inventory_factory_kwargs: dict[str, Any],
     campaigns: list[str],
@@ -104,7 +104,7 @@ def create_histogram_specs(
     binning_overrides: BinningOverrides | None = None,
 ) -> list[Binning]:
     """
-    Create histogram specs for a given subset of the analysis concerning
+    Create binning specs for a given subset of the analysis concerning
     campaigns, categories and variables.
 
     The `variables` argument is a dictionary of variable groups and variable

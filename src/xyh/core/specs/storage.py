@@ -1,4 +1,5 @@
 from xyh.core.specs.specs import (
+    Binning,
     Context,
     Dataset,
     Filter,
@@ -21,7 +22,7 @@ class SpecsStorage:
         self,
         dataset_specs: list[Dataset],
         filters_and_weights_specs: list[FiltersAndWeights],
-        histogram_specs: list[Histogram],
+        binning_specs: list[Binning],
     ):
         self._dataset_specs_lookup = {
             (s.campaign, s.channel, s.dataset): s for s in dataset_specs
@@ -48,17 +49,14 @@ class SpecsStorage:
             ): s.weights
             for s in filters_and_weights_specs
         }
-        self._histogram_specs_lookup = {
+        self._binning_specs_lookup = {
             (
                 s.campaign,
                 s.channel,
                 s.category,
-                s.dataset,
-                s.process,
-                s.variation,
                 s.variable,
             ): s
-            for s in histogram_specs
+            for s in binning_specs
         }
 
     def get_dataset_spec(self, context: Context) -> Dataset:
@@ -147,7 +145,7 @@ class SpecsStorage:
             )
         ]
 
-    def get_histogram_specs(self, context: Context, variable: str) -> Histogram:
+    def get_histogram_spec(self, context: Context, variable: str) -> Histogram:
         """
         Get histogram specification for a given context and variable.
 
@@ -169,14 +167,16 @@ class SpecsStorage:
             variable.
         """
 
-        return self._histogram_specs_lookup[
-            (
-                context.campaign,
-                context.channel,
-                context.category,
-                context.dataset,
-                context.process,
-                context.variation,
-                variable,
-            )
-        ]
+        return Histogram(
+            binning=self._binning_specs_lookup[
+                (
+                    context.campaign,
+                    context.channel,
+                    context.category,
+                    variable,
+                )
+            ],
+            dataset=context.dataset,
+            process=context.process,
+            variation=context.variation,
+        )
