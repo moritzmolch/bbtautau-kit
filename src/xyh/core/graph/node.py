@@ -15,6 +15,8 @@ _operations = {
     "write_histograms",
     "snapshot",
     "write_snapshots",
+    "binning",
+    "write_binning",
 }
 
 

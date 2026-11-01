@@ -49,6 +49,11 @@ class SpecsStorage:
             ): s.weights
             for s in filters_and_weights_specs
         }
+        self._variables_lookup: dict[tuple[str, str, str], list[str]] = {}
+        for s in binning_specs:
+            self._variables_lookup.setdefault(
+                (s.campaign, s.channel, s.category), []
+            ).append(s.variable)
         self._binning_specs_lookup = {
             (
                 s.campaign,
@@ -144,6 +149,38 @@ class SpecsStorage:
                 context.variation,
             )
         ]
+
+    def get_variables(self, context: Context) -> list[str]:
+        """
+        Get the variables for which a binning exists in a given context.
+
+        Variables can be restricted to a subset of channels, so the list
+        depends on the campaign, channel, and category of the context.
+
+        Parameters
+        ----------
+        context : Context
+            The analysis context.
+
+        Returns
+        -------
+        list[str]
+            The names of the variables available in the context.
+
+        Raises
+        ------
+        ValueError
+            If no binning specs exist for the campaign, channel, and category
+            of the context.
+        """
+
+        key = (context.campaign, context.channel, context.category)
+        if key not in self._variables_lookup:
+            raise ValueError(
+                f"Binning specs for campaign {context.campaign}, channel "
+                f"{context.channel}, category {context.category} not found"
+            )
+        return list(self._variables_lookup[key])
 
     def get_histogram_spec(self, context: Context, variable: str) -> Histogram:
         """

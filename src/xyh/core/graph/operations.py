@@ -662,6 +662,104 @@ def write_snapshots(
     return Artifacts()
 
 
+def binning(
+    node: Node,
+    artifacts: dict[str, Artifacts],
+) -> Artifacts:
+    """
+    Declare a lazy retrieval of the unweighted values of a variable.
+
+    The values are the input for deriving a data-driven binning. The
+    artifacts object contains the `RDataFrame` as well as the lazy values.
+
+    Parameters
+    ----------
+    node : Node
+        The `"binning"` operation node that is being processed.
+
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
+
+    Returns
+    -------
+    Artifacts
+        The artifacts containing the `RDataFrame` and the lazy values.
+    """
+
+    # Log context of this node
+    logger.debug(
+        "\n".join(
+            [
+                "Declare binning values",
+                f"    campaign:   {node.data.binning.campaign}",
+                f"    channel:    {node.data.binning.channel}",
+                f"    category:   {node.data.binning.category}",
+                f"    dataset:    {node.data.dataset}",
+                f"    variable:   {node.data.binning.variable}",
+                f"    expression: {node.data.binning.expression}",
+            ]
+        )
+    )
+
+    # Assert that the node has exactly one parent and get that parent node
+    parent = _get_single_parent(node)
+    data_frame = artifacts[parent.hash].data_frame
+
+    # Declare helper functions used in the expression, if any, and define the
+    # variable values as a column
+    expression = node.data.binning.expression or node.data.binning.variable
+    ensure_declared(expression)
+    column = f"__binning_{node.data.binning.variable}"
+    data_frame = data_frame.Define(column, f"static_cast<double>({expression})")
+
+    return Artifacts(
+        data_frame=data_frame,
+        lazy_values=data_frame.Take["double"](column),
+    )
+
+
+def write_binning(
+    node: Node,
+    artifacts: dict[str, Artifacts],
+) -> Artifacts:
+    """
+    Materialize lazy binning values and write them to `"*.npz"` files.
+
+    The output file of each parent node is found in the outputs of this node
+    under the hash of the parent node.
+
+    Parameters
+    ----------
+    node : Node
+        The `"write_binning"` operation node that is being processed.
+
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
+
+    Returns
+    -------
+    Artifacts
+        Empty artifacts.
+    """
+
+    logger.debug("Write binning values to output files")
+
+    # Run the computations for all lazy values
+    lazy_values = [artifacts[p.hash].lazy_values for p in node.parents]
+    ROOT.RDF.RunGraphs(lazy_values)
+
+    # Write the values of each parent to its output file
+    for parent, lazy in zip(node.parents, lazy_values, strict=True):
+        output_file = node.outputs[parent.hash].path
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+        np.savez_compressed(
+            output_file, values=np.array(lazy.GetValue(), dtype=float)
+        )
+        logger.debug(f"Wrote binning values to {output_file}")
+
+    return Artifacts()
+
+
 # Dictionary mapping an operation name to its corresponding function
 _operations: dict[str, Callable[[Node, dict[str, Artifacts]], Artifacts]] = {
     "input_files": input_files,
@@ -672,6 +770,8 @@ _operations: dict[str, Callable[[Node, dict[str, Artifacts]], Artifacts]] = {
     "write_histograms": write_histograms,
     "snapshot": snapshot,
     "write_snapshots": write_snapshots,
+    "binning": binning,
+    "write_binning": write_binning,
 }
 
 

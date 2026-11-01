@@ -131,7 +131,7 @@ def _build_context_nodes_for_filters_and_weights_operations(
 def _build_context_nodes_for_histograms(
     context: Context,
     spec_storage: SpecsStorage,
-    variables: list[str],
+    variables: list[str] | None,
 ) -> list[Node]:
     """
     Build chain of nodes from input file loading, filter operations, weight
@@ -165,6 +165,8 @@ def _build_context_nodes_for_histograms(
 
     # Create the histogram nodes
     leaf_nodes = []
+    if variables is None:
+        variables = spec_storage.get_variables(context)
     for variable in variables:
         histogram_spec = spec_storage.get_histogram_spec(context, variable)
         leaf_nodes.append(
@@ -252,7 +254,7 @@ def _build_context_nodes_for_snapshot(
 
 def build_histograms_graph(
     contexts: list[Context],
-    variables: list[str],
+    variables: list[str] | None,
     spec_storage: SpecsStorage,
     output_dir: Path,
 ) -> list[DiGraph]:
@@ -268,8 +270,10 @@ def build_histograms_graph(
         A list of analysis contexts, each containing campaign, channel,
         category, dataset, process, and variation information.
 
-    variables : list[str]
-        List of variables for which histograms will be created.
+    variables : list[str] | None
+        List of variables for which histograms will be created. If `None`,
+        histograms are created for all variables with a binning spec in the
+        context.
 
     specs_storage : SpecsStorage
         The storage containing specifications for datasets, filters, weights,
@@ -427,6 +431,103 @@ def build_snapshots_graph(
             data=Spec(),
             parents=tuple(leaf_nodes),
             outputs=leaf_outputs,
+        )
+        subgraph.add_node(n.hash, node=n)
+        subgraph.add_edges_from((leaf.hash, n.hash) for leaf in leaf_nodes)
+
+    return subgraphs
+
+
+def build_binning_graph(
+    contexts: list[Context],
+    spec_storage: SpecsStorage,
+    output_dir: Path,
+    variables: list[str] | None = None,
+) -> list[DiGraph]:
+    """
+    Build a directed graph of nodes for retrieving the values of variables.
+
+    The values are written to `"*.npz"` files at
+    `{output_dir}/{campaign}/{channel}__{category}/{variable}/{dataset}.npz`.
+    The result is returned as a list of graphs, which are disjoint from each
+    other and which can be processed independently.
+
+    Parameters
+    ----------
+    contexts : list[Context]
+        A list of analysis contexts, each containing campaign, channel,
+        category, dataset, process, and variation information.
+
+    spec_storage : SpecsStorage
+        The storage containing specifications for datasets, filters, weights,
+        and binnings.
+
+    output_dir : Path
+        The directory where the value files will be saved.
+
+    variables : list[str] | None
+        List of variables for which values are retrieved. If `None`, all
+        variables with a binning spec in the context are used.
+
+    Returns
+    -------
+    list[DiGraph]
+        List of disjoint processing graphs for retrieving binning values.
+    """
+
+    all_leaf_nodes = []
+    for context in contexts:
+        # Construct the chain of nodes for input files, filters, and weights
+        n = _build_context_nodes_for_filters_and_weights_operations(
+            context=context,
+            specs_storage=spec_storage,
+        )
+
+        # Create one binning node per variable
+        for variable in (
+            variables
+            if variables is not None
+            else spec_storage.get_variables(context)
+        ):
+            all_leaf_nodes.append(
+                Node(
+                    operation="binning",
+                    data=spec_storage.get_histogram_spec(context, variable),
+                    parents=(n,),
+                    outputs={
+                        "binning_file": Output(
+                            path=os.path.join(
+                                output_dir,
+                                context.campaign,
+                                f"{context.channel}__{context.category}",
+                                variable,
+                                f"{context.dataset}.npz",
+                            ),
+                        )
+                    },
+                )
+            )
+
+    # Build the graph and find disjoint subgraphs
+    graph = build_graph_from_leaf_nodes(all_leaf_nodes)
+    subgraphs = [
+        graph.subgraph(c).copy() for c in weakly_connected_components(graph)
+    ]
+
+    # Append a "write_binning" node to each subgraph
+    for subgraph in subgraphs:
+        leaf_nodes = [
+            subgraph.nodes[h]["node"]
+            for h in subgraph.nodes
+            if subgraph.out_degree(h) == 0
+        ]
+        n = Node(
+            operation="write_binning",
+            data=Spec(),
+            parents=tuple(leaf_nodes),
+            outputs={
+                leaf.hash: leaf.outputs["binning_file"] for leaf in leaf_nodes
+            },
         )
         subgraph.add_node(n.hash, node=n)
         subgraph.add_edges_from((leaf.hash, n.hash) for leaf in leaf_nodes)
