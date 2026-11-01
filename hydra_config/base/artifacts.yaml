@@ -2,6 +2,7 @@
 dataset_specs_file: data/output/${tags.shapes_tag}/specs/datasets.json.gz
 filters_and_weights_specs_file: data/output/${tags.shapes_tag}/specs/filters_and_weights.json.gz
 binning_specs_file: data/output/${tags.shapes_tag}/specs/binnings.json.gz
+histogram_keys_file: data/output/${tags.shapes_tag}/specs/histogram_keys.json.gz
 graph_specs_file: data/output/${tags.shapes_tag}/specs/graphs.json.gz
 histograms_dir: data/output/${tags.shapes_tag}/histograms
 snapshots_dir: /ceph/mmolch/xyh-bbtautau-crown/bbtautau-kit/data/output/${tags.shapes_tag}/snapshots

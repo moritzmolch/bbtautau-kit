@@ -5,6 +5,7 @@ from networkx import DiGraph, compose_all
 from networkx.readwrite import json_graph
 
 from xyh.core.graph.node import Node
+from xyh.core.specs.specs import Histogram
 
 # Node type names written to the graph specs for each operation
 _TYPE_NAMES = {
@@ -19,6 +20,34 @@ _TYPE_NAMES = {
     "write_snapshots": "WriteSnapshotsNode",
     "write_binning": "WriteBinningNode",
 }
+
+
+def _histogram_key(data: Histogram) -> str:
+    """
+    Get the key of a histogram inside its output file.
+
+    Parameters
+    ----------
+    data : Histogram
+        The histogram spec of a `"histogram"` node.
+
+    Returns
+    -------
+    str
+        The path `campaign/channel/category/dataset/process/variable__variation`
+        of the histogram, as written by the `write_histograms` operation.
+    """
+
+    return "/".join(
+        [
+            data.binning.campaign,
+            data.binning.channel,
+            data.binning.category,
+            data.dataset,
+            data.process,
+            f"{data.binning.variable}__{data.variation}",
+        ]
+    )
 
 
 def _node_spec(node: Node, graph: DiGraph) -> dict:
@@ -76,16 +105,7 @@ def _node_spec(node: Node, graph: DiGraph) -> dict:
                 write_node.outputs["hists_file"].path,
                 write_node.data.output_dir,
             )
-            spec["hist_path"] = "/".join(
-                [
-                    data.binning.campaign,
-                    data.binning.channel,
-                    data.binning.category,
-                    data.dataset,
-                    data.process,
-                    f"{data.binning.variable}__{data.variation}",
-                ]
-            )
+            spec["hist_path"] = _histogram_key(data)
             return spec
         case "snapshot":
             spec = asdict(data)
@@ -126,3 +146,38 @@ def graphs_to_specs(graphs: list[DiGraph]) -> dict:
     specs_graph.add_edges_from(combined.edges)
 
     return json_graph.node_link_data(specs_graph)
+
+
+def histogram_keys(graphs: list[DiGraph]) -> dict:
+    """
+    List the histogram keys contained in each histogram output file.
+
+    The keys are derived from the graphs and need no access to the output files.
+
+    Parameters
+    ----------
+    graphs : list[DiGraph]
+        The disjoint histogram processing graphs created by
+        `build_histograms_graph`.
+
+    Returns
+    -------
+    dict
+        Dictionary with the entries `output_dir` (the histograms directory) and
+        `files`, which maps the path of each output file relative to
+        `output_dir` to the sorted list of histogram keys inside this file.
+    """
+
+    output_dir = None
+    files: dict[str, list[str]] = {}
+    for graph in graphs:
+        for _, attributes in graph.nodes(data=True):
+            node: Node = attributes["node"]
+            if node.operation != "write_histograms":
+                continue
+            output_dir = node.data.output_dir
+            files[
+                os.path.relpath(node.outputs["hists_file"].path, output_dir)
+            ] = sorted(_histogram_key(p.data) for p in node.parents)
+
+    return {"output_dir": output_dir, "files": dict(sorted(files.items()))}

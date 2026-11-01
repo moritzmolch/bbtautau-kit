@@ -30,6 +30,7 @@ dataset_specs_file: ${artifacts.dataset_specs_file}
 binning_specs_file: ${artifacts.binning_specs_file}
 filters_and_weights_specs_file: ${artifacts.filters_and_weights_specs_file}
 graph_specs_file: ${artifacts.graph_specs_file}
+histogram_keys_file: ${artifacts.histogram_keys_file}
 histograms_output_dir: ${artifacts.histograms_dir}
 snapshots_output_dir: ${artifacts.snapshots_dir}
 binning_output_dir: ${artifacts.binning_dir}

@@ -21,7 +21,7 @@ from xyh.core.graph.builder import (
     build_snapshots_graph,
 )
 from xyh.core.graph.executor import execute
-from xyh.core.graph.serialization import graphs_to_specs
+from xyh.core.graph.serialization import graphs_to_specs, histogram_keys
 from xyh.core.io import dump_json
 from xyh.core.specs.binning import create_binning_specs
 from xyh.core.specs.dataset import create_dataset_specs
@@ -253,6 +253,11 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         num_threads=cfg["graph_processing"]["num_threads"],
     )
     graph_wall_s = round(time() - graph_start, 3)
+
+    # In histogram mode, list the histogram keys of each output file for the
+    # downstream stages
+    if mode == "histogram":
+        dump_json(histogram_keys(graphs), Path(cfg["histogram_keys_file"]))
 
     # In binning mode, derive the equipopulated binning from the values that
     # were written by the graphs and store it as binning overrides
