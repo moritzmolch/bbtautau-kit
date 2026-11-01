@@ -1,11 +1,16 @@
 import logging
+import re
+from collections.abc import Generator
+from dataclasses import dataclass
 from itertools import groupby
+from pathlib import Path
 from typing import Any
 
 import ROOT
 
 from xyh.core.config import load_inventory
 from xyh.core.config.util import gen_dataset_insts, gen_process_insts
+from xyh.core.io import load_json
 from xyh.core.parallel import run_in_parallel
 
 # TODO make this more generic
@@ -120,6 +125,136 @@ def load_all(
         rf.Close()
 
     return histograms
+
+
+def filter_histograms(
+    histograms: list[TH1Wrapper],
+    campaign: str | None = None,
+    channel: str | None = None,
+    category: str | None = None,
+    process: str | None = None,
+    dataset: str | None = None,
+    variable: str | None = None,
+    variation: str | None = None,
+) -> Generator[TH1Wrapper, None, None]:
+    """
+    Filter a list of `TH1Wrapper` objects based on the provided criteria.
+
+    Parameters
+    ----------
+    histograms : list[TH1Wrapper]
+        The list of `TH1Wrapper` objects to filter.
+
+    campaign : str | None, optional
+        The campaign to filter by. If `None`, do not filter by campaign.
+
+    channel : str | None, optional
+        The channel to filter by. If `None`, do not filter by channel.
+
+    category : str | None, optional
+        The category to filter by. If `None`, do not filter by category.
+
+    process : str | None, optional
+        The process to filter by. If `None`, do not filter by process.
+
+    dataset : str | None, optional
+        The dataset to filter by. If `None`, do not filter by dataset.
+
+    variable : str | None, optional
+        The variable to filter by. If `None`, do not filter by variable.
+
+    variation : str | None, optional
+        The variation to filter by. If `None`, do not filter by variation.
+
+    Yields
+    ------
+    TH1Wrapper
+        The filtered `TH1Wrapper` objects.
+    """
+    # Compile list of criteria for filtering (interpreted as AND)
+    criteria = {
+        "campaign": campaign,
+        "channel": channel,
+        "category": category,
+        "process": process,
+        "dataset": dataset,
+        "variable": variable,
+        "variation": variation,
+    }
+    criteria = {k: v for k, v in criteria.items() if v is not None}
+
+    for hist in histograms:
+        if all(getattr(hist, k) == v for k, v in criteria.items()):
+            yield hist
+
+
+def get_histogram(
+    histograms: list[TH1Wrapper],
+    campaign: str,
+    channel: str,
+    category: str,
+    process: str,
+    dataset: str,
+    variable: str,
+    variation: str,
+) -> TH1Wrapper:
+    """
+    Get a `TH1Wrapper` object based on the provided criteria.
+
+    Parameters
+    ----------
+    histograms : list[TH1Wrapper]
+        The list of `TH1Wrapper` objects to filter.
+
+    campaign : str
+        The campaign to filter by.
+
+    channel : str | None, optional
+        The channel to filter by.
+
+    category : str | None, optional
+        The category to filter by.
+
+    process : str | None, optional
+        The process to filter by.
+
+    dataset : str | None, optional
+        The dataset to filter by.
+
+    variable : str | None, optional
+        The variable to filter by.
+
+    variation : str | None, optional
+        The variation to filter by.
+
+    Returns
+    ------
+    TH1Wrapper
+        The filtered `TH1Wrapper` object.
+
+    Raises
+    ------
+    ValueError
+        If no matching histogram is found.
+    """
+
+    # Compile list of criteria for filtering (interpreted as AND)
+    criteria = {
+        "campaign": campaign,
+        "channel": channel,
+        "category": category,
+        "process": process,
+        "dataset": dataset,
+        "variable": variable,
+        "variation": variation,
+    }
+
+    # Get the histogram that matches the criteria
+    for hist in histograms:
+        if all(getattr(hist, k) == v for k, v in criteria.items()):
+            return hist
+
+    raise ValueError("No matching histogram found for the given criteria")
 
 
 def add_histograms(histograms: list[ROOT.TH1]) -> ROOT.TH1:
@@ -351,6 +486,11 @@ def merge_histograms(
     output_dir,
     num_workers: int = 1,
 ):
+    # Load all histograms from the input files
+    histograms = load_all(
+        Path(graph_specs["histogram_keys_file"]), histograms_dir
+    )
+
     # Split the histogram nodes into independent merge tasks
     tasks = _build_merge_tasks(
         graph_specs,
