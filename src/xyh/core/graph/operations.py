@@ -245,7 +245,7 @@ def weight(
 
     # Get the data frame and define the weight on it. A custom weight prefix
     # reduces the risk of collisions with existing column names.
-    data_frame = artifacts[parent].data_frame
+    data_frame = artifacts[parent.hash].data_frame
     data_frame = data_frame.Define(
         f"{WEIGHT_PREFIX}{node.data.name}",
         node.data.expression,
