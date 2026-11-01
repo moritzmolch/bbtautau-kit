@@ -318,9 +318,6 @@ class TestBuildHistogramsGraph:
             builder.build_histograms_graph([], ["pt"], storage, tmp_path) == []
         )
 
-    @pytest.mark.xfail(
-        strict=True, raises=UnboundLocalError, reason=BUG_LEAF_COMPREHENSION
-    )
     def test_one_graph_per_dataset_and_graphs_are_disjoint(
         self, contexts, storage_two_datasets, tmp_path
     ):
@@ -330,9 +327,6 @@ class TestBuildHistogramsGraph:
         assert len(graphs) == 2
         assert not set(graphs[0].nodes) & set(graphs[1].nodes)
 
-    @pytest.mark.xfail(
-        strict=True, raises=UnboundLocalError, reason=BUG_LEAF_COMPREHENSION
-    )
     def test_each_graph_has_one_write_node_over_histogram_leaves(
         self, contexts, storage_two_datasets, tmp_path
     ):
@@ -354,9 +348,6 @@ class TestBuildHistogramsGraph:
             sinks = [n for n in graph if graph.out_degree(n) == 0]
             assert sinks == [writer.hash]
 
-    @pytest.mark.xfail(
-        strict=True, raises=UnboundLocalError, reason=BUG_LEAF_COMPREHENSION
-    )
     def test_write_node_output_dir_is_stringified_output_dir(
         self, context, storage, tmp_path
     ):
@@ -367,20 +358,12 @@ class TestBuildHistogramsGraph:
         assert isinstance(writer.data, HistogramsOutput)
         assert writer.data.output_dir == str(tmp_path)
 
-    @pytest.mark.xfail(
-        strict=True, raises=UnboundLocalError, reason=BUG_LEAF_COMPREHENSION
-    )
     def test_graphs_are_dags(self, contexts, storage_two_datasets, tmp_path):
         graphs = builder.build_histograms_graph(
             contexts, ["pt"], storage_two_datasets, tmp_path
         )
         assert all(nx.is_directed_acyclic_graph(g) for g in graphs)
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=UnboundLocalError,
-        reason=f"{BUG_LEAF_COMPREHENSION}; additionally {BUG_STRUCTURAL_HASH}",
-    )
     def test_same_structure_different_specs_give_different_subgraph_hash(
         self, contexts, storage_two_datasets, tmp_path
     ):

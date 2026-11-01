@@ -361,12 +361,6 @@ class TestWriteHistograms:
         )
         return node, parents, dfs, lazies
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=NameError,
-        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
-        "(AttributeError once os is imported)",
-    )
     def test_write_histograms_returns_output_file_path(
         self, root, store, setup, tmp_path
     ):
@@ -377,12 +371,6 @@ class TestWriteHistograms:
         )
         root.TFile.Open.assert_called_once_with(out.hists_file, "RECREATE")
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=NameError,
-        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
-        "(AttributeError on campaign once os is imported)",
-    )
     def test_write_histograms_directory_is_campaign_to_process_path(
         self, root, store, setup
     ):
@@ -391,12 +379,6 @@ class TestWriteHistograms:
         root_file = root.TFile.Open.return_value
         root_file.GetDirectory.assert_called_with("c/ch/cat/ds/p")
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=NameError,
-        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
-        "(AttributeError on variable once os is imported)",
-    )
     def test_write_histograms_sets_name_and_title_from_variable_variation(
         self, root, store, setup
     ):
@@ -407,12 +389,6 @@ class TestWriteHistograms:
             hist.SetName.assert_called_once_with(f"{var}__nominal")
             hist.SetTitle.assert_called_once_with(f"{var}__nominal")
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=NameError,
-        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
-        f"(AttributeError once os is imported); {BUG_RUNGRAPHS}",
-    )
     def test_write_histograms_runs_graphs_once_with_all_lazy_hists(
         self, root, store, setup
     ):
@@ -420,12 +396,6 @@ class TestWriteHistograms:
         operations.write_histograms(node, store)
         root.RDF.RunGraphs.assert_called_once_with(lazies)
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=NameError,
-        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
-        f"(AttributeError once os is imported); {BUG_NO_CD}",
-    )
     def test_write_histograms_writes_into_directory_not_top_level(
         self, root, store, setup
     ):
@@ -435,12 +405,6 @@ class TestWriteHistograms:
         wrote_via_dir = directory.WriteObject.called
         assert directory.cd.called or wrote_via_dir
 
-    @pytest.mark.xfail(
-        strict=True,
-        raises=NameError,
-        reason=f"{BUG_OS_IMPORT}; additionally {BUG_WRONG_SPEC} "
-        f"(AttributeError once os is imported); {BUG_NO_CLOSE}",
-    )
     def test_write_histograms_closes_output_file(self, root, store, setup):
         node, *_ = setup
         operations.write_histograms(node, store)
