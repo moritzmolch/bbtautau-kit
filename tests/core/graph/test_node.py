@@ -1,6 +1,6 @@
 import pytest
 
-from xyh.core.graph.node import Node
+from xyh.core.graph.node import Node, Output
 
 
 def test_node_init_invalid_operation_raises_value_error(make_filter):
@@ -80,3 +80,70 @@ def test_node_dunder_hash_usable_in_set(make_filter):
     # eq=False: identity equality, so equal-hash nodes stay distinct entries
     assert len({a, b}) == 2
     assert a in {a}
+
+
+class TestOutput:
+    def test_output_file_exists_isfile_not_isdir(self, tmp_path):
+        f = tmp_path / "f.root"
+        f.write_text("x")
+        out = Output(path=str(f))
+        assert out.exists()
+        assert out.isfile()
+        assert not out.isdir()
+
+    def test_output_directory_exists_isdir_not_isfile(self, tmp_path):
+        out = Output(path=str(tmp_path))
+        assert out.exists()
+        assert out.isdir()
+        assert not out.isfile()
+
+    def test_output_missing_path_all_false(self, tmp_path):
+        out = Output(path=str(tmp_path / "missing"))
+        assert not out.exists()
+        assert not out.isfile()
+        assert not out.isdir()
+
+
+class TestNodeOutputs:
+    def test_node_outputs_default_is_empty_dict(self, make_filter):
+        assert Node(operation="filter", data=make_filter()).outputs == {}
+
+    def test_node_outputs_default_not_shared_between_nodes(self, make_filter):
+        a = Node(operation="filter", data=make_filter())
+        b = Node(operation="filter", data=make_filter())
+        assert a.outputs is not b.outputs
+
+    def test_node_hash_different_output_paths_differ(self, make_filter):
+        a = Node(
+            operation="filter",
+            data=make_filter(),
+            outputs={"f": Output(path="/a")},
+        )
+        b = Node(
+            operation="filter",
+            data=make_filter(),
+            outputs={"f": Output(path="/b")},
+        )
+        assert a.hash != b.hash
+
+    def test_node_hash_equal_output_paths_equal(self, make_filter):
+        a = Node(
+            operation="filter",
+            data=make_filter(),
+            outputs={"f": Output(path="/a")},
+        )
+        b = Node(
+            operation="filter",
+            data=make_filter(),
+            outputs={"f": Output(path="/a")},
+        )
+        assert a.hash == b.hash
+
+    def test_node_hash_with_outputs_differs_from_without(self, make_filter):
+        a = Node(operation="filter", data=make_filter())
+        b = Node(
+            operation="filter",
+            data=make_filter(),
+            outputs={"f": Output(path="/a")},
+        )
+        assert a.hash != b.hash
