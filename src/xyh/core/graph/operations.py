@@ -1,4 +1,5 @@
 import logging
+import os
 from collections.abc import Callable
 from time import time
 
@@ -387,8 +388,11 @@ def write_histograms(
         The artifacts containing the evaluated histograms.
     """
 
-    # Get the output file
+    # Get the output file and create output directory
     output_file = node.outputs["hists_file"].path
+    output_dir = os.path.dirname(output_file)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
 
     # Log context of this node
     logger.debug(
