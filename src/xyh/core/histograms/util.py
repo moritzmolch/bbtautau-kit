@@ -1,5 +1,4 @@
 import logging
-import re
 from collections.abc import Generator
 from dataclasses import dataclass
 from itertools import groupby
@@ -66,44 +65,22 @@ def load_all(
         # Construct the full path of the output file
         output_file_path = histograms_dir / output_file
 
-        # Match the analysis context from the output file path
-        match = re.match(
-            "/".join(
-                [
-                    r"(?P<campaign>[^/]+)",
-                    "__".join(
-                        [
-                            r"(?P<channel>[^/]+)",
-                            r"(?P<category>[^/]+)",
-                        ]
-                    ),
-                    "__".join(
-                        [
-                            r"(?P<process>[^/]+)",
-                            r"(?P<dataset>[^/]+)",
-                            r"(?P<variable>[^/]+)",
-                            r"(?P<variation>[^/]+)\.root",
-                        ]
-                    ),
-                ]
-            ),
-            output_file,
-        )
-        if not match:
-            raise ValueError(
-                f"Output file path {output_file} does not match expected pattern"
-            )
-        campaign = match.group("campaign")
-        channel = match.group("channel")
-        category = match.group("category")
-        process = match.group("process")
-        dataset = match.group("dataset")
-        variable = match.group("variable")
-        variation = match.group("variation")
-
         # Open the ROOT file and load all histograms
         rf = ROOT.TFile.Open(str(output_file_path), "READ")
         for hist_key in hist_keys:
+            # Get the analysis context from the histogram key, which has the
+            # form 'campaign/channel/category/process/dataset/variable__variation'
+            key_parts = hist_key.split("/")
+            if len(key_parts) != 6 or "__" not in key_parts[-1]:
+                raise ValueError(
+                    f"Histogram key {hist_key} in {output_file_path} does not "
+                    + "match the pattern 'campaign/channel/category/process/"
+                    + "dataset/variable__variation'"
+                )
+            campaign, channel, category, process, dataset, name = key_parts
+            variable, variation = name.rsplit("__", 1)
+
+            # Get the histogram
             hist = rf.Get(hist_key)
             if not hist:
                 raise ValueError(
