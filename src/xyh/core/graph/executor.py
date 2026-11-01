@@ -77,25 +77,33 @@ def _execute_graph(graph: DiGraph, num_threads: int = 1) -> list[Artifacts]:
     if num_threads > 1:
         ROOT.EnableImplicitMT(num_threads)
 
-    # Artifacts of all output nodes of this graph
-    artifacts_store = ArtifactsStore()
+    try:
+        # Artifacts of all output nodes of this graph
+        artifacts_store = ArtifactsStore()
 
-    for node_hash in topological_sort(graph):
-        # Get the node object
-        node = graph.nodes[node_hash]["node"]
+        for node_hash in topological_sort(graph):
+            # Get the node object
+            node = graph.nodes[node_hash]["node"]
 
-        # Get artifacts from parent nodes
-        input_artifacts = artifacts_store.get(*graph.predecessors(node_hash))
+            # Get artifacts from parent nodes
+            input_artifacts = artifacts_store.get(
+                *graph.predecessors(node_hash)
+            )
 
-        # Get the operation function and execute it
-        operation = get_operation_fn(node)
-        output_artifacts = operation(node, input_artifacts)
+            # Get the operation function and execute it
+            operation = get_operation_fn(node)
+            output_artifacts = operation(node, input_artifacts)
 
-        # Put the output artifacts into the store
-        artifacts_store.put(node_hash, output_artifacts)
+            # Put the output artifacts into the store
+            artifacts_store.put(node_hash, output_artifacts)
 
-    # Get artifacts and output files of leaves
-    leaf_hashes = [n for n in graph.nodes if graph.out_degree(n) == 0]
+        # Get artifacts and output files of leaves
+        leaf_hashes = [n for n in graph.nodes if graph.out_degree(n) == 0]
+
+    finally:
+        # Disable multi-threading in ROOT after execution
+        if num_threads > 1:
+            ROOT.DisableImplicitMT()
 
     return list(artifacts_store.get(*leaf_hashes).values())
 
