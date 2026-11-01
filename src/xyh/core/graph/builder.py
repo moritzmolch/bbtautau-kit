@@ -236,7 +236,7 @@ def build_histograms_graph(
         leaf_nodes = [
             subgraph.nodes[h]["node"]
             for h in subgraph.nodes
-            if subgraph.out_degree(n) == 0
+            if subgraph.out_degree(h) == 0
         ]
 
         # Append a "write_histograms" node with all leaf nodes as parents
@@ -249,6 +249,6 @@ def build_histograms_graph(
             parents=tuple(leaf_nodes),
         )
         subgraph.add_node(n.hash, node=n)
-        subgraph.add_edges_from((l.hash, n.hash) for l in leaf_nodes)
+        subgraph.add_edges_from((leaf.hash, n.hash) for leaf in leaf_nodes)
 
     return subgraphs
