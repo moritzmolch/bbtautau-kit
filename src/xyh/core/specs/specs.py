@@ -228,7 +228,7 @@ class FiltersAndWeights(Spec):
 
 
 @dataclass(frozen=True, eq=False, kw_only=True)
-class Binning:
+class Binning(Spec):
     """
     Specification for a binning.
 
