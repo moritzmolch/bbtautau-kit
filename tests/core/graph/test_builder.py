@@ -1,3 +1,4 @@
+import os
 from unittest.mock import create_autospec
 
 import networkx as nx
@@ -357,6 +358,15 @@ class TestBuildHistogramsGraph:
         (writer,) = self._write_nodes(graph)
         assert isinstance(writer.data, HistogramsOutput)
         assert writer.data.output_dir == str(tmp_path)
+
+    def test_write_node_has_hists_file_output(self, context, storage, tmp_path):
+        (graph,) = builder.build_histograms_graph(
+            [context], ["pt"], storage, tmp_path
+        )
+        (writer,) = self._write_nodes(graph)
+        assert writer.outputs["hists_file"].path == os.path.join(
+            str(tmp_path), f"histograms_{writer.data.subgraph_hash}.root"
+        )
 
     def test_graphs_are_dags(self, contexts, storage_two_datasets, tmp_path):
         graphs = builder.build_histograms_graph(

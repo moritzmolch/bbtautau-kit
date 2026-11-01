@@ -6,12 +6,8 @@ import numpy as np
 import pytest
 
 from xyh.core.graph import operations
-from xyh.core.graph.node import Node
-from xyh.core.graph.operations import (
-    Artifacts,
-    ArtifactsStore,
-    OutputFiles,
-)
+from xyh.core.graph.artifacts import Artifacts
+from xyh.core.graph.node import Node, Output
 from xyh.core.specs.specs import HistogramsOutput
 
 
@@ -24,29 +20,6 @@ def _with_parent(artifacts, make_dataset, df):
     parent = Node(operation="input_files", data=make_dataset())
     artifacts[parent.hash] = Artifacts(data_frame=df)
     return parent
-
-
-class TestContainers:
-    def test_artifacts_getattr_returns_item(self):
-        assert Artifacts(a=1).a == 1
-
-    def test_artifacts_getattr_missing_raises_key_error(self):
-        with pytest.raises(KeyError):
-            _ = Artifacts().missing
-
-    def test_output_files_getattr_returns_item(self):
-        assert OutputFiles(f="x").f == "x"
-
-    def test_store_put_get_roundtrip(self):
-        store = ArtifactsStore()
-        arts = Artifacts(a=1)
-        store.put("id", arts)
-        assert store.get("id") is arts
-
-    def test_store_get_unknown_raises_key_error(self):
-        store = ArtifactsStore()
-        with pytest.raises(KeyError):
-            store.get("nope")
 
 
 class TestGetSingleParent:
@@ -93,7 +66,7 @@ class TestInputFiles:
     ):
         files = {"main": ["a.root", "b.root"], "friend": ["c.root"]}
         node = Node(operation="input_files", data=make_dataset(files=files))
-        arts, out = operations.input_files(node, artifacts)
+        arts = operations.input_files(node, artifacts)
         chains = {c.args[0] for c in root.TChain.call_args_list}
         assert chains == {"ntuple"}
         assert root.TChain.call_count == 2
@@ -103,7 +76,6 @@ class TestInputFiles:
             "b.root",
         ]
         assert set(arts.friend_chains) == {"friend"}
-        assert out == {}
 
     def test_input_files_adds_nonempty_friend_only(
         self, root, make_dataset, artifacts
@@ -122,7 +94,7 @@ class TestInputFiles:
         root.TChain.side_effect = tchain
         files = {"main": ["a"], "full": ["b"], "empty": []}
         node = Node(operation="input_files", data=make_dataset(files=files))
-        arts, _ = operations.input_files(node, artifacts)
+        arts = operations.input_files(node, artifacts)
         added = [c.args[0] for c in arts.main_chain.AddFriend.call_args_list]
         assert added == [arts.friend_chains["full"]]
 
@@ -130,7 +102,7 @@ class TestInputFiles:
         self, root, make_dataset, artifacts
     ):
         node = Node(operation="input_files", data=make_dataset())
-        arts, _ = operations.input_files(node, artifacts)
+        arts = operations.input_files(node, artifacts)
         root.RDataFrame.assert_called_once_with(arts.main_chain)
         assert arts.data_frame is root.RDataFrame.return_value
 
@@ -146,10 +118,9 @@ class TestFilter:
             data=make_filter(name="cut", expression="pt > 20"),
             parents=(parent,),
         )
-        arts, out = operations.filter(node, artifacts)
+        arts = operations.filter(node, artifacts)
         df.Filter.assert_called_once_with("pt > 20", "cut")
         assert arts.data_frame is df.Filter.return_value
-        assert out == {}
 
     def test_filter_without_parent_raises(self, artifacts, make_filter):
         node = Node(operation="filter", data=make_filter())
@@ -168,10 +139,9 @@ class TestWeight:
             data=make_weight(name="sf", expression="a * b"),
             parents=(parent,),
         )
-        arts, out = operations.weight(node, artifacts)
+        arts = operations.weight(node, artifacts)
         df.Define.assert_called_once_with("__weight_sf", "a * b")
         assert arts.data_frame is df.Define.return_value
-        assert out == {}
 
     def test_weight_without_parent_raises(self, artifacts, make_weight):
         node = Node(operation="weight", data=make_weight())
@@ -201,12 +171,11 @@ class TestWeightProduct:
         node, df = self._node(
             artifacts, make_dataset, ["__weight_a", "__weight_b", "x"], weights
         )
-        arts, out = operations.weight_product(node, artifacts)
+        arts = operations.weight_product(node, artifacts)
         df.Define.assert_called_once_with(
             operations.TOTAL_WEIGHT_NAME, "__weight_a * __weight_b"
         )
         assert arts.data_frame is df.Define.return_value
-        assert out == {}
 
     def test_weight_product_single_weight_no_operator(
         self, artifacts, make_dataset, make_weight
@@ -269,7 +238,7 @@ class TestHistogram:
         self, artifacts, make_dataset, make_histogram
     ):
         node, df = self._node(artifacts, make_dataset, make_histogram())
-        arts, out = operations.histogram(node, artifacts)
+        arts = operations.histogram(node, artifacts)
         df.Define.assert_not_called()
         (model, column, weight), _ = df.Histo1D.call_args
         assert model[0] == model[1] == "pt"
@@ -279,7 +248,6 @@ class TestHistogram:
         assert weight == operations.TOTAL_WEIGHT_NAME
         assert arts.lazy_hist is df.Histo1D.return_value
         assert arts.data_frame is df
-        assert out == {}
 
     def test_histogram_bin_count_is_edges_minus_one(
         self, artifacts, make_dataset, make_histogram
@@ -302,7 +270,7 @@ class TestHistogram:
     ):
         spec = make_histogram(expression="a + b")
         node, df = self._node(artifacts, make_dataset, spec)
-        arts, _ = operations.histogram(node, artifacts)
+        arts = operations.histogram(node, artifacts)
         df.Define.assert_called_once_with("__private__pt", "a + b")
         defined = df.Define.return_value
         assert defined.Histo1D.call_args.args[1] == "__private__pt"
@@ -380,24 +348,25 @@ class TestWriteHistograms:
             parents.append(parent)
             dfs.append(df)
             lazies.append(lazy)
+        out_path = tmp_path / "hists_abc.root"
         node = Node(
             operation="write_histograms",
             data=HistogramsOutput(
                 output_dir=str(tmp_path), subgraph_hash="abc"
             ),
             parents=tuple(parents),
+            outputs={"hists_file": Output(path=str(out_path))},
         )
         return node, parents, dfs, lazies
 
-    def test_write_histograms_returns_output_file_path(
+    def test_write_histograms_opens_output_path_with_recreate(
         self, root, artifacts, setup, tmp_path
     ):
         node, *_ = setup
-        _, out = operations.write_histograms(node, artifacts)
-        assert out == OutputFiles(
-            hists_file=os.path.join(str(tmp_path), "hists_abc.root")
+        operations.write_histograms(node, artifacts)
+        root.TFile.Open.assert_called_once_with(
+            os.path.join(str(tmp_path), "hists_abc.root"), "RECREATE"
         )
-        root.TFile.Open.assert_called_once_with(out.hists_file, "RECREATE")
 
     def test_write_histograms_directory_is_campaign_to_process_path(
         self, root, artifacts, setup
