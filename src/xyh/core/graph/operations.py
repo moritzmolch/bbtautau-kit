@@ -1,6 +1,7 @@
 import logging
 import os
 from collections.abc import Callable
+from fnmatch import fnmatch
 from time import time
 
 import numpy as np
@@ -48,6 +49,77 @@ def _get_single_parent(node: Node) -> Node:
         )
 
     return node.parents[0]
+
+
+def _parse_snapshot_column(pattern: str) -> tuple[str, frozenset[str] | None]:
+    """Parse a snapshot column pattern into a (name, channels) pair.
+
+    Column patterns follow the inventory variable convention: the 'pure'
+    column name, optionally followed by a list of channels the column is
+    written for, '<name>[<channel 1>,<channel 2>,...]'. `None` channels mean
+    the column is written in all channels. Patterns that do not follow the
+    convention are used verbatim as shell-style glob patterns without channel
+    restriction.
+    """
+    m = re.match(r"^([^\[]+)(?:\[([^\]]+)\])?$", pattern)
+    if m is None:
+        return pattern, None
+    name = m.group(1).strip()
+    channels = m.group(2)
+    if channels is None:
+        return name, None
+    return name, frozenset(c.strip() for c in channels.split(",") if c.strip())
+
+
+def _prepare_snapshot_columns(
+    all_columns: list[str],
+    columns: tuple[str, ...] | None = None,
+    channel: str | None = None,
+) -> list[str]:
+    """Map friend-qualified column names and keep the configured columns.
+
+    Columns from friend trees are listed as "<tree>.<column>", which Snapshot
+    would save as "<tree>_<column>". They can be accessed by their plain
+    name, so the prefix is stripped to keep the original column names. If the
+    plain name clashes with another column, the qualified name is kept.
+
+    If `columns` is `None` or empty, all columns are kept. Otherwise only
+    columns matching any entry of `columns` are written to the snapshot.
+    Entries follow shell-style globbing (`fnmatch`) and are matched against
+    both the final (possibly stripped) column name and the original
+    friend-qualified name. Entries may restrict a column to a set of channels
+    via the '<name>[<channel 1>,<channel 2>,...]' convention; a column that
+    only matches a restricted entry is written solely if `channel` is in that
+    set (`channel=None` ignores the restriction).
+    """
+    patterns = [(_parse_snapshot_column(p)) for p in columns] if columns else []
+
+    def _matches(c: str, original: str) -> bool:
+        for pattern, channels in patterns:
+            if (
+                channel is not None
+                and channels is not None
+                and channel not in channels
+            ):
+                continue
+            if fnmatch(c, pattern) or fnmatch(original, pattern):
+                return True
+        return False
+
+    plain_columns = {c for c in all_columns if "." not in c}
+    selected = []
+    for c in all_columns:
+        original = c
+        if "." in c:
+            stripped = c.split(".", 1)[1]
+            if stripped not in plain_columns:
+                plain_columns.add(stripped)
+                c = stripped
+        if patterns and not _matches(c, original):
+            logger.debug(f"Skipping column {original} in snapshot")
+            continue
+        selected.append(c)
+    return selected
 
 
 def input_files(
@@ -367,6 +439,94 @@ def histogram(
     )
 
 
+def snapshot(
+    node: Node,
+    artifacts: dict[str, Artifacts],
+) -> Artifacts:
+    """
+    Declare a lazy snapshot operation on the `RDataFrame`.
+
+    The artifacts object contains the `RDataFrame` as well as the lazy snapshot
+    object.
+
+    Parameters
+    ----------
+    node : Node
+        The `"histogram"` operation node that is being processed.
+
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
+
+    Returns
+    -------
+    Artifacts
+        The artifacts containing the `RDataFrame` and the lazy snapshot.
+    """
+
+    # Log context of this node
+    logger.debug(
+        "\n".join(
+            [
+                "Declare snapshot",
+                f"    campaign:   {node.data.campaign}",
+                f"    channel:    {node.data.channel}",
+                f"    category:   {node.data.category}",
+                f"    dataset:    {node.data.dataset}",
+                f"    process:    {node.data.process}",
+                f"    variation:  {node.data.variation}",
+                f"    columns:    {','.join(c for c in node.data.columns)}",
+            ]
+        )
+    )
+
+    # Assert that the node has exactly one parent and get that parent node
+    parent = _get_single_parent(node)
+
+    # Get the data frame from the parent
+    data_frame = artifacts[parent.hash].data_frame
+
+    # Create the snapshot's output directory if it does not exist
+    snapshot_file = node.outputs["snapshot_file"].path
+    parent_dir = os.path.dirname(snapshot_file)
+    if not os.path.exists(parent_dir):
+        os.makedirs(os.path.dirname(parent_dir), exist_ok=True)
+        logger.debug(f"Created directory {parent_dir}")
+
+    # Columns from friend trees are listed as "<tree>.<column>", which
+    # Snapshot would save as "<tree>_<column>". They can be accessed by their
+    # plain name, so strip the prefix to keep the original column names. If
+    # the plain name clashes with another column, keep the qualified name.
+    # `node.columns` restricts the snapshot to explicitly listed columns;
+    # entries may further restrict columns to a subset of channels.
+    columns = _prepare_snapshot_columns(
+        [str(c) for c in data_frame.GetColumnNames()],
+        node.data.columns,
+        node.data.channel,
+    )
+
+    # Columns that are not available for this particular sample (e.g. a
+    # missing friend or branch) are ignored instead of failing the snapshot.
+    available_columns = [c for c in columns if data_frame.HasColumn(c)]
+    for column in set(columns) - set(available_columns):
+        logger.debug(f"Ignoring column {column} not available for this sample")
+    columns = available_columns
+
+    # Trigger lazy snapshot creation
+    options = ROOT.RDF.RSnapshotOptions()
+    options.fLazy = True
+    lazy_snapshot = data_frame.Snapshot(
+        "ntuple",
+        snapshot_file,
+        columns,
+        options,
+    )
+
+    return Artifacts(
+        data_frame=data_frame,
+        lazy_snapshot=lazy_snapshot,
+    )
+
+
 def write_histograms(
     node: Node,
     artifacts: dict[str, Artifacts],
@@ -451,6 +611,47 @@ def write_histograms(
     root_file.Close()
 
     return Artifacts(hists=hists)
+
+
+def write_snapshots(
+    node: Node,
+    artifacts: dict[str, Artifacts],
+) -> Artifacts:
+    """
+    Materialize lazy snapshots and write them to an output file.
+
+    Parameters
+    ----------
+    node : Node
+        The `"write_histograms"` operation node that is being processed.
+
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
+
+    Returns
+    -------
+    Artifacts
+        The artifacts containing the evaluated snapshots.
+    """
+
+    # Log context of this node
+    logger.debug(
+        "\n".join(
+            [
+                "Write snapshots to output file",
+            ]
+        )
+    )
+
+    # Get lazy snapshot artifacts from all parents
+    lazy_snapshots = []
+    for parent in node.parents:
+        lazy_snapshots.append(artifacts[parent.hash].lazy_snapshot)
+
+    # Run the computations for all lazy snapshots
+    ROOT.RDF.RunGraphs(lazy_snapshots)
+
+    return Artifacts()
 
 
 # Dictionary mapping an operation name to its corresponding function

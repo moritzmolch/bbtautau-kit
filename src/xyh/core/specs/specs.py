@@ -322,6 +322,59 @@ class Histogram(Spec):
 
 
 @dataclass(frozen=True, eq=False, kw_only=True)
+class Snapshot(Spec):
+    """
+    Snapshot specification for a specific variable given the analysis context.
+
+    Attributes
+    ----------
+
+    campaign : str
+        Name of the data-taking campaign.
+
+    channel : str
+        Name of the analysis channel.
+
+    category : str
+        Name of the category.
+
+    process : str
+        Name of the physics process.
+
+    dataset : str
+        Name of the dataset.
+
+    variation : str
+        Name of the variation.
+
+    columns : list[str]
+        Columns to be written to the snapshot.
+    """
+
+    campaign: str
+    channel: str
+    category: str
+    dataset: str
+    process: str
+    variation: str
+    columns: list[str]
+
+    def __repr__(self) -> str:
+        attributes = ", ".join(
+            [
+                f"campaign={self.campaign}",
+                f"channel={self.channel}",
+                f"category={self.category}",
+                f"dataset={self.dataset}",
+                f"process={self.process}",
+                f"variation={self.variation}",
+                f"columns={','.join(c for c in self.columns)}",
+            ]
+        )
+        return f"{self.__class__.__name__}<{attributes}>"
+
+
+@dataclass(frozen=True, eq=False, kw_only=True)
 class HistogramsOutput(Spec):
     """
     Specification for histogram output files.
