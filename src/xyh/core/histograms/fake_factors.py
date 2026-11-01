@@ -30,9 +30,6 @@ def run_fake_factor_histograms(
     variables: list[str],
     histograms_dir: Path,
 ):
-    # Detach ROOT histogram objects from files
-    ROOT.TH1.AddDirectory(0)
-
     # Load all histograms
     histograms = load_all(
         histograms_dir / "histogram_keys.json.gz",

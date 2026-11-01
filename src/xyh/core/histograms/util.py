@@ -56,6 +56,9 @@ def load_all(
         A list of `TH1Wrapper` objects.
     """
 
+    # Detach ROOT histogram objects from files
+    ROOT.TH1.AddDirectory(0)
+
     # Load the histogram keys and corresponding files from the JSON file
     histogram_keys = load_json(histogram_keys_file)
 
