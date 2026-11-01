@@ -8,10 +8,5 @@ defaults:
 - _self_
 
 # Explicitly define input and output files
-graph_specs_file: ${artifacts.graph_specs_file}
 histograms_dir: ${artifacts.histograms_dir}
-output_dir: ${artifacts.merged_histograms_dir}
-
-# Number of worker processes used for the merging. A value of 1 processes the
-# independent merge tasks sequentially in the current process.
-num_workers: 8
+merged_histograms_file: ${artifacts.merged_histograms_file}

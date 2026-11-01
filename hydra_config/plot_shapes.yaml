@@ -9,7 +9,7 @@ defaults:
 
 # Explicitly define input and output files
 graph_specs_file: ${artifacts.graph_specs_file}
-merged_histograms_dir: ${artifacts.merged_histograms_dir}
+merged_histograms_file: ${artifacts.merged_histograms_file}
 output_dir: ${artifacts.control_plots_dir}
 
 # Number of worker processes used for producing the control plots. A value of
