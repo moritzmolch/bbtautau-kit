@@ -16,6 +16,7 @@ from xyh.core.histograms.util import (
     load_all,
 )
 from xyh.core.io import dump_json, load_json
+from xyh.core.specs.binning import _parse_variable_name
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +103,20 @@ def run_fake_factor_histograms(
         for category in (c for c in categories if channel_inst.has_category(c)):
             # Get the category instance for this channel and category
             category_inst = channel_inst.get_category(category)
-            for variable in variables:
+            for variable_arg in variables:
+                # Parse the variable name to extract the 'pure' name and the
+                # channels the variable is restricted to (if any)
+                variable, variable_channels = _parse_variable_name(variable_arg)
+                if (
+                    variable_channels is not None
+                    and channel_inst.name not in variable_channels
+                ):
+                    logger.debug(
+                        f"Skipping variable {variable} in channel "
+                        + channel_inst.name
+                    )
+                    continue
+
                 # Get the variable instance
                 variable_inst = inventory.variables.get(variable)
 
@@ -210,7 +224,7 @@ def run_fake_factor_histograms(
         hist.SetName(hist_name)
         hist.SetTitle(hist_name)
 
-        # Set the histogram name and title
+        # Write the histogram
         hist.Write()
 
     root_file.Close()
