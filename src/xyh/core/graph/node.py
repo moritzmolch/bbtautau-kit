@@ -13,6 +13,8 @@ _operations = {
     "weight_product",
     "histogram",
     "write_histograms",
+    "snapshot",
+    "write_snapshots",
 }
 
 

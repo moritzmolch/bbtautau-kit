@@ -163,7 +163,6 @@ class WeightProduct(Spec):
     def __repr__(self) -> str:
         attributes = ", ".join(
             [
-                f"name={self.name}",
                 f"weights=<{', '.join(w.name for w in self.weights)}>",
             ]
         )
@@ -347,8 +346,9 @@ class Snapshot(Spec):
     variation : str
         Name of the variation.
 
-    columns : list[str]
-        Columns to be written to the snapshot.
+    columns : list[str] | None
+        Column patterns to be written to the snapshot. `None` writes all
+        columns.
     """
 
     campaign: str
@@ -357,7 +357,7 @@ class Snapshot(Spec):
     dataset: str
     process: str
     variation: str
-    columns: list[str]
+    columns: list[str] | None = None
 
     def __repr__(self) -> str:
         attributes = ", ".join(
@@ -368,7 +368,7 @@ class Snapshot(Spec):
                 f"dataset={self.dataset}",
                 f"process={self.process}",
                 f"variation={self.variation}",
-                f"columns={','.join(c for c in self.columns)}",
+                f"columns={','.join(self.columns or ['<all>'])}",
             ]
         )
         return f"{self.__class__.__name__}<{attributes}>"

@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from collections.abc import Callable
 from fnmatch import fnmatch
 from time import time
@@ -7,6 +8,7 @@ from time import time
 import numpy as np
 import ROOT
 
+from xyh.core.correctionlib_cpp import ensure_declared
 from xyh.core.graph.artifacts import Artifacts
 from xyh.core.graph.node import Node
 
@@ -289,6 +291,7 @@ def weight(
     # Get the data frame and define the weight on it. A custom weight prefix
     # reduces the risk of collisions with existing column names.
     data_frame = artifacts[parent.hash].data_frame
+    ensure_declared(node.data.expression)
     data_frame = data_frame.Define(
         f"{WEIGHT_PREFIX}{node.data.name}",
         node.data.expression,
@@ -413,7 +416,10 @@ def histogram(
 
     # Define custom expression as column if provided
     column = node.data.binning.variable
-    if node.data.binning.expression is not None:
+    if (
+        node.data.binning.expression is not None
+        and node.data.binning.expression != node.data.binning.variable
+    ):
         column = f"__private__{node.data.binning.variable}"
         data_frame = data_frame.Define(column, node.data.binning.expression)
         logger.debug(
@@ -427,7 +433,7 @@ def histogram(
             node.data.binning.variable,
             node.data.binning.variable,
             len(node.data.binning.bin_edges) - 1,
-            np.array(node.data.binning.bin_edges),
+            np.array(node.data.binning.bin_edges, dtype=float),
         ),
         column,
         TOTAL_WEIGHT_NAME,
@@ -452,7 +458,7 @@ def snapshot(
     Parameters
     ----------
     node : Node
-        The `"histogram"` operation node that is being processed.
+        The `"snapshot"` operation node that is being processed.
 
     artifacts: dict[str, Artifacts]
         The artifacts from parent nodes with the parent node hashes as keys.
@@ -474,7 +480,7 @@ def snapshot(
                 f"    dataset:    {node.data.dataset}",
                 f"    process:    {node.data.process}",
                 f"    variation:  {node.data.variation}",
-                f"    columns:    {','.join(c for c in node.data.columns)}",
+                f"    columns:    {','.join(node.data.columns or ['<all>'])}",
             ]
         )
     )
@@ -489,7 +495,7 @@ def snapshot(
     snapshot_file = node.outputs["snapshot_file"].path
     parent_dir = os.path.dirname(snapshot_file)
     if not os.path.exists(parent_dir):
-        os.makedirs(os.path.dirname(parent_dir), exist_ok=True)
+        os.makedirs(parent_dir, exist_ok=True)
         logger.debug(f"Created directory {parent_dir}")
 
     # Columns from friend trees are listed as "<tree>.<column>", which
@@ -508,7 +514,9 @@ def snapshot(
     # missing friend or branch) are ignored instead of failing the snapshot.
     available_columns = [c for c in columns if data_frame.HasColumn(c)]
     for column in set(columns) - set(available_columns):
-        logger.debug(f"Ignoring column {column} not available for this sample")
+        logger.warning(
+            f"Ignoring column {column} not available for this sample"
+        )
     columns = available_columns
 
     # Trigger lazy snapshot creation
@@ -623,7 +631,7 @@ def write_snapshots(
     Parameters
     ----------
     node : Node
-        The `"write_histograms"` operation node that is being processed.
+        The `"write_snapshots"` operation node that is being processed.
 
     artifacts: dict[str, Artifacts]
         The artifacts from parent nodes with the parent node hashes as keys.
@@ -662,6 +670,8 @@ _operations: dict[str, Callable[[Node, dict[str, Artifacts]], Artifacts]] = {
     "weight_product": weight_product,
     "histogram": histogram,
     "write_histograms": write_histograms,
+    "snapshot": snapshot,
+    "write_snapshots": write_snapshots,
 }
 
 

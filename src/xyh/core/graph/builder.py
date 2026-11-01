@@ -181,7 +181,7 @@ def _build_context_nodes_for_histograms(
 def _build_context_nodes_for_snapshot(
     context: Context,
     spec_storage: SpecsStorage,
-    columns: list[str],
+    columns: list[str] | None,
     output_dir: Path,
 ) -> Node:
     """
@@ -351,7 +351,7 @@ def build_histograms_graph(
 
 def build_snapshots_graph(
     contexts: list[Context],
-    columns: list[str],
+    columns: list[str] | None,
     spec_storage: SpecsStorage,
     output_dir: Path,
 ) -> list[DiGraph]:
