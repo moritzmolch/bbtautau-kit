@@ -1,5 +1,6 @@
 import logging
 import os
+from collections.abc import Callable
 from time import time
 
 import numpy as np
@@ -81,7 +82,7 @@ class OutputFiles(dict):
 
 def input_files(
     node: Node,
-    artifacts_store: ArtifactsStore,
+    artifacts: dict[str, Artifacts],
 ) -> tuple[Artifacts, OutputFiles]:
     """
     Load input files into an `RDataFrame`.
@@ -94,6 +95,9 @@ def input_files(
     ----------
     node : Node
         The `"input_files"` operation node that is being processed.
+
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
 
     Returns
     -------
@@ -153,7 +157,7 @@ def input_files(
 
 def filter(
     node: Node,
-    artifacts_store: ArtifactsStore,
+    artifacts: dict[str, Artifacts],
 ) -> tuple[Artifacts, OutputFiles]:
     """
     Declare a filter on an `RDataFrame` object.
@@ -166,8 +170,8 @@ def filter(
     node : Node
         The `"filter"` operation node that is being processed.
 
-    artifacts_store : ArtifactsStore
-        The store for the artifacts.
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
 
     Returns
     -------
@@ -192,7 +196,7 @@ def filter(
     parent = _get_single_parent(node)
 
     # Get the data frame and define the filter on it
-    data_frame = artifacts_store.get(parent.hash).data_frame
+    data_frame = artifacts[parent.hash].data_frame
     data_frame = data_frame.Filter(node.data.expression, node.data.name)
 
     return Artifacts(data_frame=data_frame), OutputFiles()
@@ -200,7 +204,7 @@ def filter(
 
 def weight(
     node: Node,
-    artifacts_store: ArtifactsStore,
+    artifacts: dict[str, Artifacts],
 ) -> tuple[Artifacts, OutputFiles]:
     """
     Declare a weight on an `RDataFrame` object.
@@ -213,8 +217,8 @@ def weight(
     node : Node
         The `"weight"` operation node that is being processed.
 
-    artifacts_store : ArtifactsStore
-        The store for the artifacts.
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
 
     Returns
     -------
@@ -241,7 +245,7 @@ def weight(
 
     # Get the data frame and define the weight on it. A custom weight prefix
     # reduces the risk of collisions with existing column names.
-    data_frame = artifacts_store.get(parent.hash).data_frame
+    data_frame = artifacts[parent].data_frame
     data_frame = data_frame.Define(
         f"{WEIGHT_PREFIX}{node.data.name}",
         node.data.expression,
@@ -252,7 +256,7 @@ def weight(
 
 def weight_product(
     node: Node,
-    artifacts_store: ArtifactsStore,
+    artifacts: dict[str, Artifacts],
 ) -> tuple[Artifacts, OutputFiles]:
     """
     Produce a total weight column by multiplying all weights declared in the
@@ -266,8 +270,8 @@ def weight_product(
     node : Node
         The `"weight_product"` operation node that is being processed.
 
-    artifacts_store : ArtifactsStore
-        The store for the artifacts.
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
 
     Returns
     -------
@@ -292,7 +296,7 @@ def weight_product(
     parent = _get_single_parent(node)
 
     # Get the data frame from the parent
-    data_frame = artifacts_store.get(parent.hash).data_frame
+    data_frame = artifacts[parent.hash].data_frame
 
     # Get the weight columns to multiply and check that they are present in the
     # data frame
@@ -319,7 +323,8 @@ def weight_product(
 
 
 def histogram(
-    node: Node, artifacts_store: ArtifactsStore
+    node: Node,
+    artifacts: dict[str, Artifacts],
 ) -> tuple[Artifacts, OutputFiles]:
     """
     Declare a lazy `TH1D` histogram operation on the `RDataFrame`.
@@ -332,8 +337,8 @@ def histogram(
     node : Node
         The `"histogram"` operation node that is being processed.
 
-    artifacts_store : ArtifactsStore
-        The store for the artifacts.
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
 
     Returns
     -------
@@ -361,7 +366,7 @@ def histogram(
     parent = _get_single_parent(node)
 
     # Get the data frame from the parent
-    data_frame = artifacts_store.get(parent.hash).data_frame
+    data_frame = artifacts[parent.hash].data_frame
 
     # Define custom expression as column if provided
     column = node.data.variable
@@ -393,7 +398,7 @@ def histogram(
 
 def write_histograms(
     node: Node,
-    artifacts_store: ArtifactsStore,
+    artifacts: dict[str, Artifacts],
 ) -> tuple[Artifacts, OutputFiles]:
     """
     Materialize lazy `TH1D` histograms and write them to an output file.
@@ -403,8 +408,8 @@ def write_histograms(
     node : Node
         The `"write_histograms"` operation node that is being processed.
 
-    artifacts_store : ArtifactsStore
-        The store for the artifacts.
+    artifacts: dict[str, Artifacts]
+        The artifacts from parent nodes with the parent node hashes as keys.
 
     Returns
     -------
@@ -428,7 +433,7 @@ def write_histograms(
     lazy_hists = []
     for parent in node.parents:
         hists_data.append(parent.data)
-        lazy_hists.append(artifacts_store.get(parent.hash).lazy_hist)
+        lazy_hists.append(artifacts[parent.hash].lazy_hist)
 
     # Run the computations for all lazy histograms
     ROOT.RDF.RunGraphs(lazy_hists)
@@ -480,3 +485,39 @@ def write_histograms(
             hists_file=output_file,
         ),
     )
+
+
+# Dictionary mapping an operation name to its corresponding function
+_operations: dict[
+    str, Callable[[Node, dict[str, Artifacts]], tuple[Artifacts, OutputFiles]]
+] = {
+    "input_files": input_files,
+    "filter": filter,
+    "weight": weight,
+    "weight_product": weight_product,
+    "histogram": histogram,
+    "write_histograms": write_histograms,
+}
+
+
+def get_operation_fn(
+    node: Node,
+) -> Callable[[Node, dict[str, Artifacts]], tuple[Artifacts, OutputFiles]]:
+    """
+    Get the operation function for the given node;
+
+    Parameters
+    ----------
+    node: Node
+        The node for which the operation function is to be retrieved.
+
+    Returns
+    -------
+    Callable[Node, [Artifacts, OutputFiles]]
+
+    """
+    # Validate operation name
+    if node.operation not in _operations:
+        raise ValueError(f"Unknown operation: {node.operation}")
+
+    return _operations[node.operation]
