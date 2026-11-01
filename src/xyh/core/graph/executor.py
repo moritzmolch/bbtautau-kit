@@ -1,7 +1,19 @@
+import logging
+import multiprocessing
+from concurrent.futures import as_completed
+
+import ROOT
 from networkx import DiGraph, topological_sort
 
 from xyh.core.graph.artifacts import Artifacts, ArtifactsStore
 from xyh.core.graph.operations import get_operation_fn
+from xyh.core.parallel import (
+    _process_pool,
+)
+from xyh.core.specs.graph import _subgraph_label
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 def _prune_graph(graph: DiGraph) -> DiGraph:
@@ -47,7 +59,7 @@ def _prune_graph(graph: DiGraph) -> DiGraph:
     return graph.subgraph(required).copy()
 
 
-def _execute_graph(graph: DiGraph) -> list[Artifacts]:
+def _execute_graph(graph: DiGraph, num_threads: int = 1) -> list[Artifacts]:
     """
     Execute a single directed graph and store artifacts for each node.
 
@@ -55,7 +67,15 @@ def _execute_graph(graph: DiGraph) -> list[Artifacts]:
     ----------
     graph : DiGraph
         The directed graph to execute.
+
+    num_threads : int, optional
+        The number of threads to use for parallel `ROOT` processing. (default:
+        1)
     """
+
+    # Enable multi-threading in ROOT if num_threads > 1
+    if num_threads > 1:
+        ROOT.EnableImplicitMT(num_threads)
 
     # Artifacts of all output nodes of this graph
     artifacts_store = ArtifactsStore()
@@ -82,6 +102,8 @@ def _execute_graph(graph: DiGraph) -> list[Artifacts]:
 
 def execute(
     graphs: list[DiGraph],
+    num_workers: int = 1,
+    num_threads: int = 1,
 ) -> list[Artifacts]:
     """
     Execute the given list of disjoint processing graphs.
@@ -90,14 +112,53 @@ def execute(
     ----------
     graphs : list[DiGraph]
         List of disjoint processing graphs to execute.
+
+    num_workers : int, optional
+        The number of workers to use for parallel execution. (default: 1)
+
+    num_threads : int, optional
+        The number of threads to use for each worker. (default: 1)
     """
 
     # Prune graphs to remove output nodes, for which the outputs already exist
-    pruned_graphs = [_prune_graph(graph) for graph in graphs]
+    pruned_graphs = [
+        _prune_graph(graph) for graph in graphs if graph.number_of_nodes() > 0
+    ]
 
-    # Execute each graph and fetch artifacts
+    # Processing artifacts of all output nodes of all graphs
     artifacts = []
-    for graph in pruned_graphs:
-        artifacts.extend(_execute_graph(graph))
+
+    if num_workers == 1:
+        # For a single worker, execute graphs sequentially
+        for graph in pruned_graphs:
+            artifacts.extend(_execute_graph(graph))
+            label = _subgraph_label(graph)
+            logger.info(
+                f"Completed execution of subgraph {i + 1}/{len(pruned_graphs)}: {label}"
+            )
+
+    else:
+        # For multiple workers, set up a multiprocessing pool
+        with _process_pool(
+            max_workers=num_workers,
+            mp_context=multiprocessing.get_context("spawn"),
+        ) as pool:
+            # Submit all graphs to the pool for execution
+            futures = {
+                pool.submit(
+                    _execute_graph,
+                    graph,
+                    num_threads=num_threads,
+                ): graph
+                for graph in pruned_graphs
+            }
+
+            # Collect results as they complete
+            for i, future in enumerate(as_completed(futures)):
+                artifacts.extend(future.result())
+                label = _subgraph_label(futures[future])
+                logger.info(
+                    f"Completed execution of subgraph {i + 1}/{len(pruned_graphs)}: {label}"
+                )
 
     return artifacts
