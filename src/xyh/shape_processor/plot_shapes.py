@@ -23,12 +23,15 @@ def main(cfg: DictConfig):
 
     # Run graph processing and production of output files
     plot_shapes(
-        cfg["inventory"]["factory_fn"],
-        graph_specs,
-        Path(cfg["merged_histograms_dir"]),
-        Path(cfg["output_dir"]),
-        cfg["control_plots"]["extensions"],
-        num_workers=cfg.get("num_workers", 1),
+        inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
+        inventory_factory_kwargs=cfg["inventory"]["factory_fn_kwargs"],
+        campaigns=cfg["inventory"]["campaigns"],
+        channels=cfg["inventory"]["channels"],
+        categories=cfg["inventory"]["categories"],
+        variables=cfg["inventory"]["variables"],
+        merged_histograms_file=Path(cfg["merged_histograms_file"]),
+        output_dir=Path(cfg["output_dir"]),
+        extensions=cfg["control_plots"]["extensions"],
     )
 
 
