@@ -3,7 +3,10 @@ from itertools import product
 from pathlib import Path
 from typing import Any
 
-from xyh.core.config import gen_dataset_insts, gen_process_insts, load_inventory
+import ROOT
+
+from xyh.core.config import load_inventory
+from xyh.core.config.util import gen_dataset_insts, gen_process_insts
 from xyh.core.histograms.util import (
     add_histograms,
     filter_histograms,
@@ -50,7 +53,6 @@ def merge_histograms(
         # Get analysis config objects
         campaign_inst = inventory.campaign
         channel_inst = inventory.channel
-        process_set = inventory.process_set
 
         for category in (c for c in categories if channel_inst.has_category(c)):
             # Get the category instance for this channel and category
@@ -95,40 +97,40 @@ def merge_histograms(
                     )
                 )
 
-                for variation_class in ["nominal"] + default_variations:
-                    # Get information from the variation
-                    variation_name = "nominal"
-                    if not isinstance(variation_class, str):
-                        variation = variation_class(
-                            campaign_inst=campaign_inst,
-                            channel_inst=channel_inst,
-                            category_inst=category_inst,
-                            process_inst=process_inst,
-                        )
-                        variation_name = variation_class.name
+                for process_inst in gen_process_insts(inventory):
+                    # TODO Skip signals that are not relevant for classifier categories
+                    # if (
+                    #     category_inst.has_tag("clf")
+                    #     and process_inst.get_aux("is_signal", False)
+                    #     and not (
+                    #         process_inst.x.y_decay_mode
+                    #         == category_inst.x.y_decay_mode
+                    #         and process_inst.x.h_decay_mode
+                    #         == category_inst.x.h_decay_mode
+                    #         and process_inst.x.m_x == category_inst.x.m_x
+                    #         and process_inst.x.m_y == category_inst.x.m_y
+                    #     )
+                    # ):
+                    #     continue
+                    # else:
+                    #     if process_inst.get_aux("is_signal", False):
+                    #         continue
 
-                        # Check if this process is skipped
-                        if variation.skip():
-                            continue
+                    for variation_class in ["nominal"] + default_variations:
+                        # Get information from the variation
+                        variation_name = "nominal"
+                        if not isinstance(variation_class, str):
+                            variation = variation_class(
+                                campaign_inst=campaign_inst,
+                                channel_inst=channel_inst,
+                                category_inst=category_inst,
+                                process_inst=process_inst,
+                            )
+                            variation_name = variation_class.name
 
-                    for process_inst in gen_process_insts(inventory):
-                        # TODO Skip signals that are not relevant for classifier categories
-                        # if (
-                        #     category_inst.has_tag("clf")
-                        #     and process_inst.get_aux("is_signal", False)
-                        #     and not (
-                        #         process_inst.x.y_decay_mode
-                        #         == category_inst.x.y_decay_mode
-                        #         and process_inst.x.h_decay_mode
-                        #         == category_inst.x.h_decay_mode
-                        #         and process_inst.x.m_x == category_inst.x.m_x
-                        #         and process_inst.x.m_y == category_inst.x.m_y
-                        #     )
-                        # ):
-                        #     continue
-                        # else:
-                        #     if process_inst.get_aux("is_signal", False):
-                        #         continue
+                            # Check if this process is skipped
+                            if variation.skip():
+                                continue
 
                         # Declare variable for merged histogram
                         hist = None
@@ -145,7 +147,7 @@ def merge_histograms(
                                 process=process_inst.name,
                                 dataset=process_inst.name,
                                 variation=variation_name,
-                            )
+                            ).histogram
 
                         else:
                             # For usual processes, get histograms of all
@@ -186,7 +188,7 @@ def merge_histograms(
     # Put all histograms into a single output file
     parent_dir = output_file.parent
     if not parent_dir.exists():
-        parent_dir.parent.mkdir(parents=True)
+        parent_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Created directory {parent_dir}")
 
     # Dump the histogram to the output file
