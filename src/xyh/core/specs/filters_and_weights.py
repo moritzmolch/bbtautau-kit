@@ -40,8 +40,8 @@ def create_filters_and_weights_spec(
     )
 
     # Get the nominal filter and weight expression dictionaries
-    filters = [Filter(f.name, f.expression) for f in filters_class.nominal()]
-    weights = [Weight(w.name, w.expression) for w in weights_class.nominal()]
+    filters = filters_class.nominal()
+    weights = weights_class.nominal()
 
     # Create the selection and weight specs and append them to the
     # global list
@@ -69,8 +69,8 @@ def create_filters_and_weights_spec(
         FiltersAndWeights(
             **shared_kwargs,
             variation="nominal",
-            filters=[Filter(f.name, f.expression) for f in filters],
-            weights=[Weight(w.name, w.expression) for w in weights],
+            filters=[Filter(name=k, expression=v) for k, v in filters.items()],
+            weights=[Weight(name=k, expression=v) for k, v in weights.items()],
         )
     )
 
@@ -99,8 +99,14 @@ def create_filters_and_weights_spec(
             FiltersAndWeights(
                 **shared_kwargs,
                 variation=variation.name,
-                filters=[Filter(f.name, f.expression) for f in varied_filters],
-                weights=[Weight(w.name, w.expression) for w in varied_weights],
+                filters=[
+                    Filter(name=k, expression=v)
+                    for k, v in varied_filters.items()
+                ],
+                weights=[
+                    Weight(name=k, expression=v)
+                    for k, v in varied_weights.items()
+                ],
             )
         )
 
@@ -175,9 +181,9 @@ def create_filters_and_weights_specs(
                 )
             filters_and_weights_specs.extend(filters_and_weights_specs_category)
 
-        logger.info(
-            f"Added {len(filters_and_weights_specs_category)} filters and "
-            + "weights specs"
-        )
+            logger.info(
+                f"Added {len(filters_and_weights_specs_category)} filters and "
+                + "weights specs"
+            )
 
     return filters_and_weights_specs
