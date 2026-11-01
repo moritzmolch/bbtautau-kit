@@ -10,10 +10,40 @@ from xyh.core.graph.operations import get_operation_fn
 from xyh.core.parallel import (
     _process_pool,
 )
-from xyh.core.specs.graph import _subgraph_label
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+
+def _subgraph_label(graph: DiGraph) -> str:
+    """
+    Return a human-readable label for a subgraph.
+
+    The label is built from the campaign, channel, and dataset of the
+    `input_files` nodes of the subgraph.
+
+    Parameters
+    ----------
+    graph : DiGraph
+        The subgraph to label.
+
+    Returns
+    -------
+    str
+        The label of the subgraph.
+    """
+
+    labels = sorted(
+        {
+            f"campaign='{n.data.campaign}', channel='{n.data.channel}', "
+            f"dataset='{n.data.dataset}'"
+            for n in (d["node"] for _, d in graph.nodes(data=True))
+            if n.operation == "input_files"
+        }
+    )
+    if not labels:
+        return "subgraph without input files"
+    return "; ".join(labels)
 
 
 def _prune_graph(graph: DiGraph) -> DiGraph:
