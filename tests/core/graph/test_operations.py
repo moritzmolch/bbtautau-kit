@@ -8,7 +8,7 @@ import pytest
 from xyh.core.graph import operations
 from xyh.core.graph.artifacts import Artifacts
 from xyh.core.graph.node import Node, Output
-from xyh.core.specs.specs import HistogramsOutput
+from xyh.core.specs.specs import HistogramsOutput, Snapshot, Spec
 
 
 @pytest.fixture
@@ -143,6 +143,20 @@ class TestWeight:
         df.Define.assert_called_once_with("__weight_sf", "a * b")
         assert arts.data_frame is df.Define.return_value
 
+    def test_weight_declares_helper_functions_of_expression(
+        self, artifacts, make_dataset, make_weight, monkeypatch
+    ):
+        ensure_declared = MagicMock()
+        monkeypatch.setattr(operations, "ensure_declared", ensure_declared)
+        parent = _with_parent(artifacts, make_dataset, MagicMock())
+        node = Node(
+            operation="weight",
+            data=make_weight(expression="sf(a)"),
+            parents=(parent,),
+        )
+        operations.weight(node, artifacts)
+        ensure_declared.assert_called_once_with("sf(a)")
+
     def test_weight_without_parent_raises(self, artifacts, make_weight):
         node = Node(operation="weight", data=make_weight())
         with pytest.raises(ValueError, match="exactly one parent"):
@@ -276,6 +290,24 @@ class TestHistogram:
         assert defined.Histo1D.call_args.args[1] == "__private__pt"
         assert arts.data_frame is df.Define.return_value
 
+    def test_histogram_expression_equal_to_variable_defines_no_column(
+        self, artifacts, make_dataset, make_histogram
+    ):
+        spec = make_histogram(expression="pt")
+        node, df = self._node(artifacts, make_dataset, spec)
+        operations.histogram(node, artifacts)
+        df.Define.assert_not_called()
+        assert df.Histo1D.call_args.args[1] == "pt"
+
+    def test_histogram_integer_bin_edges_are_converted_to_float(
+        self, artifacts, make_dataset, make_histogram
+    ):
+        spec = make_histogram(bin_edges=[0, 1, 2])
+        node, df = self._node(artifacts, make_dataset, spec)
+        operations.histogram(node, artifacts)
+        edges = df.Histo1D.call_args.args[0][3]
+        assert edges.dtype == np.float64
+
     def test_histogram_without_parent_raises(self, artifacts, make_histogram):
         node = Node(operation="histogram", data=make_histogram())
         with pytest.raises(ValueError, match="exactly one parent"):
@@ -292,6 +324,10 @@ class TestGetOperationFn:
             "weight_product",
             "histogram",
             "write_histograms",
+            "snapshot",
+            "write_snapshots",
+            "binning",
+            "write_binning",
         ],
     )
     def test_get_operation_fn_known_operation_returns_function(self, name):
@@ -374,7 +410,7 @@ class TestWriteHistograms:
         node, *_ = setup
         operations.write_histograms(node, artifacts)
         root_file = root.TFile.Open.return_value
-        root_file.GetDirectory.assert_called_with("c/ch/cat/ds/p")
+        root_file.GetDirectory.assert_called_with("c/ch/cat/p/ds")
 
     def test_write_histograms_sets_name_and_title_from_variable_variation(
         self, root, artifacts, setup
@@ -406,3 +442,273 @@ class TestWriteHistograms:
         node, *_ = setup
         operations.write_histograms(node, artifacts)
         root.TFile.Open.return_value.Close.assert_called_once_with()
+
+
+@pytest.fixture
+def root_mock(monkeypatch):
+    mock_root = MagicMock()
+    monkeypatch.setattr(
+        "xyh.core.graph.operations.ROOT", mock_root, raising=False
+    )
+    return mock_root
+
+
+class TestSnapshot:
+    @staticmethod
+    def _node(artifacts, make_dataset, tmp_path, columns=None, df=None):
+        df = MagicMock() if df is None else df
+        parent = _with_parent(artifacts, make_dataset, df)
+        out = tmp_path / "sub" / "dir" / "snap.root"
+        node = Node(
+            operation="snapshot",
+            data=Snapshot(
+                campaign="c",
+                channel="ch",
+                category="cat",
+                dataset="ds",
+                process="p",
+                variation="nominal",
+                columns=columns,
+            ),
+            parents=(parent,),
+            outputs={"snapshot_file": Output(path=str(out))},
+        )
+        return node, df, out
+
+    def test_snapshot_creates_output_directory(
+        self, root_mock, artifacts, make_dataset, tmp_path
+    ):
+        node, df, out = self._node(artifacts, make_dataset, tmp_path)
+        df.GetColumnNames.return_value = ["a"]
+        operations.snapshot(node, artifacts)
+        assert out.parent.is_dir()
+
+    def test_snapshot_is_lazy_and_writes_ntuple_tree(
+        self, root_mock, artifacts, make_dataset, tmp_path
+    ):
+        node, df, out = self._node(artifacts, make_dataset, tmp_path)
+        df.GetColumnNames.return_value = ["a", "b"]
+        arts = operations.snapshot(node, artifacts)
+        options = root_mock.RDF.RSnapshotOptions.return_value
+        assert options.fLazy is True
+        df.Snapshot.assert_called_once_with(
+            "ntuple", str(out), ["a", "b"], options
+        )
+        assert arts.lazy_snapshot is df.Snapshot.return_value
+        assert arts.data_frame is df
+
+    def test_snapshot_columns_none_keeps_all_columns(
+        self, root_mock, artifacts, make_dataset, tmp_path
+    ):
+        node, df, _ = self._node(artifacts, make_dataset, tmp_path)
+        df.GetColumnNames.return_value = ["a", "b", "c"]
+        operations.snapshot(node, artifacts)
+        assert df.Snapshot.call_args.args[2] == ["a", "b", "c"]
+
+    def test_snapshot_columns_patterns_select_matching_columns(
+        self, root_mock, artifacts, make_dataset, tmp_path
+    ):
+        node, df, _ = self._node(
+            artifacts, make_dataset, tmp_path, columns=["pt_*", "eta"]
+        )
+        df.GetColumnNames.return_value = ["pt_1", "pt_2", "eta", "phi"]
+        operations.snapshot(node, artifacts)
+        assert df.Snapshot.call_args.args[2] == ["pt_1", "pt_2", "eta"]
+
+    def test_snapshot_channel_restricted_column_skipped_in_other_channel(
+        self, root_mock, artifacts, make_dataset, tmp_path
+    ):
+        node, df, _ = self._node(
+            artifacts,
+            make_dataset,
+            tmp_path,
+            columns=["a", "b[tt]", "c[ch,mt]"],
+        )
+        df.GetColumnNames.return_value = ["a", "b", "c"]
+        operations.snapshot(node, artifacts)
+        assert df.Snapshot.call_args.args[2] == ["a", "c"]
+
+    def test_snapshot_friend_prefix_is_stripped(
+        self, root_mock, artifacts, make_dataset, tmp_path
+    ):
+        node, df, _ = self._node(artifacts, make_dataset, tmp_path)
+        df.GetColumnNames.return_value = ["a", "friend.x"]
+        operations.snapshot(node, artifacts)
+        assert df.Snapshot.call_args.args[2] == ["a", "x"]
+
+    def test_snapshot_friend_prefix_kept_on_name_clash(
+        self, root_mock, artifacts, make_dataset, tmp_path
+    ):
+        node, df, _ = self._node(artifacts, make_dataset, tmp_path)
+        df.GetColumnNames.return_value = ["x", "friend.x"]
+        operations.snapshot(node, artifacts)
+        assert df.Snapshot.call_args.args[2] == ["x", "friend.x"]
+
+    def test_snapshot_unavailable_columns_are_dropped_with_warning(
+        self, root_mock, artifacts, make_dataset, tmp_path, caplog
+    ):
+        node, df, _ = self._node(artifacts, make_dataset, tmp_path)
+        df.GetColumnNames.return_value = ["a", "b"]
+        df.HasColumn.side_effect = lambda c: c != "b"
+        with caplog.at_level(logging.WARNING, logger=operations.__name__):
+            operations.snapshot(node, artifacts)
+        assert df.Snapshot.call_args.args[2] == ["a"]
+        assert "Ignoring column b" in caplog.text
+
+    def test_snapshot_without_parent_raises(self, artifacts, tmp_path):
+        node = Node(
+            operation="snapshot",
+            data=Snapshot(
+                campaign="c",
+                channel="ch",
+                category="cat",
+                dataset="ds",
+                process="p",
+                variation="nominal",
+            ),
+            outputs={"snapshot_file": Output(path=str(tmp_path / "s.root"))},
+        )
+        with pytest.raises(ValueError, match="exactly one parent"):
+            operations.snapshot(node, artifacts)
+
+
+class TestWriteSnapshots:
+    def test_write_snapshots_runs_all_lazy_snapshots_once(
+        self, root_mock, artifacts, make_dataset
+    ):
+        parents = []
+        lazies = []
+        for name in ("a", "b"):
+            parent = Node(operation="input_files", data=make_dataset(name))
+            lazy = MagicMock(name=f"lazy_{name}")
+            artifacts[parent.hash] = Artifacts(lazy_snapshot=lazy)
+            parents.append(parent)
+            lazies.append(lazy)
+        node = Node(
+            operation="write_snapshots", data=Spec(), parents=tuple(parents)
+        )
+        result = operations.write_snapshots(node, artifacts)
+        root_mock.RDF.RunGraphs.assert_called_once_with(lazies)
+        assert result == {}
+
+
+class TestBinning:
+    @staticmethod
+    def _node(artifacts, make_dataset, spec):
+        df = MagicMock()
+        parent = _with_parent(artifacts, make_dataset, df)
+        return Node(operation="binning", data=spec, parents=(parent,)), df
+
+    def test_binning_defines_double_column_from_variable(
+        self, artifacts, make_dataset, make_histogram
+    ):
+        node, df = self._node(artifacts, make_dataset, make_histogram())
+        operations.binning(node, artifacts)
+        df.Define.assert_called_once_with(
+            "__binning_pt", "static_cast<double>(pt)"
+        )
+
+    def test_binning_uses_expression_when_given(
+        self, artifacts, make_dataset, make_histogram
+    ):
+        spec = make_histogram(expression="a + b")
+        node, df = self._node(artifacts, make_dataset, spec)
+        operations.binning(node, artifacts)
+        df.Define.assert_called_once_with(
+            "__binning_pt", "static_cast<double>(a + b)"
+        )
+
+    def test_binning_takes_lazy_values_of_defined_column(
+        self, artifacts, make_dataset, make_histogram
+    ):
+        node, df = self._node(artifacts, make_dataset, make_histogram())
+        arts = operations.binning(node, artifacts)
+        defined = df.Define.return_value
+        defined.Take.__getitem__.assert_called_once_with("double")
+        defined.Take.__getitem__.return_value.assert_called_once_with(
+            "__binning_pt"
+        )
+        assert arts.lazy_values is (
+            defined.Take.__getitem__.return_value.return_value
+        )
+        assert arts.data_frame is defined
+
+    def test_binning_declares_helpers_of_expression(
+        self, artifacts, make_dataset, make_histogram, monkeypatch
+    ):
+        ensure_declared = MagicMock()
+        monkeypatch.setattr(operations, "ensure_declared", ensure_declared)
+        node, _ = self._node(
+            artifacts, make_dataset, make_histogram(expression="f(a)")
+        )
+        operations.binning(node, artifacts)
+        ensure_declared.assert_called_once_with("f(a)")
+
+    def test_binning_without_parent_raises(self, artifacts, make_histogram):
+        node = Node(operation="binning", data=make_histogram())
+        with pytest.raises(ValueError, match="exactly one parent"):
+            operations.binning(node, artifacts)
+
+
+class TestWriteBinning:
+    @pytest.fixture
+    def setup(self, root_mock, artifacts, make_dataset, tmp_path):
+        parents = []
+        outputs = {}
+        for name, values in (("a", [1, 2, 3]), ("b", [])):
+            parent = Node(operation="input_files", data=make_dataset(name))
+            lazy = MagicMock(name=f"lazy_{name}")
+            lazy.GetValue.return_value = values
+            artifacts[parent.hash] = Artifacts(lazy_values=lazy)
+            parents.append(parent)
+            outputs[parent.hash] = Output(
+                path=str(tmp_path / "deep" / name / f"{name}.npz")
+            )
+        node = Node(
+            operation="write_binning",
+            data=Spec(),
+            parents=tuple(parents),
+            outputs=outputs,
+        )
+        return node, parents, outputs
+
+    def test_write_binning_runs_all_lazy_values_once(
+        self, root_mock, artifacts, setup
+    ):
+        node, parents, _ = setup
+        operations.write_binning(node, artifacts)
+        root_mock.RDF.RunGraphs.assert_called_once_with(
+            [artifacts[p.hash].lazy_values for p in parents]
+        )
+
+    def test_write_binning_writes_values_to_output_of_each_parent(
+        self, root_mock, artifacts, setup
+    ):
+        node, parents, outputs = setup
+        result = operations.write_binning(node, artifacts)
+        assert result == {}
+        with np.load(outputs[parents[0].hash].path) as f:
+            np.testing.assert_array_equal(f["values"], [1.0, 2.0, 3.0])
+            assert f["values"].dtype == np.float64
+        with np.load(outputs[parents[1].hash].path) as f:
+            assert f["values"].shape == (0,)
+
+    def test_write_binning_creates_missing_directories(
+        self, root_mock, artifacts, setup
+    ):
+        node, _, outputs = setup
+        operations.write_binning(node, artifacts)
+        assert all(os.path.isfile(o.path) for o in outputs.values())
+
+    def test_write_binning_missing_output_for_parent_raises(
+        self, root_mock, artifacts, setup
+    ):
+        node, parents, outputs = setup
+        node = Node(
+            operation="write_binning",
+            data=Spec(),
+            parents=node.parents,
+            outputs={parents[0].hash: outputs[parents[0].hash]},
+        )
+        with pytest.raises(KeyError):
+            operations.write_binning(node, artifacts)

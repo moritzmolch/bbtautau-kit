@@ -34,9 +34,10 @@ def storage(make_dataset, make_filter, make_weight, make_histogram):
         make_weight(name="w1"),
         make_weight(name="w2"),
     ]
-    s.get_histogram_specs.side_effect = lambda ctx, var: make_histogram(
-        variable=var
+    s.get_histogram_spec.side_effect = lambda ctx, var: make_histogram(
+        variable=var, dataset=ctx.dataset, process=ctx.process
     )
+    s.get_variables.return_value = ["pt", "eta"]
     return s
 
 
@@ -115,7 +116,11 @@ class TestHistograms:
             context, storage, ["pt", "eta", "mass"]
         )
         assert [n.operation for n in leaves] == ["histogram"] * 3
-        assert [n.data.variable for n in leaves] == ["pt", "eta", "mass"]
+        assert [n.data.binning.variable for n in leaves] == [
+            "pt",
+            "eta",
+            "mass",
+        ]
         parent = leaves[0].parents[0]
         assert parent.operation == "weight_product"
         assert all(n.parents == (parent,) for n in leaves)
@@ -125,8 +130,21 @@ class TestHistograms:
         builder._build_context_nodes_for_histograms(
             context, storage, ["pt", "eta"]
         )
-        calls = [c.args for c in storage.get_histogram_specs.call_args_list]
+        calls = [c.args for c in storage.get_histogram_spec.call_args_list]
         assert calls == [(context, "pt"), (context, "eta")]
+
+    def test_variables_none_uses_variables_of_context(self, context, storage):
+        leaves = builder._build_context_nodes_for_histograms(
+            context, storage, None
+        )
+        storage.get_variables.assert_called_once_with(context)
+        assert [n.data.binning.variable for n in leaves] == ["pt", "eta"]
+
+    def test_explicit_variables_do_not_query_context_variables(
+        self, context, storage
+    ):
+        builder._build_context_nodes_for_histograms(context, storage, ["pt"])
+        storage.get_variables.assert_not_called()
 
     def test_no_variables_returns_empty_list(self, context, storage):
         assert (
@@ -382,3 +400,209 @@ class TestBuildHistogramsGraph:
         )
         hashes = {self._write_nodes(g)[0].data.subgraph_hash for g in graphs}
         assert len(hashes) == 2
+
+
+class TestBuildSnapshotsGraph:
+    @pytest.fixture
+    def contexts(self, context):
+        return [
+            context,
+            Context(
+                campaign="c",
+                channel="ch",
+                category="cat",
+                dataset="ds2",
+                process="p",
+                variation="nominal",
+            ),
+        ]
+
+    @pytest.fixture
+    def storage_two_datasets(self, storage, make_dataset):
+        storage.get_dataset_spec.side_effect = lambda ctx: make_dataset(
+            dataset=ctx.dataset, files={"main": [f"{ctx.dataset}.root"]}
+        )
+        return storage
+
+    @staticmethod
+    def _nodes(graph, operation):
+        return [
+            d["node"]
+            for _, d in graph.nodes(data=True)
+            if d["node"].operation == operation
+        ]
+
+    def test_empty_contexts_returns_empty_list(self, storage, tmp_path):
+        assert builder.build_snapshots_graph([], None, storage, tmp_path) == []
+
+    def test_one_disjoint_graph_per_dataset(
+        self, contexts, storage_two_datasets, tmp_path
+    ):
+        graphs = builder.build_snapshots_graph(
+            contexts, None, storage_two_datasets, tmp_path
+        )
+        assert len(graphs) == 2
+        assert not set(graphs[0].nodes) & set(graphs[1].nodes)
+        assert all(nx.is_directed_acyclic_graph(g) for g in graphs)
+
+    def test_snapshot_node_carries_context_and_columns(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_snapshots_graph(
+            [context], ["pt", "eta*"], storage, tmp_path
+        )
+        (snap,) = self._nodes(graph, "snapshot")
+        assert snap.parents[0].operation == "weight_product"
+        assert (
+            snap.data.campaign,
+            snap.data.channel,
+            snap.data.category,
+            snap.data.dataset,
+            snap.data.process,
+            snap.data.variation,
+        ) == ("c", "ch", "cat", "ds", "p", "nominal")
+        assert snap.data.columns == ["pt", "eta*"]
+
+    def test_columns_none_is_passed_to_snapshot_spec(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_snapshots_graph(
+            [context], None, storage, tmp_path
+        )
+        (snap,) = self._nodes(graph, "snapshot")
+        assert snap.data.columns is None
+
+    def test_snapshot_output_path_layout(self, context, storage, tmp_path):
+        (graph,) = builder.build_snapshots_graph(
+            [context], None, storage, tmp_path
+        )
+        (snap,) = self._nodes(graph, "snapshot")
+        assert snap.outputs["snapshot_file"].path == os.path.join(
+            str(tmp_path), "c", "ch__cat", "p__ds__nominal.root"
+        )
+
+    def test_write_node_is_single_sink_with_outputs_keyed_by_leaf_hash(
+        self, contexts, storage, tmp_path
+    ):
+        # Both contexts share the same dataset -> a single connected graph
+        # with two snapshot leaves
+        contexts[1] = Context(
+            campaign="c",
+            channel="ch",
+            category="cat",
+            dataset="ds",
+            process="p2",
+            variation="nominal",
+        )
+        (graph,) = builder.build_snapshots_graph(
+            contexts, None, storage, tmp_path
+        )
+        (writer,) = self._nodes(graph, "write_snapshots")
+        snaps = self._nodes(graph, "snapshot")
+        assert len(snaps) == 2
+        assert {p.hash for p in writer.parents} == {s.hash for s in snaps}
+        assert set(writer.outputs) == {s.hash for s in snaps}
+        for s in snaps:
+            assert writer.outputs[s.hash] is s.outputs["snapshot_file"]
+        assert [n for n in graph if graph.out_degree(n) == 0] == [writer.hash]
+
+
+class TestBuildBinningGraph:
+    @staticmethod
+    def _nodes(graph, operation):
+        return [
+            d["node"]
+            for _, d in graph.nodes(data=True)
+            if d["node"].operation == operation
+        ]
+
+    def test_empty_contexts_returns_empty_list(self, storage, tmp_path):
+        assert builder.build_binning_graph([], storage, tmp_path) == []
+
+    def test_one_binning_leaf_per_variable_with_binning_file_output(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_binning_graph(
+            [context], storage, tmp_path, variables=["pt", "eta"]
+        )
+        leaves = self._nodes(graph, "binning")
+        assert sorted(n.data.binning.variable for n in leaves) == [
+            "eta",
+            "pt",
+        ]
+        for leaf in leaves:
+            assert leaf.parents[0].operation == "weight_product"
+            assert leaf.outputs["binning_file"].path == os.path.join(
+                str(tmp_path),
+                "c",
+                "ch__cat",
+                leaf.data.binning.variable,
+                "ds.npz",
+            )
+
+    def test_variables_none_uses_variables_of_context(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_binning_graph([context], storage, tmp_path)
+        storage.get_variables.assert_called_once_with(context)
+        leaves = self._nodes(graph, "binning")
+        assert sorted(n.data.binning.variable for n in leaves) == [
+            "eta",
+            "pt",
+        ]
+
+    def test_explicit_variables_do_not_query_context_variables(
+        self, context, storage, tmp_path
+    ):
+        builder.build_binning_graph(
+            [context], storage, tmp_path, variables=["pt"]
+        )
+        storage.get_variables.assert_not_called()
+
+    def test_write_node_outputs_keyed_by_leaf_hash(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_binning_graph([context], storage, tmp_path)
+        (writer,) = self._nodes(graph, "write_binning")
+        leaves = self._nodes(graph, "binning")
+        assert {p.hash for p in writer.parents} == {n.hash for n in leaves}
+        assert set(writer.outputs) == {n.hash for n in leaves}
+        for leaf in leaves:
+            assert writer.outputs[leaf.hash] is leaf.outputs["binning_file"]
+        assert [n for n in graph if graph.out_degree(n) == 0] == [writer.hash]
+
+    def test_different_datasets_give_disjoint_graphs(
+        self, context, storage, make_dataset, tmp_path
+    ):
+        storage.get_dataset_spec.side_effect = lambda ctx: make_dataset(
+            dataset=ctx.dataset, files={"main": [f"{ctx.dataset}.root"]}
+        )
+        other = Context(
+            campaign="c",
+            channel="ch",
+            category="cat",
+            dataset="ds2",
+            process="p",
+            variation="nominal",
+        )
+        graphs = builder.build_binning_graph(
+            [context, other], storage, tmp_path, variables=["pt"]
+        )
+        assert len(graphs) == 2
+        assert not set(graphs[0].nodes) & set(graphs[1].nodes)
+
+
+class TestBuildHistogramsGraphVariables:
+    def test_variables_none_uses_per_context_variables(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_histograms_graph(
+            [context], None, storage, tmp_path
+        )
+        storage.get_variables.assert_called_once_with(context)
+        variables = sorted(
+            d["node"].data.binning.variable
+            for _, d in graph.nodes(data=True)
+            if d["node"].operation == "histogram"
+        )
+        assert variables == ["eta", "pt"]

@@ -1,6 +1,6 @@
 import pytest
 
-from xyh.core.specs.specs import Dataset, Filter, Histogram, Weight
+from xyh.core.specs.specs import Binning, Dataset, Filter, Histogram, Weight
 
 
 @pytest.fixture
@@ -33,18 +33,37 @@ def make_weight():
 
 
 @pytest.fixture
-def make_histogram():
+def make_binning():
     def _make(variable="pt", expression=None, bin_edges=(0.0, 1.0, 3.0)):
-        return Histogram(
+        return Binning(
             campaign="c",
             channel="ch",
             category="cat",
-            dataset="ds",
-            process="p",
-            variation="nominal",
             variable=variable,
             expression=expression,
             bin_edges=list(bin_edges),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_histogram(make_binning):
+    def _make(
+        variable="pt",
+        expression=None,
+        bin_edges=(0.0, 1.0, 3.0),
+        dataset="ds",
+        process="p",
+        variation="nominal",
+    ):
+        return Histogram(
+            binning=make_binning(
+                variable=variable, expression=expression, bin_edges=bin_edges
+            ),
+            dataset=dataset,
+            process=process,
+            variation=variation,
         )
 
     return _make
