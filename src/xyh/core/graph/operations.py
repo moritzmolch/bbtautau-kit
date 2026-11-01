@@ -1,4 +1,5 @@
 import logging
+import os
 from time import time
 
 import numpy as np
@@ -413,7 +414,7 @@ def write_histograms(
     for parent in node.parents:
         data_frames.append(artifacts_store.get(parent.hash).data_frame)
         lazy_hists.append(
-            (node.data, artifacts_store.get(parent.hash).lazy_hist)
+            (parent.data, artifacts_store.get(parent.hash).lazy_hist)
         )
 
     # Run the computational graphs on all input data frames
