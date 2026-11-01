@@ -44,8 +44,8 @@ def _histogram_key(data: Histogram) -> str:
             data.binning.campaign,
             data.binning.channel,
             data.binning.category,
-            data.dataset,
             data.process,
+            data.dataset,
             f"{data.binning.variable}__{data.variation}",
         ]
     )
@@ -181,9 +181,7 @@ def histogram_keys(graphs: list[DiGraph], output_dir: Path) -> dict:
             if node.operation != "write_histograms":
                 continue
             files[
-                os.path.relpath(
-                    node.outputs["hists_file"].path, output_dir
-                )
+                os.path.relpath(node.outputs["hists_file"].path, output_dir)
             ] = sorted(_histogram_key(p.data) for p in node.parents)
 
     return {"output_dir": str(output_dir), "files": dict(sorted(files.items()))}
