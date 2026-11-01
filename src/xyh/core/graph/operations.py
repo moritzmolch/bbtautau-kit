@@ -83,7 +83,7 @@ class OutputFiles(dict):
 def input_files(
     node: Node,
     artifacts: dict[str, Artifacts],
-) -> tuple[Artifacts, OutputFiles]:
+) -> Artifacts:
     """
     Load input files into an `RDataFrame`.
 
@@ -101,8 +101,9 @@ def input_files(
 
     Returns
     -------
-    tuple[Artifacts, OutputFiles]
-        A tuple containing the artifacts and output files.
+    Artifacts
+        The artifacts containing the loaded `RDataFrame` and associated
+        `ROOT.TChain` objects.
     """
 
     # Log current node's context and start time profiling
@@ -152,13 +153,13 @@ def input_files(
         data_frame=data_frame,
         main_chain=main_chain,
         friend_chains=chains,
-    ), OutputFiles()
+    )
 
 
 def filter(
     node: Node,
     artifacts: dict[str, Artifacts],
-) -> tuple[Artifacts, OutputFiles]:
+) -> Artifacts:
     """
     Declare a filter on an `RDataFrame` object.
 
@@ -175,8 +176,8 @@ def filter(
 
     Returns
     -------
-    tuple[Artifacts, OutputFiles]
-        A tuple containing the artifacts and output files.
+    Artifacts
+        The artifacts containing the modified `RDataFrame`.
     """
 
     # Log context of the node
@@ -199,13 +200,13 @@ def filter(
     data_frame = artifacts[parent.hash].data_frame
     data_frame = data_frame.Filter(node.data.expression, node.data.name)
 
-    return Artifacts(data_frame=data_frame), OutputFiles()
+    return Artifacts(data_frame=data_frame)
 
 
 def weight(
     node: Node,
     artifacts: dict[str, Artifacts],
-) -> tuple[Artifacts, OutputFiles]:
+) -> Artifacts:
     """
     Declare a weight on an `RDataFrame` object.
 
@@ -222,8 +223,8 @@ def weight(
 
     Returns
     -------
-    tuple[Artifacts, OutputFiles]
-        A tuple containing the artifacts and output files.
+    Artifacts
+        The artifacts containing the modified `RDataFrame`.
     """
 
     # Log context of the node
@@ -251,13 +252,13 @@ def weight(
         node.data.expression,
     )
 
-    return Artifacts(data_frame=data_frame), OutputFiles()
+    return Artifacts(data_frame=data_frame)
 
 
 def weight_product(
     node: Node,
     artifacts: dict[str, Artifacts],
-) -> tuple[Artifacts, OutputFiles]:
+) -> Artifacts:
     """
     Produce a total weight column by multiplying all weights declared in the
     node data.
@@ -275,8 +276,8 @@ def weight_product(
 
     Returns
     -------
-    tuple[Artifacts, OutputFiles]
-        A tuple containing the artifacts and output files.
+    Artifacts
+        The artifacts containing the modified `RDataFrame`.
     """
 
     # Log context of the node
@@ -319,13 +320,13 @@ def weight_product(
         logger.debug("No weight columns found, setting total weight to 1")
     data_frame = data_frame.Define(TOTAL_WEIGHT_NAME, weight_expression)
 
-    return Artifacts(data_frame=data_frame), OutputFiles()
+    return Artifacts(data_frame=data_frame)
 
 
 def histogram(
     node: Node,
     artifacts: dict[str, Artifacts],
-) -> tuple[Artifacts, OutputFiles]:
+) -> Artifacts:
     """
     Declare a lazy `TH1D` histogram operation on the `RDataFrame`.
 
@@ -342,8 +343,8 @@ def histogram(
 
     Returns
     -------
-    tuple[Artifacts, OutputFiles]
-        A tuple containing the artifacts and output files.
+    Artifacts
+        The artifacts containing the `RDataFrame` and the lazy histogram.
     """
     # Log context of this node
     logger.debug(
@@ -393,13 +394,13 @@ def histogram(
     return Artifacts(
         data_frame=data_frame,
         lazy_hist=lazy_hist,
-    ), OutputFiles()
+    )
 
 
 def write_histograms(
     node: Node,
     artifacts: dict[str, Artifacts],
-) -> tuple[Artifacts, OutputFiles]:
+) -> Artifacts:
     """
     Materialize lazy `TH1D` histograms and write them to an output file.
 
@@ -413,8 +414,8 @@ def write_histograms(
 
     Returns
     -------
-    tuple[Artifacts, OutputFiles]
-        A tuple containing the artifacts and output files.
+    Artifacts
+        The artifacts containing the evaluated histograms.
     """
 
     # Log context of this node
@@ -477,20 +478,11 @@ def write_histograms(
     # Safely close the output file
     root_file.Close()
 
-    return (
-        Artifacts(
-            hists=hists,
-        ),
-        OutputFiles(
-            hists_file=output_file,
-        ),
-    )
+    return Artifacts(hists=hists)
 
 
 # Dictionary mapping an operation name to its corresponding function
-_operations: dict[
-    str, Callable[[Node, dict[str, Artifacts]], tuple[Artifacts, OutputFiles]]
-] = {
+_operations: dict[str, Callable[[Node, dict[str, Artifacts]], Artifacts]] = {
     "input_files": input_files,
     "filter": filter,
     "weight": weight,
@@ -502,7 +494,7 @@ _operations: dict[
 
 def get_operation_fn(
     node: Node,
-) -> Callable[[Node, dict[str, Artifacts]], tuple[Artifacts, OutputFiles]]:
+) -> Callable[[Node, dict[str, Artifacts]], Artifacts]:
     """
     Get the operation function for the given node;
 
@@ -513,7 +505,7 @@ def get_operation_fn(
 
     Returns
     -------
-    Callable[Node, [Artifacts, OutputFiles]]
+    Callable[[Node, Artifacts], Artifacts]
 
     """
     # Validate operation name
