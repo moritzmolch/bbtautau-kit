@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from dataclasses import asdict, dataclass, field
 from functools import cached_property
 
@@ -13,6 +14,44 @@ _operations = {
     "histogram",
     "write_histograms",
 }
+
+
+@dataclass(frozen=True, eq=False, kw_only=True)
+class Output:
+    path: str
+
+    def exists(self) -> bool:
+        """
+        Check if the output file exists.
+
+        Returns
+        -------
+        bool
+            True if the output file exists, False otherwise.
+        """
+        return os.path.exists(self.path)
+
+    def isfile(self) -> bool:
+        """
+        Check if the output path is a file.
+
+        Returns
+        -------
+        bool
+            True if the output path is a file, False otherwise.
+        """
+        return os.path.isfile(self.path)
+
+    def isdir(self) -> bool:
+        """
+        Check if the output path is a directory.
+
+        Returns
+        -------
+        bool
+            True if the output path is a directory, False otherwise.
+        """
+        return os.path.isdir(self.path)
 
 
 @dataclass(frozen=True, eq=False, kw_only=True)
@@ -41,6 +80,7 @@ class Node:
     operation: str
     data: Spec
     parents: tuple["Node", ...] = field(default_factory=tuple)
+    outputs: dict[str, Output] = field(default_factory=dict)
 
     def __post_init__(self):
         # Validate that the operation is one of the allowed operations
@@ -67,6 +107,7 @@ class Node:
                     "operation": self.operation,
                     "data": asdict(self.data),
                     "parents": [p.hash for p in self.parents],
+                    "outputs": {k: asdict(v) for k, v in self.outputs.items()},
                 },
                 sort_keys=True,
                 default=str,
