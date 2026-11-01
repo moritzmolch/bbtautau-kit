@@ -321,14 +321,14 @@ def histogram(
         "\n".join(
             [
                 "Declare histogram",
-                f"    campaign:   {node.data.campaign}",
-                f"    channel:    {node.data.channel}",
-                f"    category:   {node.data.category}",
+                f"    campaign:   {node.data.binning.campaign}",
+                f"    channel:    {node.data.binning.channel}",
+                f"    category:   {node.data.binning.category}",
                 f"    dataset:    {node.data.dataset}",
                 f"    process:    {node.data.process}",
                 f"    variation:  {node.data.variation}",
-                f"    variable:   {node.data.variable}",
-                f"    expression: {node.data.expression}",
+                f"    variable:   {node.data.binning.variable}",
+                f"    expression: {node.data.binning.expression}",
             ]
         )
     )
@@ -340,22 +340,22 @@ def histogram(
     data_frame = artifacts[parent.hash].data_frame
 
     # Define custom expression as column if provided
-    column = node.data.variable
-    if node.data.expression is not None:
-        column = f"__private__{node.data.variable}"
-        data_frame = data_frame.Define(column, node.data.expression)
+    column = node.data.binning.variable
+    if node.data.binning.expression is not None:
+        column = f"__private__{node.data.binning.variable}"
+        data_frame = data_frame.Define(column, node.data.binning.expression)
         logger.debug(
-            f"Defined custom expression for variable '{node.data.variable}' "
-            + f"as column with expression '{node.data.expression}'"
+            f"Defined custom expression for variable '{node.data.binning.variable}' "
+            + f"as column with expression '{node.data.binning.expression}'"
         )
 
     # Declare the lazy histogram operation
     lazy_hist = data_frame.Histo1D(
         (
-            node.data.variable,
-            node.data.variable,
-            len(node.data.bin_edges) - 1,
-            np.array(node.data.bin_edges),
+            node.data.binning.variable,
+            node.data.binning.variable,
+            len(node.data.binning.bin_edges) - 1,
+            np.array(node.data.binning.bin_edges),
         ),
         column,
         TOTAL_WEIGHT_NAME,
@@ -427,9 +427,9 @@ def write_histograms(
         # Set the histogram directory and move to this directory
         dir_name = "/".join(
             [
-                hist_spec.campaign,
-                hist_spec.channel,
-                hist_spec.category,
+                hist_spec.binning.campaign,
+                hist_spec.binning.channel,
+                hist_spec.binning.category,
                 hist_spec.dataset,
                 hist_spec.process,
             ]
@@ -440,7 +440,7 @@ def write_histograms(
         directory.cd()
 
         # Set the histogram name and title
-        hist_name = f"{hist_spec.variable}__{hist_spec.variation}"
+        hist_name = f"{hist_spec.binning.variable}__{hist_spec.variation}"
         hist_title = hist_name
         hist.SetName(hist_name)
         hist.SetTitle(hist_title)
