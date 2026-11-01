@@ -1,5 +1,6 @@
 import os
 from dataclasses import asdict
+from pathlib import Path
 
 from networkx import DiGraph, compose_all
 from networkx.readwrite import json_graph
@@ -148,17 +149,22 @@ def graphs_to_specs(graphs: list[DiGraph]) -> dict:
     return json_graph.node_link_data(specs_graph)
 
 
-def histogram_keys(graphs: list[DiGraph]) -> dict:
+def histogram_keys(graphs: list[DiGraph], output_dir: Path) -> dict:
     """
     List the histogram keys contained in each histogram output file.
 
     The keys are derived from the graphs and need no access to the output files.
+    All histograms are listed, including the ones of nodes that were pruned
+    from the execution because their output file already exists.
 
     Parameters
     ----------
     graphs : list[DiGraph]
         The disjoint histogram processing graphs created by
         `build_histograms_graph`.
+
+    output_dir : Path
+        The output directory of the histograms.
 
     Returns
     -------
@@ -168,16 +174,16 @@ def histogram_keys(graphs: list[DiGraph]) -> dict:
         `output_dir` to the sorted list of histogram keys inside this file.
     """
 
-    output_dir = None
     files: dict[str, list[str]] = {}
     for graph in graphs:
         for _, attributes in graph.nodes(data=True):
             node: Node = attributes["node"]
             if node.operation != "write_histograms":
                 continue
-            output_dir = node.data.output_dir
             files[
-                os.path.relpath(node.outputs["hists_file"].path, output_dir)
+                os.path.relpath(
+                    node.outputs["hists_file"].path, output_dir
+                )
             ] = sorted(_histogram_key(p.data) for p in node.parents)
 
-    return {"output_dir": output_dir, "files": dict(sorted(files.items()))}
+    return {"output_dir": str(output_dir), "files": dict(sorted(files.items()))}

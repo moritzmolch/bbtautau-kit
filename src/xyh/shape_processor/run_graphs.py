@@ -257,7 +257,10 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
     # In histogram mode, list the histogram keys of each output file for the
     # downstream stages
     if mode == "histogram":
-        dump_json(histogram_keys(graphs), Path(cfg["histogram_keys_file"]))
+        dump_json(
+            histogram_keys(graphs, output_dir),
+            Path(cfg["histogram_keys_file"]),
+        )
 
     # In binning mode, derive the equipopulated binning from the values that
     # were written by the graphs and store it as binning overrides
