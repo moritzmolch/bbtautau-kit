@@ -410,16 +410,15 @@ def write_histograms(
 
     # Get data frame and lazy histogram artifacts from all parents
     data_frames = []
+    hists_data = []
     lazy_hists = []
     for parent in node.parents:
         data_frames.append(artifacts_store.get(parent.hash).data_frame)
-        lazy_hists.append(
-            (parent.data, artifacts_store.get(parent.hash).lazy_hist)
-        )
+        hists_data.append(parent.data)
+        lazy_hists.append(artifacts_store.get(parent.hash).lazy_hist)
 
     # Run the computational graphs on all input data frames
-    for data_frame in data_frames:
-        ROOT.RDF.RunGraphs(data_frame)
+    ROOT.RDF.RunGraphs(lazy_hists)
 
     # Write histograms to output file
     hists = []
@@ -430,7 +429,7 @@ def write_histograms(
         output_file,
         "RECREATE",
     )
-    for hist_spec, lazy_hist in lazy_hists:
+    for hist_spec, lazy_hist in zip(hists_data, lazy_hists, strict=True):
         # Get the histogram
         hist = lazy_hist.GetValue()
 
