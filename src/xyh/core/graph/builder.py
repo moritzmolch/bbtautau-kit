@@ -1,9 +1,10 @@
+import hashlib
+import json
 from pathlib import Path
 
 from networkx import (
     DiGraph,
     weakly_connected_components,
-    weisfeiler_lehman_graph_hash,
 )
 
 from xyh.core.graph.node import Node
@@ -230,7 +231,14 @@ def build_histograms_graph(
     # Append a "write_histograms" node to each subgraph
     for subgraph in subgraphs:
         # Get the subgraph's hash for output file naming
-        subgraph_hash = weisfeiler_lehman_graph_hash(subgraph)
+        subgraph_hash = hashlib.sha256(
+            json.dumps(
+                {
+                    "nodes": sorted(subgraph.nodes),
+                    "edges": sorted(subgraph.edges),
+                },
+            ).encode()
+        ).hexdigest()
 
         # Get the leaf nodes of the subgraph
         leaf_nodes = [
