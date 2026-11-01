@@ -165,9 +165,9 @@ def histogram_keys(graphs: list[DiGraph]) -> dict[str, list[str]]:
     Returns
     -------
     dict[str, list[str]]
-        Dictionary mapping the path of each histogram output file to the sorted
-        list of histogram keys inside this file. The paths are located in the
-        output directory passed to `build_histograms_graph`.
+        Dictionary mapping the file name of each histogram output file to the
+        sorted list of histogram keys inside this file. The files are located
+        in the output directory passed to `build_histograms_graph`.
     """
 
     files: dict[str, list[str]] = {}
@@ -176,7 +176,7 @@ def histogram_keys(graphs: list[DiGraph]) -> dict[str, list[str]]:
             node: Node = attributes["node"]
             if node.operation != "write_histograms":
                 continue
-            files[node.outputs["hists_file"].path] = sorted(
+            files[os.path.basename(node.outputs["hists_file"].path)] = sorted(
                 _histogram_key(p.data) for p in node.parents
             )
 
