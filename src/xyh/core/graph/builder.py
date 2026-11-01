@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 
 from networkx import (
@@ -7,7 +8,7 @@ from networkx import (
     weakly_connected_components,
 )
 
-from xyh.core.graph.node import Node
+from xyh.core.graph.node import Node, Output
 from xyh.core.specs.specs import Context, HistogramsOutput, WeightProduct
 from xyh.core.specs.storage import SpecsStorage
 
@@ -255,6 +256,14 @@ def build_histograms_graph(
                 subgraph_hash=subgraph_hash,
             ),
             parents=tuple(leaf_nodes),
+            outputs={
+                "hists_file": Output(
+                    path=os.path.join(
+                        str(output_dir),
+                        f"histograms_{subgraph_hash}.root",
+                    ),
+                ),
+            },
         )
         subgraph.add_node(n.hash, node=n)
         subgraph.add_edges_from((leaf.hash, n.hash) for leaf in leaf_nodes)
