@@ -34,7 +34,7 @@ def _histogram_key(data: Histogram) -> str:
     Returns
     -------
     str
-        The path `campaign/channel/category/dataset/process/variable__variation`
+        The path `campaign/channel/category/process/dataset/variable__variation`
         of the histogram, as written by the `write_histograms` operation.
     """
 
