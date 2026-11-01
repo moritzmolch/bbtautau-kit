@@ -395,7 +395,22 @@ def write_histograms(
     node: Node,
     artifacts_store: ArtifactsStore,
 ) -> tuple[Artifacts, OutputFiles]:
-    """ """
+    """
+    Materialize lazy `TH1D` histograms and write them to an output file.
+
+    Parameters
+    ----------
+    node : Node
+        The `"write_histograms"` operation node that is being processed.
+
+    artifacts_store : ArtifactsStore
+        The store for the artifacts.
+
+    Returns
+    -------
+    tuple[Artifacts, OutputFiles]
+        A tuple containing the artifacts and output files.
+    """
 
     # Log context of this node
     logger.debug(
@@ -409,15 +424,13 @@ def write_histograms(
     )
 
     # Get data frame and lazy histogram artifacts from all parents
-    data_frames = []
     hists_data = []
     lazy_hists = []
     for parent in node.parents:
-        data_frames.append(artifacts_store.get(parent.hash).data_frame)
         hists_data.append(parent.data)
         lazy_hists.append(artifacts_store.get(parent.hash).lazy_hist)
 
-    # Run the computational graphs on all input data frames
+    # Run the computations for all lazy histograms
     ROOT.RDF.RunGraphs(lazy_hists)
 
     # Write histograms to output file
@@ -456,7 +469,7 @@ def write_histograms(
         hist.Write()
         hists.append((hist_spec, hist))
 
-    # Savely close the output file
+    # Safely close the output file
     root_file.Close()
 
     return (
