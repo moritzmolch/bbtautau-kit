@@ -9,7 +9,7 @@ from xyh.core.binning import (
     lookup_binning,
 )
 from xyh.core.config import load_inventory
-from xyh.core.specs.specs import Histogram
+from xyh.core.specs.specs import Binning
 
 # Get the logger for this module
 logger = logging.getLogger(__name__)
@@ -42,15 +42,15 @@ def _parse_variable_name(name):
     return name, channels
 
 
-def create_histogram_spec(
+def create_binning_spec(
     campaign_inst,
     channel_inst,
     category_inst,
     variable_inst,
     bin_edges: list[int | float] | None = None,
-) -> Histogram:
+) -> Binning:
     """
-    Create `Histogram` specification for a given configuration, channel,
+    Create `Binning` specification for a given configuration, channel,
     category, and variable instance.
 
     Parameters
@@ -72,13 +72,13 @@ def create_histogram_spec(
 
     Returns
     -------
-    Histogram
-        The histogram specification.
+    Binning
+        The binning specification.
     """
     # Create dictionary with variable information needed to produce the
     # histogram
 
-    return Histogram(
+    return Binning(
         campaign=campaign_inst.name,
         channel=channel_inst.name,
         category=category_inst.name,
@@ -102,7 +102,7 @@ def create_histogram_specs(
     categories: list[str],
     variables: list[str],
     binning_overrides: BinningOverrides | None = None,
-) -> list[Histogram]:
+) -> list[Binning]:
     """
     Create histogram specs for a given subset of the analysis concerning
     campaigns, categories and variables.
@@ -135,12 +135,12 @@ def create_histogram_specs(
 
     Returns
     -------
-    list[Histogram]
-        List of histogram specs for the given subset of the analysis.
+    list[Binning]
+        List of binning specs for the given subset of the analysis.
     """
 
-    # Container of histogram specs for each variable
-    histogram_specs = []
+    # Container of binning specs for each variable
+    binning_specs = []
     used_overrides = set()
 
     for campaign, channel in itertools.product(campaigns, channels):
@@ -212,8 +212,8 @@ def create_histogram_specs(
                             name,
                         )
                     )
-                histogram_specs.append(
-                    create_histogram_spec(
+                binning_specs.append(
+                    create_binning_spec(
                         campaign_inst,
                         channel_inst,
                         category_inst,
@@ -224,12 +224,10 @@ def create_histogram_specs(
 
     if binning_overrides:
         unused = set(iter_binning(binning_overrides)) - used_overrides
-        logger.info(
-            f"Overrode the binning of {len(used_overrides)} histograms"
-        )
+        logger.info(f"Overrode the binning of {len(used_overrides)} histograms")
         for key in sorted(unused):
             logger.warning(
                 "Binning override matches no histogram: " + "/".join(key)
             )
 
-    return histogram_specs
+    return binning_specs
