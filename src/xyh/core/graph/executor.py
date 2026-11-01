@@ -134,17 +134,18 @@ def execute(
         for g in (_prune_graph(graph) for graph in graphs)
         if g.number_of_nodes() > 0
     ]
+    n_graphs = len(pruned_graphs)
 
     # Processing artifacts of all output nodes of all graphs
     artifacts = []
 
     if num_workers == 1:
         # For a single worker, execute graphs sequentially
-        for graph in pruned_graphs:
-            artifacts.extend(_execute_graph(graph))
+        for i, graph in enumerate(pruned_graphs):
+            artifacts.extend(_execute_graph(graph, num_threads=num_threads))
             label = _subgraph_label(graph)
             logger.info(
-                f"Completed execution of subgraph {i + 1}/{len(pruned_graphs)}: {label}"
+                f"Completed execution of subgraph {i + 1}/{n_graphs}: {label}"
             )
 
     else:
@@ -168,7 +169,7 @@ def execute(
                 artifacts.extend(future.result())
                 label = _subgraph_label(futures[future])
                 logger.info(
-                    f"Completed execution of subgraph {i + 1}/{len(pruned_graphs)}: {label}"
+                    f"Completed execution of subgraph {i + 1}/{n_graphs}: {label}"
                 )
 
     return artifacts
