@@ -16,13 +16,13 @@ from xyh.core.specs.specs import HistogramsOutput
 
 
 @pytest.fixture
-def store():
-    return ArtifactsStore()
+def artifacts():
+    return {}
 
 
-def _with_parent(store, make_dataset, df):
+def _with_parent(artifacts, make_dataset, df):
     parent = Node(operation="input_files", data=make_dataset())
-    store.put(parent.hash, Artifacts(data_frame=df))
+    artifacts[parent.hash] = Artifacts(data_frame=df)
     return parent
 
 
@@ -37,12 +37,14 @@ class TestContainers:
     def test_output_files_getattr_returns_item(self):
         assert OutputFiles(f="x").f == "x"
 
-    def test_store_put_get_roundtrip(self, store):
+    def test_store_put_get_roundtrip(self):
+        store = ArtifactsStore()
         arts = Artifacts(a=1)
         store.put("id", arts)
         assert store.get("id") is arts
 
-    def test_store_get_unknown_raises_key_error(self, store):
+    def test_store_get_unknown_raises_key_error(self):
+        store = ArtifactsStore()
         with pytest.raises(KeyError):
             store.get("nope")
 
@@ -87,11 +89,11 @@ class TestInputFiles:
         return mock_root
 
     def test_input_files_builds_chains_and_adds_files(
-        self, root, make_dataset, store
+        self, root, make_dataset, artifacts
     ):
         files = {"main": ["a.root", "b.root"], "friend": ["c.root"]}
         node = Node(operation="input_files", data=make_dataset(files=files))
-        arts, out = operations.input_files(node, store)
+        arts, out = operations.input_files(node, artifacts)
         chains = {c.args[0] for c in root.TChain.call_args_list}
         assert chains == {"ntuple"}
         assert root.TChain.call_count == 2
@@ -104,7 +106,7 @@ class TestInputFiles:
         assert out == {}
 
     def test_input_files_adds_nonempty_friend_only(
-        self, root, make_dataset, store
+        self, root, make_dataset, artifacts
     ):
         entries = {"main": 1, "full": 1, "empty": 0}
         created = []
@@ -120,71 +122,71 @@ class TestInputFiles:
         root.TChain.side_effect = tchain
         files = {"main": ["a"], "full": ["b"], "empty": []}
         node = Node(operation="input_files", data=make_dataset(files=files))
-        arts, _ = operations.input_files(node, store)
+        arts, _ = operations.input_files(node, artifacts)
         added = [c.args[0] for c in arts.main_chain.AddFriend.call_args_list]
         assert added == [arts.friend_chains["full"]]
 
     def test_input_files_creates_dataframe_from_main_chain(
-        self, root, make_dataset, store
+        self, root, make_dataset, artifacts
     ):
         node = Node(operation="input_files", data=make_dataset())
-        arts, _ = operations.input_files(node, store)
+        arts, _ = operations.input_files(node, artifacts)
         root.RDataFrame.assert_called_once_with(arts.main_chain)
         assert arts.data_frame is root.RDataFrame.return_value
 
 
 class TestFilter:
     def test_filter_applies_expression_and_name(
-        self, store, make_dataset, make_filter
+        self, artifacts, make_dataset, make_filter
     ):
         df = MagicMock()
-        parent = _with_parent(store, make_dataset, df)
+        parent = _with_parent(artifacts, make_dataset, df)
         node = Node(
             operation="filter",
             data=make_filter(name="cut", expression="pt > 20"),
             parents=(parent,),
         )
-        arts, out = operations.filter(node, store)
+        arts, out = operations.filter(node, artifacts)
         df.Filter.assert_called_once_with("pt > 20", "cut")
         assert arts.data_frame is df.Filter.return_value
         assert out == {}
 
-    def test_filter_without_parent_raises(self, store, make_filter):
+    def test_filter_without_parent_raises(self, artifacts, make_filter):
         node = Node(operation="filter", data=make_filter())
         with pytest.raises(ValueError, match="exactly one parent"):
-            operations.filter(node, store)
+            operations.filter(node, artifacts)
 
 
 class TestWeight:
     def test_weight_defines_prefixed_column(
-        self, store, make_dataset, make_weight
+        self, artifacts, make_dataset, make_weight
     ):
         df = MagicMock()
-        parent = _with_parent(store, make_dataset, df)
+        parent = _with_parent(artifacts, make_dataset, df)
         node = Node(
             operation="weight",
             data=make_weight(name="sf", expression="a * b"),
             parents=(parent,),
         )
-        arts, out = operations.weight(node, store)
+        arts, out = operations.weight(node, artifacts)
         df.Define.assert_called_once_with("__weight_sf", "a * b")
         assert arts.data_frame is df.Define.return_value
         assert out == {}
 
-    def test_weight_without_parent_raises(self, store, make_weight):
+    def test_weight_without_parent_raises(self, artifacts, make_weight):
         node = Node(operation="weight", data=make_weight())
         with pytest.raises(ValueError, match="exactly one parent"):
-            operations.weight(node, store)
+            operations.weight(node, artifacts)
 
 
 class TestWeightProduct:
     @staticmethod
-    def _node(store, make_dataset, columns, weights):
+    def _node(artifacts, make_dataset, columns, weights):
         from xyh.core.specs.specs import WeightProduct
 
         df = MagicMock()
         df.GetColumnNames.return_value = columns
-        parent = _with_parent(store, make_dataset, df)
+        parent = _with_parent(artifacts, make_dataset, df)
         node = Node(
             operation="weight_product",
             data=WeightProduct(weights=weights),
@@ -193,13 +195,13 @@ class TestWeightProduct:
         return node, df
 
     def test_weight_product_multiplies_prefixed_columns(
-        self, store, make_dataset, make_weight
+        self, artifacts, make_dataset, make_weight
     ):
         weights = [make_weight(name="a"), make_weight(name="b")]
         node, df = self._node(
-            store, make_dataset, ["__weight_a", "__weight_b", "x"], weights
+            artifacts, make_dataset, ["__weight_a", "__weight_b", "x"], weights
         )
-        arts, out = operations.weight_product(node, store)
+        arts, out = operations.weight_product(node, artifacts)
         df.Define.assert_called_once_with(
             operations.TOTAL_WEIGHT_NAME, "__weight_a * __weight_b"
         )
@@ -207,44 +209,44 @@ class TestWeightProduct:
         assert out == {}
 
     def test_weight_product_single_weight_no_operator(
-        self, store, make_dataset, make_weight
+        self, artifacts, make_dataset, make_weight
     ):
         node, df = self._node(
-            store, make_dataset, ["__weight_a"], [make_weight(name="a")]
+            artifacts, make_dataset, ["__weight_a"], [make_weight(name="a")]
         )
-        operations.weight_product(node, store)
+        operations.weight_product(node, artifacts)
         df.Define.assert_called_once_with(
             operations.TOTAL_WEIGHT_NAME, "__weight_a"
         )
 
     def test_weight_product_no_weights_defines_one(
-        self, store, make_dataset, caplog
+        self, artifacts, make_dataset, caplog
     ):
-        node, df = self._node(store, make_dataset, [], [])
+        node, df = self._node(artifacts, make_dataset, [], [])
         with caplog.at_level(logging.DEBUG, logger=operations.__name__):
-            operations.weight_product(node, store)
+            operations.weight_product(node, artifacts)
         df.Define.assert_called_once_with(operations.TOTAL_WEIGHT_NAME, "1")
         assert "No weight columns found" in caplog.text
 
     def test_weight_product_missing_columns_raises(
-        self, store, make_dataset, make_weight
+        self, artifacts, make_dataset, make_weight
     ):
         weights = [make_weight(name="a"), make_weight(name="b")]
-        node, df = self._node(store, make_dataset, ["__weight_a"], weights)
+        node, df = self._node(artifacts, make_dataset, ["__weight_a"], weights)
         with pytest.raises(ValueError, match="__weight_a, __weight_b"):
-            operations.weight_product(node, store)
+            operations.weight_product(node, artifacts)
         df.Define.assert_not_called()
 
     def test_weight_product_unprefixed_column_not_accepted(
-        self, store, make_dataset, make_weight
+        self, artifacts, make_dataset, make_weight
     ):
         node, _ = self._node(
-            store, make_dataset, ["a"], [make_weight(name="a")]
+            artifacts, make_dataset, ["a"], [make_weight(name="a")]
         )
         with pytest.raises(ValueError, match="Not all weight columns"):
-            operations.weight_product(node, store)
+            operations.weight_product(node, artifacts)
 
-    def test_weight_product_without_parent_raises(self, store):
+    def test_weight_product_without_parent_raises(self, artifacts):
         from xyh.core.specs.specs import WeightProduct
 
         node = Node(
@@ -252,22 +254,22 @@ class TestWeightProduct:
             data=WeightProduct(weights=[]),
         )
         with pytest.raises(ValueError, match="exactly one parent"):
-            operations.weight_product(node, store)
+            operations.weight_product(node, artifacts)
 
 
 class TestHistogram:
     @staticmethod
-    def _node(store, make_dataset, spec):
+    def _node(artifacts, make_dataset, spec):
         df = MagicMock()
-        parent = _with_parent(store, make_dataset, df)
+        parent = _with_parent(artifacts, make_dataset, df)
         node = Node(operation="histogram", data=spec, parents=(parent,))
         return node, df
 
     def test_histogram_without_expression_uses_variable_column(
-        self, store, make_dataset, make_histogram
+        self, artifacts, make_dataset, make_histogram
     ):
-        node, df = self._node(store, make_dataset, make_histogram())
-        arts, out = operations.histogram(node, store)
+        node, df = self._node(artifacts, make_dataset, make_histogram())
+        arts, out = operations.histogram(node, artifacts)
         df.Define.assert_not_called()
         (model, column, weight), _ = df.Histo1D.call_args
         assert model[0] == model[1] == "pt"
@@ -280,36 +282,62 @@ class TestHistogram:
         assert out == {}
 
     def test_histogram_bin_count_is_edges_minus_one(
-        self, store, make_dataset, make_histogram
+        self, artifacts, make_dataset, make_histogram
     ):
         spec = make_histogram(bin_edges=range(11))
-        node, df = self._node(store, make_dataset, spec)
-        operations.histogram(node, store)
+        node, df = self._node(artifacts, make_dataset, spec)
+        operations.histogram(node, artifacts)
         model = df.Histo1D.call_args.args[0]
         assert model[2] == 10
 
     def test_histogram_bin_edges_passed_as_numpy_array(
-        self, store, make_dataset, make_histogram
+        self, artifacts, make_dataset, make_histogram
     ):
-        node, df = self._node(store, make_dataset, make_histogram())
-        operations.histogram(node, store)
+        node, df = self._node(artifacts, make_dataset, make_histogram())
+        operations.histogram(node, artifacts)
         assert isinstance(df.Histo1D.call_args.args[0][3], np.ndarray)
 
     def test_histogram_with_expression_defines_private_column(
-        self, store, make_dataset, make_histogram
+        self, artifacts, make_dataset, make_histogram
     ):
         spec = make_histogram(expression="a + b")
-        node, df = self._node(store, make_dataset, spec)
-        arts, _ = operations.histogram(node, store)
+        node, df = self._node(artifacts, make_dataset, spec)
+        arts, _ = operations.histogram(node, artifacts)
         df.Define.assert_called_once_with("__private__pt", "a + b")
         defined = df.Define.return_value
         assert defined.Histo1D.call_args.args[1] == "__private__pt"
         assert arts.data_frame is df.Define.return_value
 
-    def test_histogram_without_parent_raises(self, store, make_histogram):
+    def test_histogram_without_parent_raises(self, artifacts, make_histogram):
         node = Node(operation="histogram", data=make_histogram())
         with pytest.raises(ValueError, match="exactly one parent"):
-            operations.histogram(node, store)
+            operations.histogram(node, artifacts)
+
+
+class TestGetOperationFn:
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "input_files",
+            "filter",
+            "weight",
+            "weight_product",
+            "histogram",
+            "write_histograms",
+        ],
+    )
+    def test_get_operation_fn_known_operation_returns_function(self, name):
+        node = MagicMock(operation=name)
+        assert operations.get_operation_fn(node) is getattr(operations, name)
+
+    def test_get_operation_fn_real_node_returns_function(self, make_dataset):
+        node = Node(operation="input_files", data=make_dataset())
+        assert operations.get_operation_fn(node) is operations.input_files
+
+    def test_get_operation_fn_unknown_operation_raises(self):
+        node = MagicMock(operation="nope")
+        with pytest.raises(ValueError, match="nope"):
+            operations.get_operation_fn(node)
 
 
 BUG_OS_IMPORT = "write_histograms: os is not imported (NameError)"
@@ -337,8 +365,8 @@ class TestWriteHistograms:
         return mock_root
 
     @pytest.fixture
-    def setup(self, store, make_histogram, tmp_path):
-        """Build a write node with two histogram parents in the store."""
+    def setup(self, artifacts, make_histogram, tmp_path):
+        """Build a write node with two histogram parents in artifacts."""
         parents = []
         lazies = []
         dfs = []
@@ -348,7 +376,7 @@ class TestWriteHistograms:
             )
             df = MagicMock(name=f"df_{var}")
             lazy = MagicMock(name=f"lazy_{var}")
-            store.put(parent.hash, Artifacts(data_frame=df, lazy_hist=lazy))
+            artifacts[parent.hash] = Artifacts(data_frame=df, lazy_hist=lazy)
             parents.append(parent)
             dfs.append(df)
             lazies.append(lazy)
@@ -362,50 +390,50 @@ class TestWriteHistograms:
         return node, parents, dfs, lazies
 
     def test_write_histograms_returns_output_file_path(
-        self, root, store, setup, tmp_path
+        self, root, artifacts, setup, tmp_path
     ):
         node, *_ = setup
-        _, out = operations.write_histograms(node, store)
+        _, out = operations.write_histograms(node, artifacts)
         assert out == OutputFiles(
             hists_file=os.path.join(str(tmp_path), "hists_abc.root")
         )
         root.TFile.Open.assert_called_once_with(out.hists_file, "RECREATE")
 
     def test_write_histograms_directory_is_campaign_to_process_path(
-        self, root, store, setup
+        self, root, artifacts, setup
     ):
         node, *_ = setup
-        operations.write_histograms(node, store)
+        operations.write_histograms(node, artifacts)
         root_file = root.TFile.Open.return_value
         root_file.GetDirectory.assert_called_with("c/ch/cat/ds/p")
 
     def test_write_histograms_sets_name_and_title_from_variable_variation(
-        self, root, store, setup
+        self, root, artifacts, setup
     ):
         node, _, _, lazies = setup
-        operations.write_histograms(node, store)
+        operations.write_histograms(node, artifacts)
         for lazy, var in zip(lazies, ("pt", "eta"), strict=True):
             hist = lazy.GetValue.return_value
             hist.SetName.assert_called_once_with(f"{var}__nominal")
             hist.SetTitle.assert_called_once_with(f"{var}__nominal")
 
     def test_write_histograms_runs_graphs_once_with_all_lazy_hists(
-        self, root, store, setup
+        self, root, artifacts, setup
     ):
         node, _, _, lazies = setup
-        operations.write_histograms(node, store)
+        operations.write_histograms(node, artifacts)
         root.RDF.RunGraphs.assert_called_once_with(lazies)
 
     def test_write_histograms_writes_into_directory_not_top_level(
-        self, root, store, setup
+        self, root, artifacts, setup
     ):
         node, _, _, lazies = setup
-        operations.write_histograms(node, store)
+        operations.write_histograms(node, artifacts)
         directory = root.TFile.Open.return_value.GetDirectory.return_value
         wrote_via_dir = directory.WriteObject.called
         assert directory.cd.called or wrote_via_dir
 
-    def test_write_histograms_closes_output_file(self, root, store, setup):
+    def test_write_histograms_closes_output_file(self, root, artifacts, setup):
         node, *_ = setup
-        operations.write_histograms(node, store)
+        operations.write_histograms(node, artifacts)
         root.TFile.Open.return_value.Close.assert_called_once_with()
