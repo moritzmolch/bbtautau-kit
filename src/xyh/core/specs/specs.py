@@ -228,6 +228,38 @@ class FiltersAndWeights(Spec):
 
 
 @dataclass(frozen=True, eq=False, kw_only=True)
+class Binning:
+    """
+    Specification for a binning.
+
+    Attributes
+    ----------
+    bin_edges : list[int | float]
+        List of bin edges for the binning.
+    """
+
+    campaign: str
+    channel: str
+    category: str
+    variable: str
+    expression: str | None = field(default=None)
+    bin_edges: list[int | float]
+
+    def __repr__(self) -> str:
+        attributes = ", ".join(
+            [
+                f"campaign={self.campaign}",
+                f"channel={self.channel}",
+                f"category={self.category}",
+                f"variable={self.variable}",
+                f"expression={self.expression}",
+                f"bin_edges={self.bin_edges}",
+            ]
+        )
+        return f"{self.__class__.__name__}<{attributes}>"
+
+
+@dataclass(frozen=True, eq=False, kw_only=True)
 class Histogram(Spec):
     """
     Histogram specification for a specific variable given the analysis context.
@@ -267,28 +299,23 @@ class Histogram(Spec):
         List of bin edges for the histogram.
     """
 
-    campaign: str
-    channel: str
-    category: str
+    binning: Binning
     dataset: str
     process: str
     variation: str
-    variable: str
-    expression: str | None = field(default=None)
-    bin_edges: list[int | float]
 
     def __repr__(self) -> str:
         attributes = ", ".join(
             [
-                f"campaign={self.campaign}",
-                f"channel={self.channel}",
-                f"category={self.category}",
+                f"campaign={self.binning.campaign}",
+                f"channel={self.binning.channel}",
+                f"category={self.binning.category}",
                 f"dataset={self.dataset}",
                 f"process={self.process}",
                 f"variation={self.variation}",
-                f"variable={self.variable}",
-                f"expression={self.expression}",
-                f"bin_edges={self.bin_edges}",
+                f"variable={self.binning.variable}",
+                f"expression={self.binning.expression}",
+                f"bin_edges={self.binning.bin_edges}",
             ]
         )
         return f"{self.__class__.__name__}<{attributes}>"
