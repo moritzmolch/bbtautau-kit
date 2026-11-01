@@ -165,12 +165,20 @@ def input_files(
     start = time()
 
     # Create the chains of the input files
+    # Friend trees may contain files without entries, for which ROOT prints a
+    # warning for every file. Ignore ROOT warnings while adding the files and
+    # restore the previous level afterwards.
     chains = {}
-    for key, files in node.data.files.items():
-        chain = ROOT.TChain("ntuple")
-        for file in files:
-            chain.Add(file)
-        chains[key] = chain
+    previous_level = ROOT.gErrorIgnoreLevel
+    ROOT.gErrorIgnoreLevel = ROOT.kError
+    try:
+        for key, files in node.data.files.items():
+            chain = ROOT.TChain("ntuple")
+            for file in files:
+                chain.Add(file)
+            chains[key] = chain
+    finally:
+        ROOT.gErrorIgnoreLevel = previous_level
 
     # Add friends to main chain
     main_chain = chains.pop("main")
@@ -598,8 +606,8 @@ def write_histograms(
                 hist_spec.binning.campaign,
                 hist_spec.binning.channel,
                 hist_spec.binning.category,
-                hist_spec.dataset,
                 hist_spec.process,
+                hist_spec.dataset,
             ]
         )
         directory = root_file.GetDirectory(dir_name)
