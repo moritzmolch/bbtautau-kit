@@ -134,7 +134,9 @@ def run_fake_factor_histograms(
                     input_file = histograms_dir / node_spec["output_file"]
                     rf = ROOT.TFile.Open(str(input_file), "READ")
                     histograms.setdefault(process in data_processes, []).append(
-                        rf.Get(node_spec["variable"])
+                        rf.Get(
+                            node_spec.get("hist_path", node_spec["variable"])
+                        )
                     )
                     rf.Close()
 

@@ -196,7 +196,7 @@ def _merge_category_variable(task: dict[str, Any]) -> str:
                     # Construct input file path and obtain the histogram
                     input_file = histograms_dir / node_spec["output_file"]
                     rf = ROOT.TFile.Open(str(input_file), "READ")
-                    hists.append(rf.Get(variable))
+                    hists.append(rf.Get(node_spec.get("hist_path", variable)))
                     rf.Close()
 
             # Add the histograms and add them to the output dictionary
