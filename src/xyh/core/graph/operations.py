@@ -434,7 +434,7 @@ def write_histograms(
         # Get the histogram
         hist = lazy_hist.GetValue()
 
-        # Set the histogram directory
+        # Set the histogram directory and move to this directory
         dir_name = "/".join(
             [
                 hist_spec.campaign,
@@ -447,6 +447,7 @@ def write_histograms(
         directory = root_file.GetDirectory(dir_name)
         if not directory:
             directory = root_file.mkdir(dir_name)
+        directory.cd()
 
         # Set the histogram name and title
         hist_name = f"{hist_spec.variable}__{hist_spec.variation}"
