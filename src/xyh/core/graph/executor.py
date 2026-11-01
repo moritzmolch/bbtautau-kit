@@ -130,7 +130,9 @@ def execute(
 
     # Prune graphs to remove output nodes, for which the outputs already exist
     pruned_graphs = [
-        _prune_graph(graph) for graph in graphs if graph.number_of_nodes() > 0
+        g
+        for g in (_prune_graph(graph) for graph in graphs)
+        if g.number_of_nodes() > 0
     ]
 
     # Processing artifacts of all output nodes of all graphs
