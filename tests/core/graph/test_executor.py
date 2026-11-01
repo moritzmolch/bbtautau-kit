@@ -1,4 +1,9 @@
+import contextlib
+from concurrent.futures import Future
+from unittest.mock import MagicMock
+
 import pytest
+from networkx import DiGraph
 
 from xyh.core.graph import builder, executor
 from xyh.core.graph.artifacts import Artifacts
@@ -158,10 +163,26 @@ class TestExecuteGraph:
         assert sorted(a.name for a in result) == ["l1", "l2"]
 
     def test_execute_graph_empty_graph_returns_empty_list(self, calls):
-        from networkx import DiGraph
-
         assert executor._execute_graph(DiGraph()) == []
         assert calls == []
+
+    def test_execute_graph_default_threads_does_not_enable_implicit_mt(
+        self, calls, make_node, monkeypatch
+    ):
+        root_mock = MagicMock()
+        monkeypatch.setattr(executor, "ROOT", root_mock)
+        graph = builder.build_graph_from_leaf_nodes([make_node("root")])
+        executor._execute_graph(graph)
+        root_mock.EnableImplicitMT.assert_not_called()
+
+    def test_execute_graph_multiple_threads_enables_implicit_mt_once(
+        self, calls, make_node, monkeypatch
+    ):
+        root_mock = MagicMock()
+        monkeypatch.setattr(executor, "ROOT", root_mock)
+        graph = builder.build_graph_from_leaf_nodes([make_node("root")])
+        executor._execute_graph(graph, num_threads=4)
+        root_mock.EnableImplicitMT.assert_called_once_with(4)
 
 
 class TestExecute:
@@ -217,3 +238,115 @@ class TestExecute:
 
     def test_execute_no_graphs_returns_empty_list(self, calls):
         assert executor.execute([]) == []
+
+    def test_execute_empty_graph_returns_empty_list(self, calls):
+        assert executor.execute([DiGraph()]) == []
+        assert calls == []
+
+
+class TestExecuteParallel:
+    @pytest.fixture
+    def calls(self, monkeypatch):
+        calls = []
+
+        def fake_get_operation_fn(node):
+            def op(n, input_artifacts):
+                calls.append(n)
+                return Artifacts(hash=n.hash)
+
+            return op
+
+        monkeypatch.setattr(executor, "get_operation_fn", fake_get_operation_fn)
+        return calls
+
+    @pytest.fixture
+    def pool(self, monkeypatch):
+        """Replace the process pool by an in-process fake pool."""
+        pool = MagicMock()
+        pool_kwargs = {}
+
+        def submit(fn, *args, **kwargs):
+            future = Future()
+            future.set_result(fn(*args, **kwargs))
+            return future
+
+        pool.submit.side_effect = submit
+
+        @contextlib.contextmanager
+        def fake_process_pool(**kwargs):
+            pool_kwargs.update(kwargs)
+            yield pool
+
+        monkeypatch.setattr(executor, "_process_pool", fake_process_pool)
+        pool.pool_kwargs = pool_kwargs
+        return pool
+
+    @pytest.fixture
+    def two_graphs(self, make_node):
+        l1 = make_node("l1", (make_node("r1"),))
+        l2 = make_node("l2", (make_node("r2"),))
+        graphs = [
+            builder.build_graph_from_leaf_nodes([l1]),
+            builder.build_graph_from_leaf_nodes([l2]),
+        ]
+        return graphs, [l1, l2]
+
+    def test_execute_parallel_creates_spawn_pool_with_num_workers(
+        self, calls, pool, two_graphs
+    ):
+        import multiprocessing
+
+        executor.execute(two_graphs[0], num_workers=3)
+        assert pool.pool_kwargs["max_workers"] == 3
+        assert (
+            pool.pool_kwargs["mp_context"].get_start_method()
+            == multiprocessing.get_context("spawn").get_start_method()
+        )
+
+    def test_execute_parallel_submits_each_graph_with_num_threads(
+        self, calls, pool, two_graphs
+    ):
+        executor.execute(two_graphs[0], num_workers=2, num_threads=5)
+        assert pool.submit.call_count == 2
+        for call in pool.submit.call_args_list:
+            assert call.args[0] is executor._execute_graph
+            assert call.kwargs == {"num_threads": 5}
+        submitted = [c.args[1] for c in pool.submit.call_args_list]
+        leaf_sets = [
+            {h for h in g.nodes if g.out_degree(h) == 0} for g in submitted
+        ]
+        assert sorted(map(sorted, leaf_sets)) == sorted(
+            [n.hash] for n in two_graphs[1]
+        )
+
+    def test_execute_parallel_returns_leaf_artifacts_of_all_graphs(
+        self, calls, pool, two_graphs
+    ):
+        result = executor.execute(two_graphs[0], num_workers=2)
+        assert sorted(a.hash for a in result) == sorted(
+            n.hash for n in two_graphs[1]
+        )
+
+    def test_execute_parallel_skips_graphs_without_nodes(
+        self, calls, pool, two_graphs
+    ):
+        graphs = [DiGraph(), two_graphs[0][0], DiGraph()]
+        result = executor.execute(graphs, num_workers=2)
+        assert pool.submit.call_count == 1
+        assert len(result) == 1
+
+    def test_execute_parallel_all_outputs_present_runs_no_operation(
+        self, calls, pool, make_node, tmp_path
+    ):
+        leaf = make_node(
+            "leaf",
+            (make_node("root"),),
+            out_path=tmp_path / "leaf.root",
+            exists=True,
+        )
+        graph = builder.build_graph_from_leaf_nodes([leaf])
+        pool.submit.side_effect = None
+        pool.submit.return_value = Future()
+        pool.submit.return_value.set_result([])
+        assert executor.execute([graph], num_workers=2) == []
+        assert calls == []
