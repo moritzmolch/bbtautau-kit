@@ -1,6 +1,5 @@
 import os
 from dataclasses import asdict
-from pathlib import Path
 
 from networkx import DiGraph, compose_all
 from networkx.readwrite import json_graph
@@ -149,9 +148,9 @@ def graphs_to_specs(graphs: list[DiGraph]) -> dict:
     return json_graph.node_link_data(specs_graph)
 
 
-def histogram_keys(graphs: list[DiGraph], output_dir: Path) -> dict:
+def histogram_keys(graphs: list[DiGraph]) -> dict[str, list[str]]:
     """
-    List the histogram keys contained in each histogram output file.
+    Map each histogram output file to the histogram keys it contains.
 
     The keys are derived from the graphs and need no access to the output files.
     All histograms are listed, including the ones of nodes that were pruned
@@ -163,15 +162,12 @@ def histogram_keys(graphs: list[DiGraph], output_dir: Path) -> dict:
         The disjoint histogram processing graphs created by
         `build_histograms_graph`.
 
-    output_dir : Path
-        The output directory of the histograms.
-
     Returns
     -------
-    dict
-        Dictionary with the entries `output_dir` (the histograms directory) and
-        `files`, which maps the path of each output file relative to
-        `output_dir` to the sorted list of histogram keys inside this file.
+    dict[str, list[str]]
+        Dictionary mapping the path of each histogram output file to the sorted
+        list of histogram keys inside this file. The paths are located in the
+        output directory passed to `build_histograms_graph`.
     """
 
     files: dict[str, list[str]] = {}
@@ -180,8 +176,8 @@ def histogram_keys(graphs: list[DiGraph], output_dir: Path) -> dict:
             node: Node = attributes["node"]
             if node.operation != "write_histograms":
                 continue
-            files[
-                os.path.relpath(node.outputs["hists_file"].path, output_dir)
-            ] = sorted(_histogram_key(p.data) for p in node.parents)
+            files[node.outputs["hists_file"].path] = sorted(
+                _histogram_key(p.data) for p in node.parents
+            )
 
-    return {"output_dir": str(output_dir), "files": dict(sorted(files.items()))}
+    return dict(sorted(files.items()))
