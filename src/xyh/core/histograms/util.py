@@ -14,6 +14,114 @@ from xyh.variations import default_variations
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True, kw_only=True)
+class TH1Wrapper:
+    campaign: str
+    channel: str
+    category: str
+    process: str
+    dataset: str
+    variable: str
+    variation: str
+    histogram: ROOT.TH1
+
+
+def load_all(
+    histogram_keys_file: Path, histograms_dir: Path
+) -> list[TH1Wrapper]:
+    """
+    Load all histograms from graph output files of a production campaign.
+
+    The function returns `TH1Wrapper` objects which contain the `TH1` histogram
+    as well as associated metadata: campaign, channel, category, process,
+    dataset, variable, and variation.
+
+    Parameters
+    ----------
+    histogram_keys_file : Path
+        Path to the JSON file containing the mapping of output files to
+        histogram keys.
+
+    histograms_dir : Path
+        Path to the directory containing the output files of the production
+        campaign.
+
+    Returns
+    -------
+    list[TH1Wrapper]
+        A list of `TH1Wrapper` objects.
+    """
+
+    # Load the histogram keys and corresponding files from the JSON file
+    histogram_keys = load_json(histogram_keys_file)
+
+    histograms = []
+
+    for output_file, hist_keys in histogram_keys.items():
+        # Construct the full path of the output file
+        output_file_path = histograms_dir / output_file
+
+        # Match the analysis context from the output file path
+        match = re.match(
+            "/".join(
+                [
+                    r"(?P<campaign>[^/]+)",
+                    "__".join(
+                        [
+                            r"(?P<channel>[^/]+)",
+                            r"(?P<category>[^/]+)",
+                        ]
+                    ),
+                    "__".join(
+                        [
+                            r"(?P<process>[^/]+)",
+                            r"(?P<dataset>[^/]+)",
+                            r"(?P<variable>[^/]+)",
+                            r"(?P<variation>[^/]+)\.root",
+                        ]
+                    ),
+                ]
+            ),
+            output_file,
+        )
+        if not match:
+            raise ValueError(
+                f"Output file path {output_file} does not match expected pattern"
+            )
+        campaign = match.group("campaign")
+        channel = match.group("channel")
+        category = match.group("category")
+        process = match.group("process")
+        dataset = match.group("dataset")
+        variable = match.group("variable")
+        variation = match.group("variation")
+
+        # Open the ROOT file and load all histograms
+        rf = ROOT.TFile.Open(str(output_file_path), "READ")
+        for hist_key in hist_keys:
+            hist = rf.Get(hist_key)
+            if not hist:
+                raise ValueError(
+                    f"Histogram {hist_key} not found in {output_file_path}"
+                )
+            histograms.append(
+                TH1Wrapper(
+                    campaign=campaign,
+                    channel=channel,
+                    category=category,
+                    process=process,
+                    dataset=dataset,
+                    variable=variable,
+                    variation=variation,
+                    histogram=hist,
+                )
+            )
+
+        rf.Close()
+
+    return histograms
+
+
 def add_histograms(histograms: list[ROOT.TH1]) -> ROOT.TH1:
     # Raise exception if no histograms are provided
     if len(histograms) == 0:
