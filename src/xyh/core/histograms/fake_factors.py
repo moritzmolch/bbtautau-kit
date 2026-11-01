@@ -228,7 +228,7 @@ def run_fake_factor_histograms(
         hist.Write()
 
     root_file.Close()
-    logger.info(f"Wrote fake factor histogram to {output_file}")
+    logger.info(f"Wrote fake factor histograms to {output_file}")
 
     # Update histogram keys file
     histogram_keys_file = histograms_dir / "histogram_keys.json.gz"
