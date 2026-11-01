@@ -350,3 +350,30 @@ class TestExecuteParallel:
         pool.submit.return_value.set_result([])
         assert executor.execute([graph], num_workers=2) == []
         assert calls == []
+
+
+class TestSubgraphLabel:
+    @staticmethod
+    def _graph(*nodes):
+        return builder.build_graph_from_leaf_nodes(list(nodes))
+
+    def test_subgraph_label_uses_campaign_channel_dataset(self, make_node):
+        graph = self._graph(make_node("ds"))
+        assert (
+            executor._subgraph_label(graph)
+            == "campaign='c', channel='ch', dataset='ds'"
+        )
+
+    def test_subgraph_label_joins_sorted_unique_input_nodes(self, make_node):
+        a, b = make_node("b"), make_node("a")
+        graph = self._graph(make_node("x", parents=(a, b)), a, b)
+        assert executor._subgraph_label(graph) == (
+            "campaign='c', channel='ch', dataset='a'; "
+            "campaign='c', channel='ch', dataset='b'"
+        )
+
+    def test_subgraph_label_without_input_files_has_fallback(self, make_filter):
+        graph = self._graph(Node(operation="filter", data=make_filter()))
+        assert executor._subgraph_label(graph) == (
+            "subgraph without input files"
+        )
