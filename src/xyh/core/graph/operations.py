@@ -617,9 +617,8 @@ def write_histograms(
 
         # Set the histogram name and title
         hist_name = f"{hist_spec.binning.variable}__{hist_spec.variation}"
-        hist_title = hist_name
         hist.SetName(hist_name)
-        hist.SetTitle(hist_title)
+        hist.SetTitle(hist_name)
         hist.Write()
         hists.append((hist_spec, hist))
 
