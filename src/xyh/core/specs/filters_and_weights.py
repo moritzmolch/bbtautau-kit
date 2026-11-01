@@ -4,7 +4,7 @@ from typing import Any
 
 from xyh.core.config import load_fn, load_inventory
 from xyh.core.config.util import gen_process_and_dataset_insts
-from xyh.core.specs.specs import FiltersAndWeights
+from xyh.core.specs.specs import Filter, FiltersAndWeights, Weight
 from xyh.variations import default_variations  # TODO load dynamically
 
 # Set up logger for this module
@@ -40,8 +40,8 @@ def create_filters_and_weights_spec(
     )
 
     # Get the nominal filter and weight expression dictionaries
-    filters = filters_class.nominal()
-    weights = weights_class.nominal()
+    filters = [Filter(f.name, f.expression) for f in filters_class.nominal()]
+    weights = [Weight(w.name, w.expression) for w in weights_class.nominal()]
 
     # Create the selection and weight specs and append them to the
     # global list
@@ -69,8 +69,8 @@ def create_filters_and_weights_spec(
         FiltersAndWeights(
             **shared_kwargs,
             variation="nominal",
-            filters=filters,
-            weights=weights,
+            filters=[Filter(f.name, f.expression) for f in filters],
+            weights=[Weight(w.name, w.expression) for w in weights],
         )
     )
 
@@ -99,8 +99,8 @@ def create_filters_and_weights_spec(
             FiltersAndWeights(
                 **shared_kwargs,
                 variation=variation.name,
-                filters=varied_filters,
-                weights=varied_weights,
+                filters=[Filter(f.name, f.expression) for f in varied_filters],
+                weights=[Weight(w.name, w.expression) for w in varied_weights],
             )
         )
 
