@@ -4,20 +4,19 @@ from omegaconf import DictConfig
 
 from xyh.core.cli import hydra_cli
 from xyh.core.histograms.fake_factors import run_fake_factor_histograms
-from xyh.core.io import load_json
 
 
 @hydra_cli("run_fake_factor_histograms")
 def main(cfg: DictConfig):
-    # Load data from input files
-    graph_specs = load_json(Path(cfg["graph_specs_file"]))
-
     # Run graph processing and production of output files
     run_fake_factor_histograms(
-        cfg["inventory"]["factory_fn"],
-        graph_specs,
-        Path(cfg["histograms_dir"]),
-        Path(cfg["output_dir"]),
+        inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
+        inventory_factory_kwargs=cfg["inventory"]["factory_fn_kwargs"],
+        campaigns=cfg["inventory"]["campaigns"],
+        channels=cfg["inventory"]["channels"],
+        categories=cfg["inventory"]["categories"],
+        variables=cfg["inventory"]["variables"],
+        histograms_dir=Path(cfg["histograms_dir"]),
     )
 
 

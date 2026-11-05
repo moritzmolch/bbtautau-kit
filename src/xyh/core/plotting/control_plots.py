@@ -1,5 +1,5 @@
 import logging
-from itertools import groupby
+from itertools import product
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +9,7 @@ import ROOT
 from xyh.core.config import load_inventory
 from xyh.core.histograms.util import add_histograms
 from xyh.core.parallel import run_in_parallel
+from xyh.core.specs.binning import _parse_variable_name
 
 from .util import plot
 
@@ -16,52 +17,68 @@ logger = logging.getLogger(__name__)
 
 
 def _build_plot_tasks(
-    graph_specs,
     inventory_factory_fn_path,
-    merged_histograms_dir,
+    inventory_factory_kwargs,
+    campaigns,
+    channels,
+    categories,
+    variables,
+    merged_histograms_file,
     output_dir,
     extensions,
 ) -> list[dict[str, Any]]:
-    """Split the histogram nodes into independent plot tasks.
+    """Split the control plot production into independent plot tasks.
 
     Each task produces the control plots of one campaign, channel, category,
     and variable combination. All tasks are fully independent, so they can be
-    processed in parallel.
+    processed in parallel. The tasks only contain picklable objects, such that
+    they can be sent to worker processes.
     """
-    # Filter specs of all histogram nodes from graph processing
-    graph_histogram_nodes = [
-        node["spec"]
-        for node in graph_specs["nodes"]
-        if node["type"] == "HistogramNode"
-    ]
 
-    def key_fn_campaign_channel(x):
-        return (x["campaign"], x["channel"])
-
-    def key_fn_category_variable(x):
-        return (x["category"], x["variable"])
-
+    # List of tasks to be processed in parallel
     tasks = []
-    for (campaign, channel), nodes_campaign_channel in groupby(
-        sorted(graph_histogram_nodes, key=key_fn_campaign_channel),
-        key=key_fn_campaign_channel,
-    ):
-        for (category, variable), _ in groupby(
-            sorted(nodes_campaign_channel, key=key_fn_category_variable),
-            key=key_fn_category_variable,
-        ):
-            tasks.append(
-                {
-                    "inventory_factory_fn_path": inventory_factory_fn_path,
-                    "merged_histograms_dir": merged_histograms_dir,
-                    "output_dir": output_dir,
-                    "extensions": extensions,
-                    "campaign": campaign,
-                    "channel": channel,
-                    "category": category,
-                    "variable": variable,
-                }
-            )
+
+    for campaign, channel in product(campaigns, channels):
+        # Load the analysis inventory for this campaign and channel
+        inventory = load_inventory(
+            inventory_factory_fn_path,
+            campaign,
+            channel,
+            **inventory_factory_kwargs,
+        )
+
+        # Get analysis config objects
+        channel_inst = inventory.channel
+
+        for category in (c for c in categories if channel_inst.has_category(c)):
+            for variable_arg in variables:
+                # Parse the variable name to extract the 'pure' name and the
+                # channels the variable is restricted to (if any)
+                variable, variable_channels = _parse_variable_name(variable_arg)
+                if (
+                    variable_channels is not None
+                    and channel_inst.name not in variable_channels
+                ):
+                    logger.debug(
+                        f"Skipping variable {variable} in channel "
+                        + channel_inst.name
+                    )
+                    continue
+
+                # Build the task dictionary
+                tasks.append(
+                    {
+                        "inventory_factory_fn_path": inventory_factory_fn_path,
+                        "inventory_factory_kwargs": inventory_factory_kwargs,
+                        "campaign": campaign,
+                        "channel": channel,
+                        "category": category,
+                        "variable": variable,
+                        "merged_histograms_file": merged_histograms_file,
+                        "output_dir": output_dir,
+                        "extensions": extensions,
+                    }
+                )
 
     return tasks
 
@@ -73,6 +90,7 @@ def _plot_category_variable(task: dict[str, Any]) -> list[str]:
     process of the pool. It must therefore be a picklable top-level function
     and must not depend on any state of the parent process.
     """
+
     # Detach ROOT histogram objects from files
     ROOT.TH1.AddDirectory(0)
 
@@ -81,13 +99,11 @@ def _plot_category_variable(task: dict[str, Any]) -> list[str]:
         task["inventory_factory_fn_path"],
         task["campaign"],
         task["channel"],
+        **task["inventory_factory_kwargs"],
     )
 
     # Unpack the task information
-    campaign = task["campaign"]
-    category = task["category"]
-    variable = task["variable"]
-    merged_histograms_dir = task["merged_histograms_dir"]
+    merged_histograms_file = task["merged_histograms_file"]
     output_dir = task["output_dir"]
     extensions = task["extensions"]
 
@@ -95,8 +111,8 @@ def _plot_category_variable(task: dict[str, Any]) -> list[str]:
     campaign_inst = inventory.campaign
     channel_inst = inventory.channel
     process_set = inventory.process_set
-    category_inst = channel_inst.get_category(category)
-    variable_inst = inventory.variables.get(variable)
+    category_inst = channel_inst.get_category(task["category"])
+    variable_inst = inventory.variables.get(task["variable"])
     logger.info(
         "\n".join(
             [
@@ -109,14 +125,8 @@ def _plot_category_variable(task: dict[str, Any]) -> list[str]:
         ),
     )
 
-    # Open input file with histograms for this variable
-    input_file = (
-        merged_histograms_dir
-        / campaign
-        / f"{channel_inst.name}__{category}"
-        / f"{variable_inst.name}.root"
-    )
-    rf = ROOT.TFile.Open(str(input_file), "READ")
+    # Open the file with the merged histograms
+    root_file = ROOT.TFile.Open(str(merged_histograms_file), "READ")
 
     # Load histograms from file and prepare histograms for plotting
     histograms = {}
@@ -146,10 +156,15 @@ def _plot_category_variable(task: dict[str, Any]) -> list[str]:
                 #     ):
                 #         continue
                 hist_name = (
-                    f"{campaign}/{channel_inst.name}/{category_inst.name}/"
+                    f"{campaign_inst.name}/{channel_inst.name}/{category_inst.name}/"
                     f"{process}/{variable_inst.name}__nominal"
                 )
-                h = rf.Get(hist_name)
+                h = root_file.Get(hist_name)
+                if not h:
+                    raise ValueError(
+                        f"Histogram {hist_name} not found in "
+                        + str(merged_histograms_file)
+                    )
                 hists_group.append(h)
             if len(hists_group) == 0:
                 continue
@@ -169,7 +184,7 @@ def _plot_category_variable(task: dict[str, Any]) -> list[str]:
                     "scale_factor"
                 ] = process_group.scale_factor.get(channel_inst.name, 1.0)
 
-    rf.Close()
+    root_file.Close()
 
     # Prepare data, signal, and background histograms
     hist_data = None
@@ -217,7 +232,7 @@ def _plot_category_variable(task: dict[str, Any]) -> list[str]:
     for ext in extensions:
         output_file = (
             output_dir
-            / campaign
+            / campaign_inst.name
             / f"{channel_inst.name}__{category_inst.name}"
             / f"{variable_inst.name}.{ext}"
         )
@@ -237,17 +252,25 @@ def _plot_category_variable(task: dict[str, Any]) -> list[str]:
 
 def plot_shapes(
     inventory_factory_fn_path: str,
-    graph_specs: dict,
-    merged_histograms_dir: Path,
+    inventory_factory_kwargs: dict[str, Any],
+    campaigns: list[str],
+    channels: list[str],
+    categories: list[str],
+    variables: list[str],
+    merged_histograms_file: Path,
     output_dir: Path,
     extensions: list[str],
     num_workers: int = 1,
 ):
-    # Split the histogram nodes into independent plot tasks
+    # Split the control plot production into independent plot tasks
     tasks = _build_plot_tasks(
-        graph_specs,
         inventory_factory_fn_path,
-        merged_histograms_dir,
+        inventory_factory_kwargs,
+        campaigns,
+        channels,
+        categories,
+        variables,
+        merged_histograms_file,
         output_dir,
         extensions,
     )

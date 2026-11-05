@@ -4,7 +4,7 @@ from typing import Any
 
 from xyh.core.config import load_fn, load_inventory
 from xyh.core.config.util import gen_process_and_dataset_insts
-from xyh.core.specs.specs import FiltersAndWeights
+from xyh.core.specs.specs import Filter, FiltersAndWeights, Weight
 from xyh.variations import default_variations  # TODO load dynamically
 
 # Set up logger for this module
@@ -69,8 +69,8 @@ def create_filters_and_weights_spec(
         FiltersAndWeights(
             **shared_kwargs,
             variation="nominal",
-            filters=filters,
-            weights=weights,
+            filters=[Filter(name=k, expression=v) for k, v in filters.items()],
+            weights=[Weight(name=k, expression=v) for k, v in weights.items()],
         )
     )
 
@@ -99,8 +99,14 @@ def create_filters_and_weights_spec(
             FiltersAndWeights(
                 **shared_kwargs,
                 variation=variation.name,
-                filters=varied_filters,
-                weights=varied_weights,
+                filters=[
+                    Filter(name=k, expression=v)
+                    for k, v in varied_filters.items()
+                ],
+                weights=[
+                    Weight(name=k, expression=v)
+                    for k, v in varied_weights.items()
+                ],
             )
         )
 
@@ -162,6 +168,16 @@ def create_filters_and_weights_specs(
             for process_inst, dataset_inst in gen_process_and_dataset_insts(
                 inventory
             ):
+                # Check if process is going to be skipped
+                skip_process = False
+                if category_inst.has_aux("skip_process_inst"):
+                    skip_process = category_inst.x.skip_process_inst(
+                        process_inst
+                    )
+                if skip_process:
+                    continue
+
+                # Add filters and weights for this configuration
                 filters_and_weights_specs_category.extend(
                     create_filters_and_weights_spec(
                         campaign_inst,
@@ -175,9 +191,9 @@ def create_filters_and_weights_specs(
                 )
             filters_and_weights_specs.extend(filters_and_weights_specs_category)
 
-        logger.info(
-            f"Added {len(filters_and_weights_specs_category)} filters and "
-            + "weights specs"
-        )
+            logger.info(
+                f"Added {len(filters_and_weights_specs_category)} filters and "
+                + "weights specs"
+            )
 
     return filters_and_weights_specs

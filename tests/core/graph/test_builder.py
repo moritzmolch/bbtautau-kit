@@ -1,0 +1,608 @@
+import os
+from unittest.mock import create_autospec
+
+import networkx as nx
+import pytest
+
+from xyh.core.graph import builder
+from xyh.core.graph.node import Node
+from xyh.core.specs.specs import Context, HistogramsOutput, WeightProduct
+from xyh.core.specs.storage import SpecsStorage
+
+
+@pytest.fixture
+def context():
+    return Context(
+        campaign="c",
+        channel="ch",
+        category="cat",
+        dataset="ds",
+        process="p",
+        variation="nominal",
+    )
+
+
+@pytest.fixture
+def storage(make_dataset, make_filter, make_weight, make_histogram):
+    s = create_autospec(SpecsStorage, instance=True)
+    s.get_dataset_spec.return_value = make_dataset()
+    s.get_filters_specs.return_value = [
+        make_filter(name="f1"),
+        make_filter(name="f2"),
+    ]
+    s.get_weights_specs.return_value = [
+        make_weight(name="w1"),
+        make_weight(name="w2"),
+    ]
+    s.get_histogram_spec.side_effect = lambda ctx, var: make_histogram(
+        variable=var, dataset=ctx.dataset, process=ctx.process
+    )
+    s.get_variables.return_value = ["pt", "eta"]
+    return s
+
+
+def _chain(node):
+    out = []
+    while node is not None:
+        out.append(node)
+        node = node.parents[0] if node.parents else None
+    return out[::-1]
+
+
+class TestFiltersAndWeights:
+    def test_chain_order_is_input_filters_weights_product(
+        self, context, storage
+    ):
+        last = builder._build_context_nodes_for_filters_and_weights_operations(
+            context, storage
+        )
+        ops = [n.operation for n in _chain(last)]
+        assert ops == [
+            "input_files",
+            "filter",
+            "filter",
+            "weight",
+            "weight",
+            "weight_product",
+        ]
+
+    def test_chain_preserves_spec_order_and_single_parents(
+        self, context, storage
+    ):
+        last = builder._build_context_nodes_for_filters_and_weights_operations(
+            context, storage
+        )
+        chain = _chain(last)
+        assert all(len(n.parents) <= 1 for n in chain)
+        assert [n.data.name for n in chain[1:3]] == ["f1", "f2"]
+        assert [n.data.name for n in chain[3:5]] == ["w1", "w2"]
+
+    def test_product_node_carries_all_weights(self, context, storage):
+        last = builder._build_context_nodes_for_filters_and_weights_operations(
+            context, storage
+        )
+        assert isinstance(last.data, WeightProduct)
+        assert last.data.weights == storage.get_weights_specs.return_value
+
+    def test_specs_requested_for_given_context(self, context, storage):
+        builder._build_context_nodes_for_filters_and_weights_operations(
+            context, storage
+        )
+        storage.get_dataset_spec.assert_called_once_with(context)
+        storage.get_filters_specs.assert_called_once_with(context)
+        storage.get_weights_specs.assert_called_once_with(context)
+
+    def test_no_filters_no_weights_chain_is_input_then_product(
+        self, context, storage
+    ):
+        storage.get_filters_specs.return_value = []
+        storage.get_weights_specs.return_value = []
+        last = builder._build_context_nodes_for_filters_and_weights_operations(
+            context, storage
+        )
+        assert [n.operation for n in _chain(last)] == [
+            "input_files",
+            "weight_product",
+        ]
+
+    def test_chain_is_deterministic(self, context, storage):
+        f = builder._build_context_nodes_for_filters_and_weights_operations
+        assert f(context, storage).hash == f(context, storage).hash
+
+
+class TestHistograms:
+    def test_one_leaf_per_variable_with_shared_parent(self, context, storage):
+        leaves = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt", "eta", "mass"]
+        )
+        assert [n.operation for n in leaves] == ["histogram"] * 3
+        assert [n.data.binning.variable for n in leaves] == [
+            "pt",
+            "eta",
+            "mass",
+        ]
+        parent = leaves[0].parents[0]
+        assert parent.operation == "weight_product"
+        assert all(n.parents == (parent,) for n in leaves)
+        assert len({n.hash for n in leaves}) == 3
+
+    def test_histogram_specs_requested_per_variable(self, context, storage):
+        builder._build_context_nodes_for_histograms(
+            context, storage, ["pt", "eta"]
+        )
+        calls = [c.args for c in storage.get_histogram_spec.call_args_list]
+        assert calls == [(context, "pt"), (context, "eta")]
+
+    def test_variables_none_uses_variables_of_context(self, context, storage):
+        leaves = builder._build_context_nodes_for_histograms(
+            context, storage, None
+        )
+        storage.get_variables.assert_called_once_with(context)
+        assert [n.data.binning.variable for n in leaves] == ["pt", "eta"]
+
+    def test_explicit_variables_do_not_query_context_variables(
+        self, context, storage
+    ):
+        builder._build_context_nodes_for_histograms(context, storage, ["pt"])
+        storage.get_variables.assert_not_called()
+
+    def test_no_variables_returns_empty_list(self, context, storage):
+        assert (
+            builder._build_context_nodes_for_histograms(context, storage, [])
+            == []
+        )
+
+
+class TestBuildGraphFromLeafNodes:
+    def test_empty_leaf_list_gives_empty_graph(self):
+        graph = builder.build_graph_from_leaf_nodes([])
+        assert graph.number_of_nodes() == 0
+        assert graph.number_of_edges() == 0
+
+    def test_single_node_without_parents_gives_one_node_no_edges(
+        self, make_dataset
+    ):
+        node = Node(operation="input_files", data=make_dataset())
+        graph = builder.build_graph_from_leaf_nodes([node])
+        assert graph.number_of_nodes() == 1
+        assert graph.number_of_edges() == 0
+
+    def test_linear_chain_has_edges_from_parent_to_child(
+        self, make_dataset, make_filter, make_histogram
+    ):
+        inp = Node(operation="input_files", data=make_dataset())
+        flt = Node(operation="filter", data=make_filter(), parents=(inp,))
+        hist = Node(
+            operation="histogram", data=make_histogram(), parents=(flt,)
+        )
+        graph = builder.build_graph_from_leaf_nodes([hist])
+        assert graph.number_of_nodes() == 3
+        assert graph.number_of_edges() == 2
+        assert set(graph.edges) == {
+            (inp.hash, flt.hash),
+            (flt.hash, hist.hash),
+        }
+
+    def test_full_context_with_three_variables_counts(self, context, storage):
+        leaves = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt", "eta", "mass"]
+        )
+        graph = builder.build_graph_from_leaf_nodes(leaves)
+        assert graph.number_of_nodes() == 9
+        assert graph.number_of_edges() == 8
+        product = leaves[0].parents[0]
+        assert graph.out_degree(product.hash) == 3
+
+    def test_node_ids_are_hashes_and_attribute_is_original_node(
+        self, context, storage
+    ):
+        leaves = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt", "eta"]
+        )
+        graph = builder.build_graph_from_leaf_nodes(leaves)
+        for leaf in leaves:
+            assert leaf.hash in graph
+            assert graph.nodes[leaf.hash]["node"] is leaf
+        parent = leaves[0].parents[0]
+        assert graph.nodes[parent.hash]["node"] is parent
+
+    def test_equal_content_distinct_objects_collapse_to_one_node(
+        self, make_dataset
+    ):
+        a = Node(operation="input_files", data=make_dataset())
+        b = Node(operation="input_files", data=make_dataset())
+        assert a is not b
+        assert a.hash == b.hash
+        graph = builder.build_graph_from_leaf_nodes([a, b])
+        assert graph.number_of_nodes() == 1
+        assert graph.nodes[a.hash]["node"] is a
+
+    def test_duplicate_leaf_is_added_once(self, make_dataset, make_filter):
+        inp = Node(operation="input_files", data=make_dataset())
+        flt = Node(operation="filter", data=make_filter(), parents=(inp,))
+        graph = builder.build_graph_from_leaf_nodes([flt, flt])
+        assert graph.number_of_nodes() == 2
+        assert graph.number_of_edges() == 1
+
+    def test_diamond_adds_shared_grandparent_once(
+        self, make_dataset, make_filter, make_weight, make_histogram
+    ):
+        root = Node(operation="input_files", data=make_dataset())
+        left = Node(operation="filter", data=make_filter(), parents=(root,))
+        right = Node(operation="weight", data=make_weight(), parents=(root,))
+        child = Node(
+            operation="histogram",
+            data=make_histogram(),
+            parents=(left, right),
+        )
+        graph = builder.build_graph_from_leaf_nodes([child])
+        assert graph.number_of_nodes() == 4
+        assert graph.number_of_edges() == 4
+        assert graph.out_degree(root.hash) == 2
+        assert graph.in_degree(child.hash) == 2
+
+    def test_two_contexts_share_common_prefix_only(
+        self, context, storage, make_filter
+    ):
+        leaves_a = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt"]
+        )
+        # Second context differs from the first one from the second filter on
+        storage.get_filters_specs.return_value = [
+            make_filter(name="f1"),
+            make_filter(name="f3"),
+        ]
+        leaves_b = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt"]
+        )
+        graph = builder.build_graph_from_leaf_nodes(leaves_a + leaves_b)
+        # Shared: input_files and f1. Distinct: f2/f3 and everything after
+        # (2 weights, product, histogram) -> 2 + 5 + 5 nodes.
+        assert graph.number_of_nodes() == 12
+        assert graph.number_of_edges() == 11
+        shared = leaves_a[0].parents[0]
+        while shared.operation != "input_files":
+            shared = shared.parents[0]
+        assert graph.out_degree(shared.hash) == 1
+        f1 = next(iter(graph.successors(shared.hash)))
+        assert graph.out_degree(f1) == 2
+
+    def test_identical_contexts_collapse_completely(self, context, storage):
+        leaves_a = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt"]
+        )
+        leaves_b = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt"]
+        )
+        graph = builder.build_graph_from_leaf_nodes(leaves_a + leaves_b)
+        assert graph.number_of_nodes() == 7
+        assert graph.number_of_edges() == 6
+
+    def test_result_is_dag_with_leaves_as_sinks_and_input_as_source(
+        self, context, storage
+    ):
+        leaves = builder._build_context_nodes_for_histograms(
+            context, storage, ["pt", "eta", "mass"]
+        )
+        graph = builder.build_graph_from_leaf_nodes(leaves)
+        assert nx.is_directed_acyclic_graph(graph)
+        assert all(graph.out_degree(n.hash) == 0 for n in leaves)
+        sources = [n for n in graph if graph.in_degree(n) == 0]
+        assert len(sources) == 1
+        assert graph.nodes[sources[0]]["node"].operation == "input_files"
+
+
+BUG_LEAF_COMPREHENSION = (
+    "build_histograms_graph: leaf comprehension uses subgraph.out_degree(n) "
+    "before n is assigned (UnboundLocalError)"
+)
+BUG_STRUCTURAL_HASH = (
+    "weisfeiler_lehman_graph_hash without node attributes is purely "
+    "structural: same-structure subgraphs get the same subgraph_hash"
+)
+
+
+class TestBuildHistogramsGraph:
+    @pytest.fixture
+    def contexts(self, context):
+        return [
+            context,
+            Context(
+                campaign="c",
+                channel="ch",
+                category="cat",
+                dataset="ds2",
+                process="p",
+                variation="nominal",
+            ),
+        ]
+
+    @pytest.fixture
+    def storage_two_datasets(self, storage, make_dataset):
+        storage.get_dataset_spec.side_effect = lambda ctx: make_dataset(
+            dataset=ctx.dataset, files={"main": [f"{ctx.dataset}.root"]}
+        )
+        return storage
+
+    @staticmethod
+    def _write_nodes(graph):
+        return [
+            d["node"]
+            for _, d in graph.nodes(data=True)
+            if d["node"].operation == "write_histograms"
+        ]
+
+    def test_empty_contexts_returns_empty_list(self, storage, tmp_path):
+        assert (
+            builder.build_histograms_graph([], ["pt"], storage, tmp_path) == []
+        )
+
+    def test_one_graph_per_dataset_and_graphs_are_disjoint(
+        self, contexts, storage_two_datasets, tmp_path
+    ):
+        graphs = builder.build_histograms_graph(
+            contexts, ["pt", "eta"], storage_two_datasets, tmp_path
+        )
+        assert len(graphs) == 2
+        assert not set(graphs[0].nodes) & set(graphs[1].nodes)
+
+    def test_each_graph_has_one_write_node_over_histogram_leaves(
+        self, contexts, storage_two_datasets, tmp_path
+    ):
+        graphs = builder.build_histograms_graph(
+            contexts, ["pt", "eta"], storage_two_datasets, tmp_path
+        )
+        for graph in graphs:
+            writers = self._write_nodes(graph)
+            assert len(writers) == 1
+            writer = writers[0]
+            hist_nodes = {
+                h
+                for h, d in graph.nodes(data=True)
+                if d["node"].operation == "histogram"
+            }
+            assert len(hist_nodes) == 2
+            assert {p.hash for p in writer.parents} == hist_nodes
+            assert set(graph.predecessors(writer.hash)) == hist_nodes
+            sinks = [n for n in graph if graph.out_degree(n) == 0]
+            assert sinks == [writer.hash]
+
+    def test_write_node_output_dir_is_stringified_output_dir(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_histograms_graph(
+            [context], ["pt"], storage, tmp_path
+        )
+        (writer,) = self._write_nodes(graph)
+        assert isinstance(writer.data, HistogramsOutput)
+        assert writer.data.output_dir == str(tmp_path)
+
+    def test_write_node_has_hists_file_output(self, context, storage, tmp_path):
+        (graph,) = builder.build_histograms_graph(
+            [context], ["pt"], storage, tmp_path
+        )
+        (writer,) = self._write_nodes(graph)
+        assert writer.outputs["hists_file"].path == os.path.join(
+            str(tmp_path), f"histograms_{writer.data.subgraph_hash}.root"
+        )
+
+    def test_graphs_are_dags(self, contexts, storage_two_datasets, tmp_path):
+        graphs = builder.build_histograms_graph(
+            contexts, ["pt"], storage_two_datasets, tmp_path
+        )
+        assert all(nx.is_directed_acyclic_graph(g) for g in graphs)
+
+    def test_same_structure_different_specs_give_different_subgraph_hash(
+        self, contexts, storage_two_datasets, tmp_path
+    ):
+        graphs = builder.build_histograms_graph(
+            contexts, ["pt"], storage_two_datasets, tmp_path
+        )
+        hashes = {self._write_nodes(g)[0].data.subgraph_hash for g in graphs}
+        assert len(hashes) == 2
+
+
+class TestBuildSnapshotsGraph:
+    @pytest.fixture
+    def contexts(self, context):
+        return [
+            context,
+            Context(
+                campaign="c",
+                channel="ch",
+                category="cat",
+                dataset="ds2",
+                process="p",
+                variation="nominal",
+            ),
+        ]
+
+    @pytest.fixture
+    def storage_two_datasets(self, storage, make_dataset):
+        storage.get_dataset_spec.side_effect = lambda ctx: make_dataset(
+            dataset=ctx.dataset, files={"main": [f"{ctx.dataset}.root"]}
+        )
+        return storage
+
+    @staticmethod
+    def _nodes(graph, operation):
+        return [
+            d["node"]
+            for _, d in graph.nodes(data=True)
+            if d["node"].operation == operation
+        ]
+
+    def test_empty_contexts_returns_empty_list(self, storage, tmp_path):
+        assert builder.build_snapshots_graph([], None, storage, tmp_path) == []
+
+    def test_one_disjoint_graph_per_dataset(
+        self, contexts, storage_two_datasets, tmp_path
+    ):
+        graphs = builder.build_snapshots_graph(
+            contexts, None, storage_two_datasets, tmp_path
+        )
+        assert len(graphs) == 2
+        assert not set(graphs[0].nodes) & set(graphs[1].nodes)
+        assert all(nx.is_directed_acyclic_graph(g) for g in graphs)
+
+    def test_snapshot_node_carries_context_and_columns(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_snapshots_graph(
+            [context], ["pt", "eta*"], storage, tmp_path
+        )
+        (snap,) = self._nodes(graph, "snapshot")
+        assert snap.parents[0].operation == "weight_product"
+        assert (
+            snap.data.campaign,
+            snap.data.channel,
+            snap.data.category,
+            snap.data.dataset,
+            snap.data.process,
+            snap.data.variation,
+        ) == ("c", "ch", "cat", "ds", "p", "nominal")
+        assert snap.data.columns == ["pt", "eta*"]
+
+    def test_columns_none_is_passed_to_snapshot_spec(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_snapshots_graph(
+            [context], None, storage, tmp_path
+        )
+        (snap,) = self._nodes(graph, "snapshot")
+        assert snap.data.columns is None
+
+    def test_snapshot_output_path_layout(self, context, storage, tmp_path):
+        (graph,) = builder.build_snapshots_graph(
+            [context], None, storage, tmp_path
+        )
+        (snap,) = self._nodes(graph, "snapshot")
+        assert snap.outputs["snapshot_file"].path == os.path.join(
+            str(tmp_path), "c", "ch__cat", "p__ds__nominal.root"
+        )
+
+    def test_write_node_is_single_sink_with_outputs_keyed_by_leaf_hash(
+        self, contexts, storage, tmp_path
+    ):
+        # Both contexts share the same dataset -> a single connected graph
+        # with two snapshot leaves
+        contexts[1] = Context(
+            campaign="c",
+            channel="ch",
+            category="cat",
+            dataset="ds",
+            process="p2",
+            variation="nominal",
+        )
+        (graph,) = builder.build_snapshots_graph(
+            contexts, None, storage, tmp_path
+        )
+        (writer,) = self._nodes(graph, "write_snapshots")
+        snaps = self._nodes(graph, "snapshot")
+        assert len(snaps) == 2
+        assert {p.hash for p in writer.parents} == {s.hash for s in snaps}
+        assert set(writer.outputs) == {s.hash for s in snaps}
+        for s in snaps:
+            assert writer.outputs[s.hash] is s.outputs["snapshot_file"]
+        assert [n for n in graph if graph.out_degree(n) == 0] == [writer.hash]
+
+
+class TestBuildBinningGraph:
+    @staticmethod
+    def _nodes(graph, operation):
+        return [
+            d["node"]
+            for _, d in graph.nodes(data=True)
+            if d["node"].operation == operation
+        ]
+
+    def test_empty_contexts_returns_empty_list(self, storage, tmp_path):
+        assert builder.build_binning_graph([], storage, tmp_path) == []
+
+    def test_one_binning_leaf_per_variable_with_binning_file_output(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_binning_graph(
+            [context], storage, tmp_path, variables=["pt", "eta"]
+        )
+        leaves = self._nodes(graph, "binning")
+        assert sorted(n.data.binning.variable for n in leaves) == [
+            "eta",
+            "pt",
+        ]
+        for leaf in leaves:
+            assert leaf.parents[0].operation == "weight_product"
+            assert leaf.outputs["binning_file"].path == os.path.join(
+                str(tmp_path),
+                "c",
+                "ch__cat",
+                leaf.data.binning.variable,
+                "ds.npz",
+            )
+
+    def test_variables_none_uses_variables_of_context(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_binning_graph([context], storage, tmp_path)
+        storage.get_variables.assert_called_once_with(context)
+        leaves = self._nodes(graph, "binning")
+        assert sorted(n.data.binning.variable for n in leaves) == [
+            "eta",
+            "pt",
+        ]
+
+    def test_explicit_variables_do_not_query_context_variables(
+        self, context, storage, tmp_path
+    ):
+        builder.build_binning_graph(
+            [context], storage, tmp_path, variables=["pt"]
+        )
+        storage.get_variables.assert_not_called()
+
+    def test_write_node_outputs_keyed_by_leaf_hash(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_binning_graph([context], storage, tmp_path)
+        (writer,) = self._nodes(graph, "write_binning")
+        leaves = self._nodes(graph, "binning")
+        assert {p.hash for p in writer.parents} == {n.hash for n in leaves}
+        assert set(writer.outputs) == {n.hash for n in leaves}
+        for leaf in leaves:
+            assert writer.outputs[leaf.hash] is leaf.outputs["binning_file"]
+        assert [n for n in graph if graph.out_degree(n) == 0] == [writer.hash]
+
+    def test_different_datasets_give_disjoint_graphs(
+        self, context, storage, make_dataset, tmp_path
+    ):
+        storage.get_dataset_spec.side_effect = lambda ctx: make_dataset(
+            dataset=ctx.dataset, files={"main": [f"{ctx.dataset}.root"]}
+        )
+        other = Context(
+            campaign="c",
+            channel="ch",
+            category="cat",
+            dataset="ds2",
+            process="p",
+            variation="nominal",
+        )
+        graphs = builder.build_binning_graph(
+            [context, other], storage, tmp_path, variables=["pt"]
+        )
+        assert len(graphs) == 2
+        assert not set(graphs[0].nodes) & set(graphs[1].nodes)
+
+
+class TestBuildHistogramsGraphVariables:
+    def test_variables_none_uses_per_context_variables(
+        self, context, storage, tmp_path
+    ):
+        (graph,) = builder.build_histograms_graph(
+            [context], None, storage, tmp_path
+        )
+        storage.get_variables.assert_called_once_with(context)
+        variables = sorted(
+            d["node"].data.binning.variable
+            for _, d in graph.nodes(data=True)
+            if d["node"].operation == "histogram"
+        )
+        assert variables == ["eta", "pt"]

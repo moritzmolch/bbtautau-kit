@@ -148,7 +148,6 @@ def create_dataset_spec(
         campaign=campaign_inst.name,
         channel=channel_inst.name,
         dataset=dataset_inst.name,
-        nicks=dataset_inst.x.nicks,
         files=files,
     )
     logger.debug(f"Created ntuple spec {dataset_spec}")

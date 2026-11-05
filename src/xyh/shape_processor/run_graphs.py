@@ -3,7 +3,8 @@ import io
 import itertools
 import logging
 import pstats
-from dataclasses import asdict
+import resource
+from dataclasses import asdict, replace
 from pathlib import Path
 from time import time
 from typing import Any, cast
@@ -14,12 +15,20 @@ from xyh import ROOT_DIR
 from xyh.core.binning import load_binning_overrides
 from xyh.core.cli import hydra_cli
 from xyh.core.config import load_inventory
+from xyh.core.graph.builder import (
+    build_binning_graph,
+    build_histograms_graph,
+    build_snapshots_graph,
+)
+from xyh.core.graph.executor import execute
+from xyh.core.graph.serialization import graphs_to_specs, histogram_keys
 from xyh.core.io import dump_json
+from xyh.core.specs.binning import create_binning_specs
 from xyh.core.specs.dataset import create_dataset_specs
 from xyh.core.specs.filters_and_weights import create_filters_and_weights_specs
-from xyh.core.specs.graph import create_graph_specs, run_graph
-from xyh.core.specs.histogram import create_histogram_specs
 from xyh.core.specs.inputs import resolve_processes
+from xyh.core.specs.specs import Context
+from xyh.core.specs.storage import SpecsStorage
 
 logger = logging.getLogger(__name__)
 
@@ -46,15 +55,9 @@ def main(cfg: DictConfig):
         _log_report_summary(report)
 
 
-def _profiling_options(profiling_cfg: DictConfig) -> dict[str, bool] | None:
-    """Return the profiling options or `None` if profiling is disabled."""
-    if not bool(profiling_cfg.get("enabled", False)):
-        return None
-    return {
-        "stages": bool(profiling_cfg.get("stages", True)),
-        "rdataframe": bool(profiling_cfg.get("rdataframe", True)),
-        "memory": bool(profiling_cfg.get("memory", True)),
-    }
+def _peak_rss_mb() -> float:
+    """Return the peak resident set size of this process in megabyte."""
+    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0
 
 
 def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
@@ -72,12 +75,9 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         Whether the whole entry point was run under `cProfile`. Only affects
         the metadata stored in the profiling report.
     """
-    # Determine which profiling components are activated
-    profiling_options = _profiling_options(profiling_cfg)
-
     # Initialize the profiling report
     report = None
-    if profiling_options is not None:
+    if bool(profiling_cfg.get("enabled", False)):
         report = {
             "python": {
                 "cprofile": cprofile,
@@ -109,11 +109,16 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
     # In binning mode, optionally limit the ntuple files per dataset
     n_files = cfg["binning"].get("n_files") if is_binning else None
     if n_files:
-        for dataset_spec in dataset_specs:
-            dataset_spec.files = {
-                key: files[:n_files]
-                for key, files in dataset_spec.files.items()
-            }
+        dataset_specs = [
+            replace(
+                dataset_spec,
+                files={
+                    key: files[:n_files]
+                    for key, files in dataset_spec.files.items()
+                },
+            )
+            for dataset_spec in dataset_specs
+        ]
 
     # Load the binning that overrides the one of the inventory, if configured
     binning_overrides = None
@@ -123,7 +128,7 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
 
     # Create the histogram specs. In binning mode, only the variables of the
     # `binning` configuration are considered.
-    histogram_specs = create_histogram_specs(
+    binning_specs = create_binning_specs(
         inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
         inventory_factory_kwargs=cfg["inventory"]["factory_fn_kwargs"],
         campaigns=cfg["inventory"]["campaigns"],
@@ -179,49 +184,83 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
             if spec.variation == "nominal" and spec.process in data_processes
         ]
 
-    # Build the graph from the individual specs
-    graph_specs = create_graph_specs(
-        dataset_specs,
-        histogram_specs,
-        filters_and_weights_specs,
-        mode,
-        columns=cfg["snapshots"].get("columns"),
-    )
-
     # Dump specs to output file
     dump_json(
         [asdict(d) for d in dataset_specs],
         Path(cfg["dataset_specs_file"]),
     )
     dump_json(
-        [asdict(h) for h in histogram_specs],
-        Path(cfg["histogram_specs_file"]),
+        [asdict(b) for b in binning_specs],
+        Path(cfg["binning_specs_file"]),
     )
     dump_json(
         [asdict(fw) for fw in filters_and_weights_specs],
         Path(cfg["filters_and_weights_specs_file"]),
     )
-    dump_json(graph_specs, Path(cfg["graph_specs_file"]))
 
     # Set output dir based on mode
-    output_dir = None
     if mode == "histogram":
-        output_dir = cfg["histograms_output_dir"]
+        output_dir = Path(cfg["histograms_output_dir"])
     elif mode == "snapshot":
-        output_dir = cfg["snapshots_output_dir"]
+        output_dir = Path(cfg["snapshots_output_dir"])
     elif mode == "binning":
-        output_dir = cfg["binning_output_dir"]
+        output_dir = Path(cfg["binning_output_dir"])
     else:
         raise ValueError(f"Invalid graph processing mode: {mode}")
 
-    # Run graph processing and production of output files
-    graph_report = run_graph(
-        graph_specs,
-        Path(output_dir),
-        cfg["graph_processing"]["num_workers"],
-        cfg["graph_processing"]["num_threads"],
-        profiling_options,
+    # Build the graphs from the individual specs. Every filters and weights
+    # spec defines the analysis context of one chain of operations.
+    specs_storage = SpecsStorage(
+        dataset_specs=dataset_specs,
+        filters_and_weights_specs=filters_and_weights_specs,
+        binning_specs=binning_specs,
     )
+    contexts = [
+        Context(
+            campaign=spec.campaign,
+            channel=spec.channel,
+            category=spec.category,
+            dataset=spec.dataset,
+            process=spec.process,
+            variation=spec.variation,
+        )
+        for spec in filters_and_weights_specs
+    ]
+    if mode == "histogram":
+        graphs = build_histograms_graph(
+            contexts, None, specs_storage, output_dir
+        )
+    elif mode == "snapshot":
+        snapshot_columns = cfg["snapshots"].get("columns")
+        graphs = build_snapshots_graph(
+            contexts,
+            list(snapshot_columns) if snapshot_columns else None,
+            specs_storage,
+            output_dir,
+        )
+    else:
+        graphs = build_binning_graph(contexts, specs_storage, output_dir)
+    logger.info(f"Built {len(graphs)} independent graphs")
+
+    # Dump the graph specs for the downstream stages
+    dump_json(graphs_to_specs(graphs), Path(cfg["graph_specs_file"]))
+
+    # Run graph processing and production of output files
+    graph_start = time()
+    execute(
+        graphs,
+        num_workers=cfg["graph_processing"]["num_workers"],
+        num_threads=cfg["graph_processing"]["num_threads"],
+    )
+    graph_wall_s = round(time() - graph_start, 3)
+
+    # In histogram mode, list the histogram keys of each output file for the
+    # downstream stages
+    if mode == "histogram":
+        dump_json(
+            histogram_keys(graphs),
+            Path(cfg["histogram_keys_file"]),
+        )
 
     # In binning mode, derive the equipopulated binning from the values that
     # were written by the graphs and store it as binning overrides
@@ -233,7 +272,7 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
             OmegaConf.to_container(cfg["binning"], resolve=True),
         )
         derive_binning(
-            Path(output_dir),
+            output_dir,
             ROOT_DIR / Path(cfg["binning"]["output_file"]),
             ROOT_DIR / Path(cfg["binning"]["plots_dir"]),
             binning_settings,
@@ -241,11 +280,10 @@ def _run(cfg: DictConfig, profiling_cfg: DictConfig, cprofile: bool = False):
         )
 
     # Finalize the profiling report
-    if report is not None and graph_report is not None:
-        report["subgraphs"] = graph_report["subgraphs"]
-        report["subgraphs_wall_s"] = graph_report["wall_s"]
-        report["memory"] = graph_report["memory"]
-        report["totals"] = graph_report["totals"]
+    if report is not None:
+        report["subgraphs_wall_s"] = graph_wall_s
+        report["memory"] = {"peak_rss_mb": round(_peak_rss_mb(), 3)}
+        report["totals"] = {"subgraphs": len(graphs), "run_s": graph_wall_s}
         report["python"]["total_wall_s"] = round(time() - wall_start, 3)
 
     return report

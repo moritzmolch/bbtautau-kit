@@ -283,6 +283,17 @@ XY_MASSES = [
 ]
 
 
+# Masses of the X and Y bosons for benchmark scenario
+XY_MASSES_BENCHMARK = sorted(
+    (m_x, m_y)
+    for m_x, m_y in product(
+        [300, 600, 1000, 2000, 4000],
+        [60, 95, 150, 400, 800, 1200, 1800, 2600, 3500],
+    )
+    if m_x >= m_y + 125
+)
+
+
 # Missing signal samples
 MISSING_SIGNAL_SAMPLES = {
     # All signal samples of the profile are available. Signal points that are
@@ -342,6 +353,13 @@ class XYHProfile:
 FULL = XYHProfile(
     decay_modes=DECAY_MODES,
     xy_masses=XY_MASSES,
+    missing_signal_samples=MISSING_SIGNAL_SAMPLES,
+)
+
+
+BENCHMARK_GRID = XYHProfile(
+    decay_modes=[("y2b", "h2tau")],
+    xy_masses=XY_MASSES_BENCHMARK,
     missing_signal_samples=MISSING_SIGNAL_SAMPLES,
 )
 

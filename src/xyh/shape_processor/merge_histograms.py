@@ -3,22 +3,21 @@ from pathlib import Path
 from omegaconf import DictConfig
 
 from xyh.core.cli import hydra_cli
-from xyh.core.histograms.util import merge_histograms
-from xyh.core.io import load_json
+from xyh.core.histograms.merging import merge_histograms
 
 
 @hydra_cli("merge_histograms")
 def main(cfg: DictConfig):
-    # Load graph specs
-    graph_specs = load_json(Path(cfg["graph_specs_file"]))
-
     # Run graph processing and production of output files
     merge_histograms(
-        cfg["inventory"]["factory_fn"],
-        graph_specs,
-        Path(cfg["histograms_dir"]),
-        Path(cfg["output_dir"]),
-        num_workers=cfg.get("num_workers", 1),
+        inventory_factory_fn_path=cfg["inventory"]["factory_fn"],
+        inventory_factory_kwargs=cfg["inventory"]["factory_fn_kwargs"],
+        campaigns=cfg["inventory"]["campaigns"],
+        channels=cfg["inventory"]["channels"],
+        categories=cfg["inventory"]["categories"],
+        variables=cfg["inventory"]["variables"],
+        histograms_dir=Path(cfg["histograms_dir"]),
+        output_file=Path(cfg["merged_histograms_file"]),
     )
 
 
