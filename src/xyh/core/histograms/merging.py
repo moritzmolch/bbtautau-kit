@@ -7,6 +7,7 @@ import ROOT
 
 from xyh.core.config import load_inventory
 from xyh.core.config.util import (
+    gen_category_insts,
     gen_dataset_insts,
     gen_process_insts,
     skip_process_in_category,
@@ -58,9 +59,8 @@ def merge_histograms(
         campaign_inst = inventory.campaign
         channel_inst = inventory.channel
 
-        for category in (c for c in categories if channel_inst.has_category(c)):
-            # Get the category instance for this channel and category
-            category_inst = channel_inst.get_category(category)
+        for category_inst in gen_category_insts(channel_inst, categories):
+            category = category_inst.name
             for variable_arg in variables:
                 # Parse the variable name to extract the 'pure' name and the
                 # channels the variable is restricted to (if any)

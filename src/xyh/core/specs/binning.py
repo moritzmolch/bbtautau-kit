@@ -9,6 +9,7 @@ from xyh.core.binning import (
     lookup_binning,
 )
 from xyh.core.config import load_inventory
+from xyh.core.config.util import gen_category_insts
 from xyh.core.specs.specs import Binning
 
 # Get the logger for this module
@@ -125,7 +126,10 @@ def create_binning_specs(
         List of channel names to consider.
 
     categories : list[str]
-        List of category names to consider.
+        List of regular expressions that are matched in full against the
+        category names (including nested categories) of each channel.
+        Plain category names match themselves. Patterns that match nothing in
+        a channel are ignored for this channel.
 
     variables : dict[str, list[str]]
         Dictionary of variable groups and variable names to consider.
@@ -143,6 +147,7 @@ def create_binning_specs(
     # Container of binning specs for each variable
     binning_specs = []
     used_overrides = set()
+    matched_category_patterns = set()
 
     for campaign, channel in itertools.product(campaigns, channels):
         # Load the analysis inventory for this campaign and channel
@@ -158,12 +163,16 @@ def create_binning_specs(
         channel_inst = inventory.channel
         variable_insts = inventory.variables
 
+        # Remember which patterns match a category in any channel
+        matched_category_patterns.update(
+            pattern
+            for pattern in categories
+            if next(gen_category_insts(channel_inst, [pattern]), None)
+            is not None
+        )
+
         # Iterate through categories of this channel
-        for category_inst in (
-            channel_inst.get_category(c)
-            for c in categories
-            if channel_inst.has_category(c)
-        ):
+        for category_inst in gen_category_insts(channel_inst, categories):
             logger.debug(
                 "\n".join(
                     [
@@ -222,6 +231,14 @@ def create_binning_specs(
                         bin_edges,
                     )
                 )
+
+    for pattern in categories:
+        if pattern not in matched_category_patterns:
+            logger.warning(
+                f"Category pattern '{pattern}' matches no category in any "
+                "channel. Note that classifier categories only exist if "
+                "XYH_PROFILE selects signals (the default is BKG_ONLY)."
+            )
 
     if binning_overrides:
         unused = set(iter_binning(binning_overrides)) - used_overrides

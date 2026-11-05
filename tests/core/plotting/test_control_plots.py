@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import ROOT
+from order import Channel
 
 from xyh.core.plotting import control_plots
 from xyh.core.plotting.control_plots import (
@@ -33,6 +34,19 @@ def _group(name, processes, scale_factor=None):
     )
 
 
+def _channel(name, categories, blinded, category_aux):
+    channel_inst = Channel(name=name, id=1)
+    for c in categories:
+        channel_inst.add_category(
+            name=c,
+            id="+",
+            label=f"label_{c}",
+            tags={"blinded"} if blinded else set(),
+            aux=category_aux,
+        )
+    return channel_inst
+
+
 def _inventory(
     channel="tt",
     categories=("cat",),
@@ -55,17 +69,7 @@ def _inventory(
         campaign=SimpleNamespace(
             name="c", x=SimpleNamespace(lumi=100.0), ecm=13.6
         ),
-        channel=SimpleNamespace(
-            name=channel,
-            has_category=lambda c: c in categories,
-            get_category=lambda c: SimpleNamespace(
-                name=c,
-                label=f"label_{c}",
-                has_tag=lambda tag: blinded and tag == "blinded",
-                has_aux=lambda key: key in category_aux,
-                x=SimpleNamespace(**category_aux),
-            ),
-        ),
+        channel=_channel(channel, categories, blinded, category_aux),
         processes=SimpleNamespace(
             get=lambda n: (process_insts or {}).get(n, SimpleNamespace(name=n))
         ),
@@ -170,6 +174,13 @@ class TestBuildPlotTasks:
             ("tt", "mass"),
             ("et", "pt"),
         ]
+
+    def test_regex_categories_are_expanded_to_category_names(self, inventories):
+        inventories.by_channel["tt"] = _inventory(
+            "tt", ("cat_a", "cat_b", "other")
+        )
+        tasks = _build_plot_tasks(**_task_args(categories=[r"cat_.*"]))
+        assert [t["category"] for t in tasks] == ["cat_a", "cat_b"]
 
     def test_variable_name_has_channel_restriction_stripped(self, inventories):
         inventories.by_channel["tt"] = _inventory("tt")

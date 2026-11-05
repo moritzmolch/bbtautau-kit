@@ -4,6 +4,7 @@ import logging
 from types import SimpleNamespace
 
 import pytest
+from order import Channel
 
 from xyh.core.specs import binning as binning_module
 from xyh.core.specs.binning import (
@@ -20,14 +21,17 @@ def _variable(name, expression=None, bin_edges=(0.0, 1.0, 2.0)):
     )
 
 
+def _channel(name, categories):
+    channel_inst = Channel(name=name, id=1)
+    for c in sorted(categories):
+        channel_inst.add_category(name=c, id="+")
+    return channel_inst
+
+
 def _inventory(campaign, channel, categories, variables):
     return SimpleNamespace(
         campaign=SimpleNamespace(name=campaign),
-        channel=SimpleNamespace(
-            name=channel,
-            has_category=lambda c: c in categories,
-            get_category=lambda c: SimpleNamespace(name=c),
-        ),
+        channel=_channel(channel, categories),
         variables=SimpleNamespace(get=lambda n: variables[n]),
     )
 
@@ -149,12 +153,18 @@ class TestCreateBinningSpecs:
         }
         inventories = {}
         calls = []
+        categories_by_channel = {}
 
         def fake_load_inventory(path, campaign, channel, **kwargs):
             calls.append((path, campaign, channel, kwargs))
             return inventories.setdefault(
                 (campaign, channel),
-                _inventory(campaign, channel, {"cat"}, variables),
+                _inventory(
+                    campaign,
+                    channel,
+                    categories_by_channel.get(channel, {"cat"}),
+                    variables,
+                ),
             )
 
         monkeypatch.setattr(
@@ -174,6 +184,7 @@ class TestCreateBinningSpecs:
             return create_binning_specs(**kwargs)
 
         _run.calls = calls
+        _run.categories_by_channel = categories_by_channel
         return _run
 
     def test_specs_created_for_all_combinations(self, run):
@@ -190,6 +201,33 @@ class TestCreateBinningSpecs:
             for ch in ("tt", "et")
             for v in ("pt_1", "mass_1")
         }
+
+    def test_regex_categories_are_expanded_to_category_names(self, run):
+        run.categories_by_channel["tt"] = {"cat_a", "cat_b", "other"}
+        specs = run(categories=[r"cat_.*"])
+        assert sorted(s.category for s in specs) == ["cat_a", "cat_b"]
+
+    def test_pattern_matching_no_channel_warns_with_profile_hint(
+        self, run, caplog
+    ):
+        with caplog.at_level(
+            logging.WARNING, logger=binning_module.logger.name
+        ):
+            run(categories=["cat", "clf_.*"])
+        messages = [r.getMessage() for r in caplog.records]
+        assert any("'clf_.*'" in m and "XYH_PROFILE" in m for m in messages)
+        assert not any("'cat'" in m for m in messages)
+
+    def test_pattern_matching_in_one_of_several_channels_does_not_warn(
+        self, run, caplog
+    ):
+        run.categories_by_channel["tt"] = {"cat", "clf_a"}
+        run.categories_by_channel["et"] = {"cat"}
+        with caplog.at_level(
+            logging.WARNING, logger=binning_module.logger.name
+        ):
+            run(channels=["tt", "et"], categories=["clf_.*"])
+        assert not [r for r in caplog.records if "clf_" in r.getMessage()]
 
     def test_inventory_loaded_with_path_and_kwargs(self, run):
         run()

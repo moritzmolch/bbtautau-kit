@@ -4,6 +4,7 @@ from typing import Any
 
 from xyh.core.config import load_fn, load_inventory
 from xyh.core.config.util import (
+    gen_category_insts,
     gen_process_and_dataset_insts,
     skip_process_in_category,
 )
@@ -146,11 +147,7 @@ def create_filters_and_weights_specs(
         channel_inst = inventory.channel
 
         # Iterate through categories of this channel
-        for category_inst in (
-            channel_inst.get_category(c)
-            for c in categories
-            if channel_inst.has_category(c)
-        ):
+        for category_inst in gen_category_insts(channel_inst, categories):
             # Create the selection and weight specs and append them to the
             # global list
             logger.debug(

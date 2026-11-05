@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 import ROOT
+from order import Channel
 
 from xyh.core.histograms import fake_factors
 from xyh.core.histograms.fake_factors import run_fake_factor_histograms
@@ -22,6 +23,13 @@ def restore_th1_directory_status():
     ROOT.TH1.AddDirectory(previous)
 
 
+def _channel(name, categories):
+    channel_inst = Channel(name=name, id=1)
+    for c in categories:
+        channel_inst.add_category(name=c, id="+")
+    return channel_inst
+
+
 def _make_inventory(
     channel,
     categories=("cat",),
@@ -33,11 +41,7 @@ def _make_inventory(
 
     return SimpleNamespace(
         campaign=SimpleNamespace(name="c"),
-        channel=SimpleNamespace(
-            name=channel,
-            has_category=lambda c: c in categories,
-            get_category=lambda c: SimpleNamespace(name=c),
-        ),
+        channel=_channel(channel, categories),
         process_set=SimpleNamespace(
             data=_sets(data), backgrounds=_sets(backgrounds)
         ),
@@ -265,6 +269,30 @@ class TestRunFakeFactorHistograms:
         _run(tmp_path, categories=["missing", "cat"])
         _, keys, _ = _read_output(tmp_path)
         assert keys == ["c/tt/cat/jetfakes/jetfakes/pt__nominal"]
+
+    def test_run_regex_categories_are_expanded_to_category_names(
+        self, tmp_path, patch_config, write_inputs
+    ):
+        patch_config(
+            {"tt": _make_inventory("tt", categories=("cat_a", "cat_b", "x"))}
+        )
+        write_inputs(
+            {
+                _key("tt", proc, ds, "pt", category=cat): (1.0,)
+                for cat in ("cat_a", "cat_b")
+                for proc, ds in (
+                    ("data_proc", "ds_data_1"),
+                    ("data_proc", "ds_data_2"),
+                    ("tt_proc", "ds_tt"),
+                )
+            }
+        )
+        _run(tmp_path, categories=[r"cat_.*"])
+        _, keys, _ = _read_output(tmp_path)
+        assert keys == [
+            "c/tt/cat_a/jetfakes/jetfakes/pt__nominal",
+            "c/tt/cat_b/jetfakes/jetfakes/pt__nominal",
+        ]
 
     def test_run_channel_without_jetfakes_is_skipped(
         self, tmp_path, patch_config, write_inputs

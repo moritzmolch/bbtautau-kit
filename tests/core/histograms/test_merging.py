@@ -4,6 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 import ROOT
+from order import Channel
 
 from xyh.core.histograms import merging
 from xyh.core.histograms.merging import merge_histograms
@@ -33,6 +34,13 @@ def make_variation(name, skip_processes=()):
     return Variation
 
 
+def _channel(name, categories, categories_aux):
+    channel_inst = Channel(name=name, id=1)
+    for c in categories:
+        channel_inst.add_category(name=c, id="+", aux=categories_aux.get(c, {}))
+    return channel_inst
+
+
 def _inventory(
     channel,
     categories=("cat",),
@@ -43,15 +51,7 @@ def _inventory(
     categories_aux = categories_aux or {}
     return SimpleNamespace(
         campaign=SimpleNamespace(name="c"),
-        channel=SimpleNamespace(
-            name=channel,
-            has_category=lambda c: c in categories,
-            get_category=lambda c: SimpleNamespace(
-                name=c,
-                has_aux=lambda key: key in categories_aux.get(c, {}),
-                x=SimpleNamespace(**categories_aux.get(c, {})),
-            ),
-        ),
+        channel=_channel(channel, categories, categories_aux),
         processes=[SimpleNamespace(name=p) for p in processes],
         variables=SimpleNamespace(get=lambda n: SimpleNamespace(name=n)),
     )
@@ -248,6 +248,23 @@ class TestMergeHistograms:
         )
         out = _read(_run(tmp_path, categories=["missing", "cat"]))
         assert list(out) == ["c/tt/cat/proc/pt__nominal"]
+
+    def test_regex_categories_are_expanded_to_category_names(
+        self, tmp_path, setup
+    ):
+        setup.inventories["tt"] = _inventory(
+            "tt", categories=("cat_a", "cat_b", "other")
+        )
+        contents = {}
+        for category in ("cat_a", "cat_b"):
+            for dataset in ("ds1", "ds2"):
+                contents[f"c/tt/{category}/proc/{dataset}/pt__nominal"] = [1.0]
+        _write_inputs(tmp_path, contents)
+        out = _read(_run(tmp_path, categories=[r"cat_.*"]))
+        assert sorted(out) == [
+            "c/tt/cat_a/proc/pt__nominal",
+            "c/tt/cat_b/proc/pt__nominal",
+        ]
 
     def test_missing_output_parent_directory_is_created(self, tmp_path, setup):
         setup.inventories["tt"] = _inventory("tt")

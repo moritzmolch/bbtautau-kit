@@ -7,7 +7,10 @@ import matplotlib.pyplot as plt
 import ROOT
 
 from xyh.core.config import load_inventory
-from xyh.core.config.util import skip_process_in_category
+from xyh.core.config.util import (
+    gen_category_insts,
+    skip_process_in_category,
+)
 from xyh.core.histograms.util import add_histograms
 from xyh.core.parallel import run_in_parallel
 from xyh.core.specs.binning import _parse_variable_name
@@ -51,7 +54,8 @@ def _build_plot_tasks(
         # Get analysis config objects
         channel_inst = inventory.channel
 
-        for category in (c for c in categories if channel_inst.has_category(c)):
+        for category_inst in gen_category_insts(channel_inst, categories):
+            category = category_inst.name
             for variable_arg in variables:
                 # Parse the variable name to extract the 'pure' name and the
                 # channels the variable is restricted to (if any)

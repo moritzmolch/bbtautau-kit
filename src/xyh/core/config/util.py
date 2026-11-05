@@ -1,7 +1,8 @@
-from collections.abc import Generator
+import re
+from collections.abc import Generator, Iterable
 from itertools import chain
 
-from order import Category, Dataset, Process
+from order import Category, Channel, Dataset, Process
 
 from ._inventory import Inventory
 
@@ -27,6 +28,64 @@ def gen_process_insts(
         g.processes for g in inventory.process_set.process_groups
     ):
         yield inventory.processes.get(process)
+
+
+def gen_category_insts(
+    channel_inst: Channel,
+    patterns: Iterable[str],
+) -> Generator[Category, None, None]:
+    """
+    Collect the categories of a channel whose names match regular expressions.
+
+    Each pattern is matched in full (`re.fullmatch`) against the names of all
+    categories of the channel, including nested categories. Plain category
+    names are valid patterns that match themselves. A pattern that matches no
+    category of this channel yields nothing, since not every category exists in
+    every channel.
+
+    Parameters
+    ----------
+    channel_inst : Channel
+        The channel instance.
+
+    patterns : Iterable[str]
+        Regular expressions for the category names.
+
+    Yields
+    ------
+    Category
+        Category instance. Every category is yielded once, ordered by the
+        first matching pattern and then by declaration order.
+
+    Raises
+    ------
+    ValueError
+        If an entry of `patterns` is not a valid regular expression.
+    """
+
+    # Compile all patterns first, so that malformed ones are reported
+    # independently of the channel
+    compiled = []
+    for pattern in patterns:
+        try:
+            compiled.append(re.compile(pattern))
+        except re.error as e:
+            raise ValueError(
+                f"Category pattern '{pattern}' is not a valid regular "
+                f"expression: {e}"
+            ) from e
+
+    # All categories of the channel including nested ones
+    category_insts = [c for c, _, _ in channel_inst.walk_categories()]
+
+    seen = set()
+    for pattern in compiled:
+        for category_inst in category_insts:
+            if category_inst.name in seen:
+                continue
+            if pattern.fullmatch(category_inst.name):
+                seen.add(category_inst.name)
+                yield category_inst
 
 
 def skip_process_in_category(
