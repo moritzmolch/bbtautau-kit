@@ -168,6 +168,16 @@ def create_filters_and_weights_specs(
             for process_inst, dataset_inst in gen_process_and_dataset_insts(
                 inventory
             ):
+                # Check if process is going to be skipped
+                skip_process = False
+                if category_inst.has_aux("skip_process_inst"):
+                    skip_process = category_inst.x.skip_process_inst(
+                        process_inst
+                    )
+                if skip_process:
+                    continue
+
+                # Add filters and weights for this configuration
                 filters_and_weights_specs_category.extend(
                     create_filters_and_weights_spec(
                         campaign_inst,
