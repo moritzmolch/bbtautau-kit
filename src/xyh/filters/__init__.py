@@ -42,13 +42,15 @@ def default_filters(self) -> OrderedDict[str, str]:
 
     # Check if this is a classifier output category
     if self.category_inst.has_tag("clf"):
-        # Get the output class name and the hypotheses masses
+        # Get the output class name and index and the hypotheses masses
         output_class = self.category_inst.x.output_class
         m_x = self.category_inst.x.m_x
         m_y = self.category_inst.x.m_y
+        output_class_index = self.category_inst.x.output_class_index
 
+        # Select events assigned to this output class
         selections[f"clf_{output_class}"] = (
-            f"max_score_index_m_x_{m_x}_m_y_{m_y}"
+            f"max_score_index_m_x_{m_x}_m_y_{m_y} == {output_class_index}"
         )
 
     return selections
