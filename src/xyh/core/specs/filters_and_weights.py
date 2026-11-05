@@ -3,7 +3,10 @@ import logging
 from typing import Any
 
 from xyh.core.config import load_fn, load_inventory
-from xyh.core.config.util import gen_process_and_dataset_insts
+from xyh.core.config.util import (
+    gen_process_and_dataset_insts,
+    skip_process_in_category,
+)
 from xyh.core.specs.specs import Filter, FiltersAndWeights, Weight
 from xyh.variations import default_variations  # TODO load dynamically
 
@@ -169,12 +172,7 @@ def create_filters_and_weights_specs(
                 inventory
             ):
                 # Check if process is going to be skipped
-                skip_process = False
-                if category_inst.has_aux("skip_process_inst"):
-                    skip_process = category_inst.x.skip_process_inst(
-                        process_inst
-                    )
-                if skip_process:
+                if skip_process_in_category(category_inst, process_inst):
                     continue
 
                 # Add filters and weights for this configuration

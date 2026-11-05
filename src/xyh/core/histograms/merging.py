@@ -6,7 +6,11 @@ from typing import Any
 import ROOT
 
 from xyh.core.config import load_inventory
-from xyh.core.config.util import gen_dataset_insts, gen_process_insts
+from xyh.core.config.util import (
+    gen_dataset_insts,
+    gen_process_insts,
+    skip_process_in_category,
+)
 from xyh.core.histograms.util import (
     add_histograms,
     filter_histograms,
@@ -98,23 +102,10 @@ def merge_histograms(
                 )
 
                 for process_inst in gen_process_insts(inventory):
-                    # TODO Skip signals that are not relevant for classifier categories
-                    # if (
-                    #     category_inst.has_tag("clf")
-                    #     and process_inst.get_aux("is_signal", False)
-                    #     and not (
-                    #         process_inst.x.y_decay_mode
-                    #         == category_inst.x.y_decay_mode
-                    #         and process_inst.x.h_decay_mode
-                    #         == category_inst.x.h_decay_mode
-                    #         and process_inst.x.m_x == category_inst.x.m_x
-                    #         and process_inst.x.m_y == category_inst.x.m_y
-                    #     )
-                    # ):
-                    #     continue
-                    # else:
-                    #     if process_inst.get_aux("is_signal", False):
-                    #         continue
+                    # Skip processes that are not relevant for this category,
+                    # e.g. signals of other mass points in classifier categories
+                    if skip_process_in_category(category_inst, process_inst):
+                        continue
 
                     for variation_class in ["nominal"] + default_variations:
                         # Get information from the variation

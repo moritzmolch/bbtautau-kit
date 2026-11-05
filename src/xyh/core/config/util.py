@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from itertools import chain
 
-from order import Dataset, Process
+from order import Category, Dataset, Process
 
 from ._inventory import Inventory
 
@@ -27,6 +27,36 @@ def gen_process_insts(
         g.processes for g in inventory.process_set.process_groups
     ):
         yield inventory.processes.get(process)
+
+
+def skip_process_in_category(
+    category_inst: Category,
+    process_inst: Process,
+) -> bool:
+    """
+    Check whether a process is to be skipped in a category.
+
+    The decision is delegated to the optional auxiliary function
+    `skip_process_inst` of the category.
+
+    Parameters
+    ----------
+    category_inst : Category
+        The category instance.
+
+    process_inst : Process
+        The process instance.
+
+    Returns
+    -------
+    bool
+        `True` if the process is skipped in this category, `False` otherwise
+        (also if the category does not define `skip_process_inst`).
+    """
+
+    if category_inst.has_aux("skip_process_inst"):
+        return bool(category_inst.x.skip_process_inst(process_inst))
+    return False
 
 
 def gen_dataset_insts(

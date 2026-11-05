@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import ROOT
 
 from xyh.core.config import load_inventory
+from xyh.core.config.util import skip_process_in_category
 from xyh.core.histograms.util import add_histograms
 from xyh.core.parallel import run_in_parallel
 from xyh.core.specs.binning import _parse_variable_name
@@ -143,18 +144,12 @@ def _plot_category_variable(task: dict[str, Any]) -> list[str]:
             # Collect histograms of this group and add them up
             hists_group = []
             for process in process_group.processes:
-                # if process_inst.get_aux("is_signal", False):
-                #     if not category_inst.has_tag("clf"):
-                #         continue
-                #     if not (
-                #         process_inst.x.y_decay_mode
-                #         == category_inst.x.y_decay_mode
-                #         and process_inst.x.h_decay_mode
-                #         == category_inst.x.h_decay_mode
-                #         and process_inst.x.m_x == category_inst.x.m_x
-                #         and process_inst.x.m_y == category_inst.x.m_y
-                #     ):
-                #         continue
+                # Skip processes that are not relevant for this category,
+                # e.g. signals of other mass points in classifier categories
+                if skip_process_in_category(
+                    category_inst, inventory.processes.get(process)
+                ):
+                    continue
                 hist_name = (
                     f"{campaign_inst.name}/{channel_inst.name}/{category_inst.name}/"
                     f"{process}/{variable_inst.name}__nominal"

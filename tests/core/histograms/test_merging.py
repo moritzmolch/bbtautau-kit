@@ -38,13 +38,19 @@ def _inventory(
     categories=("cat",),
     processes=("proc",),
     variables=("pt",),
+    categories_aux=None,
 ):
+    categories_aux = categories_aux or {}
     return SimpleNamespace(
         campaign=SimpleNamespace(name="c"),
         channel=SimpleNamespace(
             name=channel,
             has_category=lambda c: c in categories,
-            get_category=lambda c: SimpleNamespace(name=c),
+            get_category=lambda c: SimpleNamespace(
+                name=c,
+                has_aux=lambda key: key in categories_aux.get(c, {}),
+                x=SimpleNamespace(**categories_aux.get(c, {})),
+            ),
         ),
         processes=[SimpleNamespace(name=p) for p in processes],
         variables=SimpleNamespace(get=lambda n: SimpleNamespace(name=n)),
@@ -280,3 +286,69 @@ class TestMergeHistograms:
         _write_inputs(tmp_path, {_key("proc", "ds1"): [1]})
         with pytest.raises(ValueError, match="expected pattern"):
             _run(tmp_path, variables=["pt[tt"])
+
+
+class TestMergeHistogramsSkippedProcesses:
+    """Processes skipped by the category need no input and give no output."""
+
+    @staticmethod
+    def _skip_other(process_inst):
+        return process_inst.name == "other"
+
+    def test_skipped_process_needs_no_input_and_gives_no_output(
+        self, tmp_path, setup
+    ):
+        setup.inventories["tt"] = _inventory(
+            "tt",
+            processes=("proc", "other"),
+            categories_aux={"cat": {"skip_process_inst": self._skip_other}},
+        )
+        # Inputs only exist for the kept process
+        _write_inputs(
+            tmp_path,
+            {_key("proc", "ds1"): [1.0], _key("proc", "ds2"): [2.0]},
+        )
+        out = _read(_run(tmp_path))
+        assert sorted(out) == ["c/tt/cat/proc/pt__nominal"]
+
+    def test_skipped_process_variations_are_not_merged(
+        self, tmp_path, setup, monkeypatch
+    ):
+        setup.inventories["tt"] = _inventory(
+            "tt",
+            processes=("proc", "other"),
+            categories_aux={"cat": {"skip_process_inst": self._skip_other}},
+        )
+        monkeypatch.setattr(
+            merging, "default_variations", [make_variation("up")]
+        )
+        _write_inputs(
+            tmp_path,
+            {
+                _key("proc", "ds1"): [1.0],
+                _key("proc", "ds2"): [1.0],
+                _key("proc", "ds1", variation="up"): [1.0],
+                _key("proc", "ds2", variation="up"): [1.0],
+            },
+        )
+        out = _read(_run(tmp_path))
+        assert sorted(out) == [
+            "c/tt/cat/proc/pt__nominal",
+            "c/tt/cat/proc/pt__up",
+        ]
+
+    def test_unskipped_process_missing_input_still_raises(
+        self, tmp_path, setup
+    ):
+        # Category defines the aux, but does not skip the process without input
+        setup.inventories["tt"] = _inventory(
+            "tt",
+            processes=("proc", "other"),
+            categories_aux={"cat": {"skip_process_inst": lambda p: False}},
+        )
+        _write_inputs(
+            tmp_path,
+            {_key("proc", "ds1"): [1.0], _key("proc", "ds2"): [2.0]},
+        )
+        with pytest.raises(ValueError):
+            _run(tmp_path)
