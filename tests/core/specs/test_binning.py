@@ -103,6 +103,43 @@ class TestCreateBinningSpec:
         assert spec.bin_edges == []
 
 
+class TestCreateBinningSpecCallableExpression:
+    @pytest.fixture
+    def insts(self):
+        return (
+            SimpleNamespace(name="camp"),
+            SimpleNamespace(name="tt"),
+            SimpleNamespace(name="cat"),
+        )
+
+    def test_callable_expression_is_resolved_with_category(self, insts):
+        received = []
+
+        def expression(category_inst):
+            received.append(category_inst)
+            return f"col_{category_inst.name}"
+
+        spec = create_binning_spec(*insts, _variable("v", expression))
+        assert received == [insts[2]]
+        assert spec.expression == "col_cat"
+        assert isinstance(spec.expression, str)
+
+    def test_callable_returning_none_falls_back_to_variable_name(self, insts):
+        spec = create_binning_spec(*insts, _variable("v", lambda c: None))
+        assert spec.expression == "v"
+
+    def test_error_from_callable_propagates(self, insts):
+        def expression(category_inst):
+            raise ValueError("needs clf category")
+
+        with pytest.raises(ValueError, match="needs clf category"):
+            create_binning_spec(*insts, _variable("v", expression))
+
+    def test_string_expression_is_unchanged(self, insts):
+        spec = create_binning_spec(*insts, _variable("v", "a + b"))
+        assert spec.expression == "a + b"
+
+
 class TestCreateBinningSpecs:
     @pytest.fixture
     def run(self, monkeypatch):

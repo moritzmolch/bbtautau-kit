@@ -65,7 +65,9 @@ def create_binning_spec(
         The category instance.
 
     variable_inst : Variable
-        The variable instance.
+        The variable instance. Its expression is either a string or a
+        callable that takes the category instance and returns the expression
+        string, for variables that depend on the category.
 
     bin_edges : list, optional
         Bin edges that replace the binning of the variable instance.
@@ -75,19 +77,18 @@ def create_binning_spec(
     Binning
         The binning specification.
     """
-    # Create dictionary with variable information needed to produce the
-    # histogram
+
+    # Resolve the expression of the variable, which can depend on the category
+    expression = variable_inst.expression
+    if callable(expression):
+        expression = expression(category_inst)
 
     return Binning(
         campaign=campaign_inst.name,
         channel=channel_inst.name,
         category=category_inst.name,
         variable=variable_inst.name,
-        expression=(
-            variable_inst.expression
-            if variable_inst.expression is not None
-            else variable_inst.name
-        ),
+        expression=expression if expression is not None else variable_inst.name,
         bin_edges=(
             bin_edges if bin_edges is not None else variable_inst.bin_edges
         ),

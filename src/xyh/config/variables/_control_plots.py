@@ -1,6 +1,39 @@
-from order import Channel, Variable
+from order import Category, Channel, Variable
 
 from ._util import PI, add_variable, arange, binning, cat
+
+
+def _max_score_expression(category_inst: Category) -> str:
+    """
+    Expression of the `max_score` variable for a classifier category.
+
+    The maximum classifier score depends on the mass hypothesis of the
+    category, so the expression can only be resolved once the category is
+    known.
+
+    Parameters
+    ----------
+    category_inst : Category
+        The classifier category instance.
+
+    Returns
+    -------
+    str
+        Name of the column with the maximum score for the mass hypothesis of
+        the category.
+
+    Raises
+    ------
+    ValueError
+        If the category is not a classifier category.
+    """
+
+    if not category_inst.has_tag("clf"):
+        raise ValueError(
+            "Variable 'max_score' needs a classifier category with a mass "
+            f"hypothesis, but got category '{category_inst.name}'"
+        )
+    return f"max_score_m_x_{category_inst.x.m_x}_m_y_{category_inst.x.m_y}"
 
 
 def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
@@ -528,7 +561,10 @@ def get_control_plot_variables(channel_inst: Channel) -> list[Variable]:
     }
 
     expressions = {
-        "yield": dict.fromkeys(["et", "mt", "tt", "em", "ee", "mm"], "0.5")
+        "yield": dict.fromkeys(["et", "mt", "tt", "em", "ee", "mm"], "0.5"),
+        "max_score": dict.fromkeys(
+            ["et", "mt", "tt", "em", "ee", "mm"], _max_score_expression
+        ),
     }
 
     binnings = {
