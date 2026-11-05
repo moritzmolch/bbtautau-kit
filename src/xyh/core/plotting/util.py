@@ -436,6 +436,8 @@ def plot(
         hist_backgrounds_total, hist_backgrounds_total
     )
 
+    # Without data (blinded), there is no data/background ratio
+    hist_data_ratio = None
     if hist_data is not None:
         # get data/background ratio
         hist_data_ratio = get_hist_ratio(hist_data[0], hist_backgrounds_total)

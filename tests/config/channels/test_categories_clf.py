@@ -75,6 +75,16 @@ class TestAddClfCategories:
     def test_all_categories_carry_the_clf_tag(self, channel):
         assert all(c.has_tag("clf") for c in channel.categories)
 
+    def test_only_xyh_class_is_blinded(self, channel):
+        blinded = {
+            c.x.output_class for c in channel.categories if c.has_tag("blinded")
+        }
+        assert blinded == {"xyh"}
+
+    @pytest.mark.parametrize("name", CLASS_NAMES)
+    def test_blinded_tag_per_class(self, channel, name):
+        assert _category(channel, name).has_tag("blinded") is (name == "xyh")
+
     @pytest.mark.parametrize(("index", "name"), list(enumerate(CLASS_NAMES)))
     def test_aux_holds_class_name_and_index(self, channel, index, name):
         category_inst = _category(channel, name)

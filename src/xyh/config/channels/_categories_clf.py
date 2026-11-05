@@ -35,7 +35,7 @@ def add_clf_categories(channel_inst: Channel):
                 id="+",
                 label=f"{channel_inst.label} channel, {label} class",
                 label_short=f"{channel_inst.label}, {label}",
-                tags={"clf"},
+                tags={"clf"} | ({"blinded"} if name == "xyh" else set()),
             )
 
             # Add process filter and metadata
