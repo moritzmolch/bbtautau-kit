@@ -23,104 +23,8 @@ class TH1Wrapper:
     histogram: ROOT.TH1
 
 
-def load_all_for_process_set(
-    histograms: list[TH1Wrapper],
-    process_set: ProcessSet,
-    campaign: str,
-    channel: str,
-    category: str,
-    variable: str,
-    variation: str,
-) -> dict[str, dict[str, dict[str, list[TH1Wrapper]]]]:
-    """
-    Load histograms for a given `ProcessSet` from graph output files.
-
-    The dictionary has the following structure:
-
-    ```python
-    {
-        "data": {
-            "<process_group_name>": {
-                "<process_name>": [<TH1Wrapper>, ...],
-            },
-            ...,
-        },
-        "signals": { ... },
-        "backgrounds": { ... },
-    }
-    ```
-
-    Parameters
-    ----------
-    histograms : list[TH1Wrapper]
-        A list of `TH1Wrapper` objects to filter.
-
-    process_set : ProcessSet
-        The `ProcessSet` object containing the process groups to load histograms
-        for.
-
-    campaign : str
-        The campaign to filter by.
-
-    channel : str
-        The channel to filter by.
-
-    category : str
-        The category to filter by.
-
-    variable : str
-        The variable to filter by.
-
-    variation : str
-        The variation to filter by.
-
-    Returns
-    -------
-    dict[str, dict[str, dict[str, list[TH1Wrapper]]]]
-        A dictionary containing the histograms for each process in the
-        `ProcessSet`, organized by process group and process name.
-    """
-
-    # Filter histograms for the given campaign, channel, category, and variable
-    filtered_histograms = list(
-        filter_histograms(
-            histograms,
-            campaign=campaign,
-            channel=channel,
-            category=category,
-            variable=variable,
-            variation=variation,
-        )
-    )
-
-    # Create a dictionary to hold the histograms for each process in the
-    # `ProcessSet`
-    def _get_histograms_for_processes(process_groups: list[ProcessGroup]):
-        return {
-            process_group.name: {
-                p: list(
-                    filter_histograms(
-                        filtered_histograms,
-                        process=p,
-                    )
-                )
-            }
-            for process_group in process_groups
-            for p in process_group.processes
-        }
-
-    # Form dictionary of process set histograms
-    process_set_histograms = {
-        "data": _get_histograms_for_processes(process_set.data),
-        "signals": _get_histograms_for_processes(process_set.signals),
-        "backgrounds": _get_histograms_for_processes(process_set.backgrounds),
-    }
-
-    return process_set_histograms
-
-
 def load_all(
-    histogram_keys_file: Path, histograms_dir: Path
+    histograms_dir: Path,
 ) -> list[TH1Wrapper]:
     """
     Load all histograms from graph output files of a production campaign.
@@ -131,10 +35,6 @@ def load_all(
 
     Parameters
     ----------
-    histogram_keys_file : Path
-        Path to the JSON file containing the mapping of output files to
-        histogram keys.
-
     histograms_dir : Path
         Path to the directory containing the output files of the production
         campaign.
@@ -149,6 +49,7 @@ def load_all(
     ROOT.TH1.AddDirectory(0)
 
     # Load the histogram keys and corresponding files from the JSON file
+    histogram_keys_file = histograms_dir / "histogram_keys.json.gz"
     histogram_keys = load_json(histogram_keys_file)
 
     histograms = []
@@ -324,6 +225,102 @@ def get_histogram(
             return hist
 
     raise ValueError("No matching histogram found for the given criteria")
+
+
+def get_histograms_for_process_set(
+    histograms: list[TH1Wrapper],
+    process_set: ProcessSet,
+    campaign: str,
+    channel: str,
+    category: str,
+    variable: str,
+    variation: str,
+) -> dict[str, dict[str, dict[str, list[TH1Wrapper]]]]:
+    """
+    Load histograms for a given `ProcessSet` from graph output files.
+
+    The dictionary has the following structure:
+
+    ```python
+    {
+        "data": {
+            "<process_group_name>": {
+                "<process_inst>": [<TH1Wrapper>, ...],
+            },
+            ...,
+        },
+        "signals": { ... },
+        "backgrounds": { ... },
+    }
+    ```
+
+    Parameters
+    ----------
+    histograms : list[TH1Wrapper]
+        A list of `TH1Wrapper` objects to filter.
+
+    process_set : ProcessSet
+        The `ProcessSet` object containing the process groups to load histograms
+        for.
+
+    campaign : str
+        The campaign to filter by.
+
+    channel : str
+        The channel to filter by.
+
+    category : str
+        The category to filter by.
+
+    variable : str
+        The variable to filter by.
+
+    variation : str
+        The variation to filter by.
+
+    Returns
+    -------
+    dict[str, dict[str, dict[str, list[TH1Wrapper]]]]
+        A dictionary containing the histograms for each process in the
+        `ProcessSet`, organized by process group and process name.
+    """
+
+    # Filter histograms for the given campaign, channel, category, and variable
+    filtered_histograms = list(
+        filter_histograms(
+            histograms,
+            campaign=campaign,
+            channel=channel,
+            category=category,
+            variable=variable,
+            variation=variation,
+        )
+    )
+
+    # Create a dictionary to hold the histograms for each process in the
+    # `ProcessSet`
+    def _get_histograms_for_processes(process_groups: list[ProcessGroup]):
+        return {
+            process_group.name: {
+                p: list(
+                    filter_histograms(
+                        filtered_histograms,
+                        process=p,
+                    )
+                )
+            }
+            for process_group in process_groups
+            for p in process_group.processes
+        }
+
+    # Form dictionary of process set histograms
+    process_set_histograms = {
+        "data": _get_histograms_for_processes(process_set.data),
+        "signals": _get_histograms_for_processes(process_set.signals),
+        "backgrounds": _get_histograms_for_processes(process_set.backgrounds),
+    }
+
+    return process_set_histograms
 
 
 def add_histograms(histograms: list[ROOT.TH1]) -> ROOT.TH1:

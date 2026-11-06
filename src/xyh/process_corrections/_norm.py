@@ -1,28 +1,11 @@
-"""
-Derive data-driven Z normalization weights.
-
-Reads the merged histograms of a shapes tag, subtracts all non-Z processes
-from data and writes one correctionlib file per campaign to `output_dir`. The
-normalization is derived per (n_jets, n_bjets) category together with its
-statistical and non-process normalization uncertainty and stored with the
-normalization and each variation in the correction `z_normalization`, see
-`build_correction_set`. See `xyh.core.z_pt_reweighting` for the method. The
-weights are applied in a new production by setting `XYH_Z_PT_WEIGHTS_DIR`,
-see `xyh.weights.processes`.
-
-The corrections must be derived from a production without Z corrections.
-"""
-
 import logging
 from math import sqrt
 from pathlib import Path
 
 import ROOT
 from correctionlib import schemav2
-from omegaconf import DictConfig
 
-from xyh.core.cli import hydra_cli
-from xyh.core.config import Inventory, load_inventory
+from xyh.core.config import Inventory
 from xyh.core.config.util import gen_process_insts
 from xyh.core.histograms.util import (
     add_histograms,
@@ -45,12 +28,16 @@ def _compute_nominal_and_shifts(
     h_data_subtracted.Add(h_other, -1.0)
 
     # Get number of subtracted data and simulated non-process events
+    n_data = h_data.Integral()
     n_data_subtracted = h_data_subtracted.Integral()
     n_proc = h_proc.Integral()
     n_other = h_other.Integral()
+    logger.info(
+        f"Got {n_data} data events, {n_proc} process events, and {n_other} other events"
+    )
 
     # Check that h_data_subtracted is not negative
-    if h_data_subtracted.Integral() <= 0:
+    if n_data_subtracted <= 0:
         raise ValueError("Subtracted data histogram is negative")
 
     # Check that h_proc is not negative
@@ -66,8 +53,8 @@ def _compute_nominal_and_shifts(
 
     # Statistical uncertainty in data and Z simulation
     sigma_stat = norm * sqrt(
-        h_data_subtracted.GetSumW2N() / n_data_subtracted**2
-        + h_proc.GetSumW2N() / n_proc**2
+        h_data_subtracted.GetSumw2N() / n_data_subtracted**2
+        + h_proc.GetSumw2N() / n_proc**2
     )
     for s in [("up", 1), ("down", -1)]:
         shifts[f"stat_{s[0]}"] = norm + s[1] * sigma_stat
@@ -80,14 +67,13 @@ def _compute_nominal_and_shifts(
     return norm, shifts
 
 
-def calculate_normalization_weight(
+def _calculate_normalization_weight(
     histograms_dir: Path,
     inventory: Inventory,
     campaign: str,
     channel: str,
     category: str,
     variable: str,
-    variation: str,
     process_tag: str,
     unc_rel_norm_other: float,
 ):
@@ -103,10 +89,10 @@ def calculate_normalization_weight(
         channel,
         category,
         variable,
-        variation,
+        "nominal",
     )
 
-    # Get data, Z, and non-Z background histograms
+    # Get data, process, and other background histograms
     h_data = add_histograms(
         [
             h.histogram
@@ -130,7 +116,7 @@ def calculate_normalization_weight(
             for g in histograms_dict["backgrounds"].values()
             for p, h_list in g.items()
             for h in h_list
-            if not process_insts_lookup[p].has_tag("z")
+            if not process_insts_lookup[p].has_tag(process_tag)
         ]
     )
 
@@ -143,28 +129,14 @@ def calculate_normalization_weight(
     )
 
     # Print results
+    logger.info(f"{campaign.name}, {category}")
+    logger.info(f"        normalization factor {norm:.4f}")
+    logger.info(f"        stat +- {shifts['stat_up'] - norm:.4f}")
     logger.info(
-        f"{campaign}, {category}: normalization factor {norm:.4f}",
-    )
-    logger.info(
-        f"                                     stat +- {shifts['stat_up'] - norm:.4f}",
-    )
-    logger.info(
-        f"                       other process norm +- {shifts['norm_other_up'] - norm:.4f}",
+        f"        other process norm +- {shifts['norm_other_up'] - norm:.4f}"
     )
 
     return norm, shifts
-
-
-# Named variations stored in the correctionlib file, see the shifts returned
-# by `_compute_nominal_and_shifts`
-VARIATIONS = (
-    "nominal",
-    "stat_up",
-    "stat_down",
-    "norm_other_up",
-    "norm_other_down",
-)
 
 
 def build_correction_set(
@@ -180,6 +152,18 @@ def build_correction_set(
     variations, see `_compute_nominal_and_shifts`. Evaluating an unknown
     variation raises.
     """
+
+    # Named variations stored in the correctionlib file, see the shifts returned
+    # by `_compute_nominal_and_shifts`
+    variation_names = (
+        "nominal",
+        "stat_up",
+        "stat_down",
+        "norm_other_up",
+        "norm_other_down",
+    )
+
+    # Create correctionlib structure for each variation
     variation_leaves = {
         variation: {
             (n_jets, n_bjets): (
@@ -187,8 +171,9 @@ def build_correction_set(
             )
             for (n_jets, n_bjets), (norm, shifts) in results.items()
         }
-        for variation in VARIATIONS
+        for variation in variation_names
     }
+
     return schemav2.CorrectionSet(
         schema_version=2,
         description=description,
@@ -236,30 +221,15 @@ def build_correction_set(
     )
 
 
-def derive_z_normalization(
-    inventory_factory_fn_path: str,
-    inventory_factory_kwargs: dict,
-    campaign: str,
-    channel: str,
+def derive_norm_weights(
+    inventory: Inventory,
     categories: list[str],
-    merged_histograms_dir: Path,
-    output_file: Path,
     yield_variable: str,
     process_tag: str,
+    unc_rel_norm_other: float,
+    histograms_dir: Path,
+    output_file: Path,
 ):
-    inventory = load_inventory(
-        inventory_factory_fn_path,
-        campaign,
-        channel,
-        **inventory_factory_kwargs,
-    )
-
-    # Raise exception if this is not the mm channel
-    if not inventory.channel.name == "mm":
-        raise ValueError(
-            "Z normalization weights derivation is only implemented for the "
-            + f"mm channel, but got {inventory.channel.name}"
-        )
 
     results = {}
     for category in categories:
@@ -270,7 +240,7 @@ def derive_z_normalization(
         # b-jet selection
         if not category_inst.has_tag("jet_bjet_cat"):
             raise ValueError(
-                "Z normalization weights derivation is only implemented for "
+                "Normalization weights derivation is only implemented for "
                 + "jet multiplicities with b-jet selection, but got "
                 + f" {category}"
             )
@@ -281,47 +251,26 @@ def derive_z_normalization(
 
         # Calculate normalization and store it with the number of jets in this
         # bin as key
-        norm, shifts = calculate_normalization_weight(
-            merged_histograms_dir,
+        norm, shifts = _calculate_normalization_weight(
+            histograms_dir,
             inventory,
-            campaign,
-            channel,
+            inventory.campaign,
+            inventory.channel,
             category,
             yield_variable,
-            "nominal",
-            "z",
-            0.05,  # Relative uncertainty of non-Z processes
+            process_tag,
+            unc_rel_norm_other,
         )
         results[(n_jets, n_bjets)] = (norm, shifts)
 
+    # Build the correction set and dump it to an output file
     cset = build_correction_set(
         results,
         description=(
-            f"Z normalization weights of {campaign}, derived in the "
-            f"{channel} channel"
+            f"Z normalization weights of {inventory.campaign.name}, derived in "
+            f"the {inventory.channel.name} channel"
         ),
     )
     output_file.parent.mkdir(parents=True, exist_ok=True)
     output_file.write_text(cset.model_dump_json(exclude_unset=True, indent=1))
-    logger.info("Wrote %s", output_file)
-
-
-@hydra_cli("derive_normalization")
-def main(cfg: DictConfig):
-
-    for campaign in cfg["campaigns"]:
-        derive_z_normalization(
-            cfg["inventory"]["factory_fn"],
-            dict(cfg["inventory"]["factory_fn_kwargs"]),
-            campaign,
-            cfg["channel"],
-            list(cfg["categories"]),
-            Path(cfg["histograms_dir"]),
-            Path(cfg["output_dir"]) / f"{campaign}.json",
-            cfg["yield_variable"],
-            cfg["process_tag"],
-        )
-
-
-if __name__ == "__main__":
-    main()
+    logger.info(f"Wrote {output_file}")

@@ -38,10 +38,7 @@ def merge_histograms(
     output_file: Path,
 ):
     # Load all histograms
-    histograms = load_all(
-        histograms_dir / "histogram_keys.json.gz",
-        histograms_dir,
-    )
+    histograms = load_all(histograms_dir)
 
     # Store for the output histograms
     histograms_output = {}
