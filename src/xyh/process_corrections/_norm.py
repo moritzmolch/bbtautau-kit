@@ -2,6 +2,7 @@ import logging
 from math import sqrt
 from pathlib import Path
 
+import numpy as np
 import ROOT
 from correctionlib import schemav2
 
@@ -53,8 +54,8 @@ def _compute_nominal_and_shifts(
 
     # Statistical uncertainty in data and Z simulation
     sigma_stat = norm * sqrt(
-        h_data_subtracted.GetSumw2N() / n_data_subtracted**2
-        + h_proc.GetSumw2N() / n_proc**2
+        np.sum(h_data_subtracted.GetSumw2()) / n_data_subtracted**2
+        + np.sum(h_proc.GetSumw2()) / n_proc**2
     )
     for s in [("up", 1), ("down", -1)]:
         shifts[f"stat_{s[0]}"] = norm + s[1] * sigma_stat
@@ -62,7 +63,7 @@ def _compute_nominal_and_shifts(
     # Normalization/model uncertainty in non-process processes
     sigma_norm_other = unc_rel_norm_other * n_other / n_proc
     for s in [("up", 1), ("down", -1)]:
-        shifts[f"norm_other_{s[0]}"] = norm + s[1] * sigma_norm_other
+        shifts[f"norm_other_{s[0]}"] = norm - s[1] * sigma_norm_other
 
     return norm, shifts
 
