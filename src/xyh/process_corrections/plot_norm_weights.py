@@ -1,4 +1,4 @@
-"""Summary plots of normalization weights.
+"""Plots of normalization weights.
 
 Reads the correctionlib files written by ``xyh.process_corrections.
 derive_norm_weights`` (``<process_tag>_norm_<campaign>.json``, one per
@@ -10,16 +10,17 @@ campaign) and writes one plot per era:
   normalization uncertainty of the subtracted processes. Bins without a
   stored value stay empty.
 
-The correction is found by its name ``<process_tag>_normalization``, or has
-to be given with ``--correction`` if a file holds several.
+The correction is found by its name ``<process_tag>_normalization``.
 
 Usage
 -----
+Hydra stage with the config of the corresponding derivation, which selects
+the campaigns and the input directory:
+
     python3 -m xyh.process_corrections.plot_norm_weights \\
-        data/output/<tag>/tt_norm/*.json --output-dir plots
+        --config-name plot_norm_weights_tt
 """
 
-import argparse
 import logging
 from pathlib import Path
 
@@ -29,6 +30,9 @@ import mplhep
 import numpy as np
 from correctionlib import schemav2
 from matplotlib.colors import TwoSlopeNorm
+from omegaconf import DictConfig
+
+from xyh.core.cli import hydra_cli
 
 matplotlib.use("Agg")
 
@@ -67,7 +71,7 @@ def _find_correction(cset, name: str | None):
     if len(candidates) != 1:
         raise ValueError(
             f"Expected exactly one correction ending in '{SUFFIX}', got "
-            f"{sorted(corrections)}; select one with --correction"
+            f"{sorted(corrections)}"
         )
     return candidates[0]
 
@@ -178,32 +182,19 @@ def plot_jets_bjets(
     logger.info(f"Wrote {out}")
 
 
-def _input_name(path: Path) -> str:
-    """Campaign of a ``<process_tag>_norm_<campaign>`` file, else the stem."""
-    return path.stem.split("_norm_", 1)[1] if "_norm_" in path.stem else path.stem
+def plot_norm_weights(
+    inputs: dict[str, Path],
+    output_dir: Path,
+    name: str,
+    label: str,
+    file_format: str = "png",
+    correction: str | None = None,
+) -> None:
+    """Write one plot per input, keyed by its era (campaign).
 
-
-def main():
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("inputs", nargs="+", type=Path)
-    parser.add_argument("--output-dir", type=Path, default=Path("."))
-    parser.add_argument(
-        "--correction",
-        help="Name of the correction, default: the one ending in "
-        f"'{SUFFIX}'",
-    )
-    parser.add_argument(
-        "--name", help="Output name prefix, default: the correction name"
-    )
-    parser.add_argument(
-        "--label",
-        help="Process label for the axes, default: the process tag",
-    )
-    parser.add_argument("--format", default="png")
-    args = parser.parse_args()
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
-
-    data = {_input_name(p): load(p, args.correction) for p in args.inputs}
+    The plots are written to ``output_dir/<name>_<era>.<file_format>``.
+    """
+    data = {era: load(path, correction) for era, path in inputs.items()}
     first = next(iter(data.values()))
     j_edges, b_edges = first["j_edges"], first["b_edges"]
     if any(
@@ -211,26 +202,34 @@ def main():
         for d in data.values()
     ):
         raise ValueError("The inputs have different multiplicity bins")
-    names = {d["name"] for d in data.values()}
-    if len(names) != 1:
-        raise ValueError(f"The inputs hold different corrections: {names}")
-
-    corr_name = first["name"]
-    name = args.name or corr_name
-    process = args.label or corr_name.removesuffix(SUFFIX)
-    ylabel = f"{process} normalization factor"
 
     matplotlib.style.use(mplhep.style.CMS)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
     for era, d in data.items():
         plot_jets_bjets(
             d,
             era,
             j_edges,
             b_edges,
-            ylabel,
-            args.output_dir / f"{name}_{era}.{args.format}",
+            f"{label} normalization factor",
+            output_dir / f"{name}_{era}.{file_format}",
         )
+
+
+@hydra_cli("plot_norm_weights")
+def main(cfg: DictConfig):
+    process_tag = cfg["process_tag"]
+    output_dir = Path(cfg["output_dir"])
+    plot_norm_weights(
+        {
+            campaign: output_dir / f"{process_tag}_norm_{campaign}.json"
+            for campaign in cfg["inventory"]["campaigns"]
+        },
+        Path(cfg["plots_dir"]),
+        name=f"{process_tag}_normalization",
+        label=process_tag,
+        file_format=cfg["plot_format"],
+    )
 
 
 if __name__ == "__main__":
