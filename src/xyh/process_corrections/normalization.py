@@ -1,0 +1,327 @@
+"""
+Derive data-driven Z normalization weights.
+
+Reads the merged histograms of a shapes tag, subtracts all non-Z processes
+from data and writes one correctionlib file per campaign to `output_dir`. The
+normalization is derived per (n_jets, n_bjets) category together with its
+statistical and non-process normalization uncertainty and stored with the
+normalization and each variation in the correction `z_normalization`, see
+`build_correction_set`. See `xyh.core.z_pt_reweighting` for the method. The
+weights are applied in a new production by setting `XYH_Z_PT_WEIGHTS_DIR`,
+see `xyh.weights.processes`.
+
+The corrections must be derived from a production without Z corrections.
+"""
+
+import logging
+from math import sqrt
+from pathlib import Path
+
+import ROOT
+from correctionlib import schemav2
+from omegaconf import DictConfig
+
+from xyh.core.cli import hydra_cli
+from xyh.core.config import Inventory, load_inventory
+from xyh.core.config.util import gen_process_insts
+from xyh.core.histograms.util import (
+    add_histograms,
+    get_histograms_for_process_set,
+    load_all,
+)
+from xyh.core.z_pt_reweighting import _nested_binning
+
+logger = logging.getLogger(__name__)
+
+
+def _compute_nominal_and_shifts(
+    h_data: ROOT.TH1,
+    h_proc: ROOT.TH1,
+    h_other: ROOT.TH1,
+    unc_rel_norm_other: float,
+) -> tuple[float, dict[str, float]]:
+    # Subtract non-process processes from data
+    h_data_subtracted = h_data.Clone()
+    h_data_subtracted.Add(h_other, -1.0)
+
+    # Get number of subtracted data and simulated non-process events
+    n_data_subtracted = h_data_subtracted.Integral()
+    n_proc = h_proc.Integral()
+    n_other = h_other.Integral()
+
+    # Check that h_data_subtracted is not negative
+    if h_data_subtracted.Integral() <= 0:
+        raise ValueError("Subtracted data histogram is negative")
+
+    # Check that h_proc is not negative
+    if h_proc.Integral() <= 0:
+        raise ValueError("Process histogram is negative")
+
+    # Correction factor
+    norm = n_data_subtracted / n_proc
+
+    # Uncertainties: statistical uncertainty in data, statistical uncertainty in
+    # Z simulation, and normalization uncertainty of non-Z processes
+    shifts = {}
+
+    # Statistical uncertainty in data and Z simulation
+    sigma_stat = norm * sqrt(
+        h_data_subtracted.GetSumW2N() / n_data_subtracted**2
+        + h_proc.GetSumW2N() / n_proc**2
+    )
+    for s in [("up", 1), ("down", -1)]:
+        shifts[f"stat_{s[0]}"] = norm + s[1] * sigma_stat
+
+    # Normalization/model uncertainty in non-process processes
+    sigma_norm_other = unc_rel_norm_other * n_other / n_proc
+    for s in [("up", 1), ("down", -1)]:
+        shifts[f"norm_other_{s[0]}"] = norm + s[1] * sigma_norm_other
+
+    return norm, shifts
+
+
+def calculate_normalization_weight(
+    histograms_dir: Path,
+    inventory: Inventory,
+    campaign: str,
+    channel: str,
+    category: str,
+    variable: str,
+    variation: str,
+    process_tag: str,
+    unc_rel_norm_other: float,
+):
+    # Get process instances
+    process_insts_lookup = {p.name: p for p in gen_process_insts(inventory)}
+
+    # Load histograms for the process
+    histograms = load_all(histograms_dir)
+    histograms_dict = get_histograms_for_process_set(
+        histograms,
+        inventory.process_set,
+        campaign,
+        channel,
+        category,
+        variable,
+        variation,
+    )
+
+    # Get data, Z, and non-Z background histograms
+    h_data = add_histograms(
+        [
+            h.histogram
+            for g in histograms_dict["data"].values()
+            for h_list in g.values()
+            for h in h_list
+        ]
+    )
+    h_proc = add_histograms(
+        [
+            h.histogram
+            for g in histograms_dict["backgrounds"].values()
+            for p, h_list in g.items()
+            for h in h_list
+            if process_insts_lookup[p].has_tag(process_tag)
+        ]
+    )
+    h_other = add_histograms(
+        [
+            h.histogram
+            for g in histograms_dict["backgrounds"].values()
+            for p, h_list in g.items()
+            for h in h_list
+            if not process_insts_lookup[p].has_tag("z")
+        ]
+    )
+
+    # Compute the normalization factor and its uncertainty
+    norm, shifts = _compute_nominal_and_shifts(
+        h_data,
+        h_proc,
+        h_other,
+        unc_rel_norm_other,
+    )
+
+    # Print results
+    logger.info(
+        f"{campaign}, {category}: normalization factor {norm:.4f}",
+    )
+    logger.info(
+        f"                                     stat +- {shifts['stat_up'] - norm:.4f}",
+    )
+    logger.info(
+        f"                       other process norm +- {shifts['norm_other_up'] - norm:.4f}",
+    )
+
+    return norm, shifts
+
+
+# Named variations stored in the correctionlib file, see the shifts returned
+# by `_compute_nominal_and_shifts`
+VARIATIONS = (
+    "nominal",
+    "stat_up",
+    "stat_down",
+    "norm_other_up",
+    "norm_other_down",
+)
+
+
+def build_correction_set(
+    results: dict[tuple[int, int], tuple[float, dict[str, float]]],
+    description: str = "",
+) -> schemav2.CorrectionSet:
+    """
+    Build the correctionlib set with the correction `z_normalization`, which
+    gives the Z normalization weight as function of the jet and b-jet
+    multiplicity lower edges and a variation, evaluated as
+    `correction.evaluate(n_jets, n_bjets, "stat_up")`. The results are keyed
+    by `(n_jets, n_bjets)` and map to the nominal normalization and its
+    variations, see `_compute_nominal_and_shifts`. Evaluating an unknown
+    variation raises.
+    """
+    variation_leaves = {
+        variation: {
+            (n_jets, n_bjets): (
+                norm if variation == "nominal" else shifts[variation]
+            )
+            for (n_jets, n_bjets), (norm, shifts) in results.items()
+        }
+        for variation in VARIATIONS
+    }
+    return schemav2.CorrectionSet(
+        schema_version=2,
+        description=description,
+        corrections=[
+            schemav2.Correction(
+                name="z_normalization",
+                description=(
+                    "Normalization factor of the Z boson process as function "
+                    "of the jet and b-jet multiplicity, nominal and its "
+                    "stat and norm_other variations"
+                ),
+                version=1,
+                inputs=[
+                    schemav2.Variable(
+                        name="n_jets",
+                        type="int",
+                        description="Number of jets",
+                    ),
+                    schemav2.Variable(
+                        name="n_bjets",
+                        type="int",
+                        description="Number of b-tagged jets",
+                    ),
+                    schemav2.Variable(
+                        name="variation",
+                        type="string",
+                        description="Nominal or one of the stat and norm_other shifts",
+                    ),
+                ],
+                output=schemav2.Variable(name="weight", type="real"),
+                data=schemav2.Category(
+                    nodetype="category",
+                    input="variation",
+                    content=[
+                        schemav2.CategoryItem(
+                            key=variation,
+                            value=_nested_binning(leaves),
+                        )
+                        for variation, leaves in variation_leaves.items()
+                    ],
+                    # Missing variations raise instead of returning a weight
+                ),
+            ),
+        ],
+    )
+
+
+def derive_z_normalization(
+    inventory_factory_fn_path: str,
+    inventory_factory_kwargs: dict,
+    campaign: str,
+    channel: str,
+    categories: list[str],
+    merged_histograms_dir: Path,
+    output_file: Path,
+    yield_variable: str,
+    process_tag: str,
+):
+    inventory = load_inventory(
+        inventory_factory_fn_path,
+        campaign,
+        channel,
+        **inventory_factory_kwargs,
+    )
+
+    # Raise exception if this is not the mm channel
+    if not inventory.channel.name == "mm":
+        raise ValueError(
+            "Z normalization weights derivation is only implemented for the "
+            + f"mm channel, but got {inventory.channel.name}"
+        )
+
+    results = {}
+    for category in categories:
+        # Get the category instance
+        category_inst = inventory.channel.get_category(category)
+
+        # Raise exception if the category is not a jet multiplicity without
+        # b-jet selection
+        if not category_inst.has_tag("jet_bjet_cat"):
+            raise ValueError(
+                "Z normalization weights derivation is only implemented for "
+                + "jet multiplicities with b-jet selection, but got "
+                + f" {category}"
+            )
+
+        # Get the number of jets and b-jets in this category
+        n_jets = category_inst.x.n_jets
+        n_bjets = category_inst.x.n_bjets
+
+        # Calculate normalization and store it with the number of jets in this
+        # bin as key
+        norm, shifts = calculate_normalization_weight(
+            merged_histograms_dir,
+            inventory,
+            campaign,
+            channel,
+            category,
+            yield_variable,
+            "nominal",
+            "z",
+            0.05,  # Relative uncertainty of non-Z processes
+        )
+        results[(n_jets, n_bjets)] = (norm, shifts)
+
+    cset = build_correction_set(
+        results,
+        description=(
+            f"Z normalization weights of {campaign}, derived in the "
+            f"{channel} channel"
+        ),
+    )
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(cset.model_dump_json(exclude_unset=True, indent=1))
+    logger.info("Wrote %s", output_file)
+
+
+@hydra_cli("derive_normalization")
+def main(cfg: DictConfig):
+
+    for campaign in cfg["campaigns"]:
+        derive_z_normalization(
+            cfg["inventory"]["factory_fn"],
+            dict(cfg["inventory"]["factory_fn_kwargs"]),
+            campaign,
+            cfg["channel"],
+            list(cfg["categories"]),
+            Path(cfg["histograms_dir"]),
+            Path(cfg["output_dir"]) / f"{campaign}.json",
+            cfg["yield_variable"],
+            cfg["process_tag"],
+        )
+
+
+if __name__ == "__main__":
+    main()
