@@ -173,27 +173,6 @@ def find_merge_groups(
     return starts
 
 
-def compute_normalization(
-    data: Binned, z: Binned, others: list[Binned]
-) -> tuple[float, float]:
-    """
-    Normalization of Z such that its integral matches the background-subtracted
-    data. Returns the factor and its statistical uncertainty. A factor of 1 is
-    returned if the Z yield is not positive.
-    """
-    n_data, var_data = data.values.sum(), data.variances.sum()
-    n_others = sum(h.values.sum() for h in others)
-    var_others = sum(h.variances.sum() for h in others)
-    n_z, var_z = z.values.sum(), z.variances.sum()
-    if n_z <= 0:
-        return 1.0, 0.0
-    num = n_data - n_others
-    var_num = var_data + var_others
-    factor = num / n_z
-    error = np.sqrt(var_num / n_z**2 + var_z * num**2 / n_z**4)
-    return float(factor), float(error)
-
-
 def compute_pt_correction(
     data: Binned,
     z: Binned,
@@ -497,7 +476,9 @@ def _jet_binning(leaves: dict[int, object]) -> schemav2.Binning:
     )
 
 
-def _nested_binning(leaves: dict[tuple[int, int], object]) -> schemav2.Binning:
+def _nested_binning(
+    leaves: dict[tuple[int, int], int | float],
+) -> schemav2.Binning:
     """
     Nested binning in `n_jets` and `n_bjets` with the given leaves, keyed by
     the lower edges of the jet and b-jet bins. Out-of-range values are clamped.

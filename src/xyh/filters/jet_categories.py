@@ -16,7 +16,10 @@ def jet_categories(self) -> OrderedDict[str, str]:
     selections = OrderedDict()
 
     # Skip categories which do not have the "jet_cat" tag
-    if not self.category_inst.has_tag("jet_cat"):
+    if not (
+        self.category_inst.has_tag("jet_cat")
+        or self.category_inst.has_tag("jet_bjet_cat")
+    ):
         return selections
 
     # Add selections for jets and b jets, taken from the category metadata

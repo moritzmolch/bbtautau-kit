@@ -2,5 +2,10 @@
 ntuple_tag: "ntuples-2026-10-08"
 shapes_tag: "shapes-2026-11-05"
 
+
 # Tag of the b-tag weight normalization output, see `run_btag_renormalization`
 btag_renorm_tag: "btag-renorm-2026-10-22"
+
+# Tag of the Z and tt normalization output, see `run_z_normalization`
+z_norm_tag: "z-norm-2026-11-05"
+tt_norm_tag: "tt-norm-2026-11-05"

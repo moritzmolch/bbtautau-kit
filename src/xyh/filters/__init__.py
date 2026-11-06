@@ -82,23 +82,15 @@ def default_filters_without_bjets(self) -> OrderedDict[str, str]:
 
 
 @Wrapper.wrap
-def default_filters_for_z_corrections(self) -> OrderedDict[str, str]:
-    """
-    Default filter selection for the analysis.
-
-    This includes the following selections:
-
-    - Trigger selection
-    - Jet vetomap veto
-    - bb pair selection
-    - Dilepton pair selection
-    - Generator-level tau pair selections
-    """
+def default_filters_for_normalization_corrections(
+    self,
+) -> OrderedDict[str, str]:
 
     # Get the default filters without b jet cuts
     filters = self.get_instance("default_filters_without_bjets").nominal()
 
-    # Add m_ll filter to enhance Z -> ll events
-    filters["m_ll"] = "(m_vis > 70) && (m_vis < 110)"
+    # Add m_ll filter in the di-muon channeel to enhance Z -> ll events
+    if self.channel_inst.name == "mm":
+        filters["m_ll"] = "(m_vis > 70) && (m_vis < 110)"
 
     return filters
