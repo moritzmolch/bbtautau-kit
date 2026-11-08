@@ -16,8 +16,7 @@ LIMITS_CSV = "limits.csv"
 class LimitResult:
     """95% CL upper limits on the cross section times branching ratio."""
 
-    ydm: str
-    hdm: str
+    decay_mode: str
     mx: int
     my: int
     exp_m2: float
@@ -33,8 +32,7 @@ class LimitResult:
         cls, point: MassPoint, values: dict[str, float]
     ) -> "LimitResult":
         return cls(
-            ydm=point.ydm,
-            hdm=point.hdm,
+            decay_mode=point.decay_mode,
             mx=point.mx,
             my=point.my,
             exp_m2=values["exp_m2"],
@@ -66,7 +64,7 @@ def find_limit_files(data_mode_dir: Path) -> list[Path]:
 def collect_limits(data_mode_dir: Path) -> list[LimitResult]:
     """Load all per-point results, sorted by decay modes and masses."""
     results = [read_limits_json(p) for p in find_limit_files(data_mode_dir)]
-    return sorted(results, key=lambda r: (r.ydm, r.hdm, r.mx, r.my))
+    return sorted(results, key=lambda r: (r.decay_mode, r.mx, r.my))
 
 
 def write_limits_csv(results: Iterable[LimitResult], path: Path) -> None:
