@@ -32,7 +32,7 @@ OBSERVED_QUANTILE = -1.0
 
 
 def environment_prefix(
-    cmssw_dir: str = "", scram_arch: str = "", setup_cmd: str = ""
+    environment: Environment,
 ) -> str:
     """Shell snippet that sets up the CMSSW environment.
 
@@ -43,14 +43,12 @@ def environment_prefix(
     ValueError
         If neither `setup_cmd` nor `cmssw_dir` is given.
     """
-    if setup_cmd:
-        return setup_cmd
-    if not cmssw_dir:
-        raise ValueError("Set fit.combine.cmssw_dir or fit.combine.setup_cmd")
+    if environment.setup_cmd:
+        return environment.setup_cmd
     parts = []
-    if scram_arch:
-        parts.append(f"export SCRAM_ARCH={shlex.quote(scram_arch)}")
-    src = shlex.quote(f"{cmssw_dir}/src")
+    if environment.scram_arch:
+        parts.append(f"export SCRAM_ARCH={shlex.quote(environment.scram_arch)}")
+    src = shlex.quote(f"{environment.cmssw_dir}/src")
     parts += [
         f"source {CMSSET_DEFAULT}",
         f"pushd {src} > /dev/null",
