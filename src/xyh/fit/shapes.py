@@ -91,12 +91,15 @@ def rebin_shape(shape: Shape, factor: int) -> Shape:
 def real_events(values: np.ndarray, sumw2: np.ndarray) -> float:
     """Number of real events, ``sum(w) / sqrt(sum(w^2))``.
 
+    Follows http://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/latest/part2/bin-wise-stats/.
+
     Returns 0 if the sum of squared weights vanishes.
     """
-    total_w2 = float(np.sum(sumw2))
-    if total_w2 <= 0.0:
+    n = np.sum(values)
+    e = np.sqrt(np.sum(sumw2))
+    if e <= 0.0:
         return 0.0
-    return float(np.sum(values)) / float(np.sqrt(total_w2))
+    return float(n / e)
 
 
 def min_events_groups(
