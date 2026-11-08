@@ -49,7 +49,9 @@ class FitBin:
 
     @property
     def name(self) -> str:
-        return f"{self.campaign}_{self.channel}_{self.cls}"
+        # Combine rejects bin names starting with a digit, so the campaign
+        # (e.g. 2024_nano_v15) goes last.
+        return f"{self.channel}_{self.cls}_{self.campaign}"
 
     def category(self, point: MassPoint) -> str:
         return point.category(self.channel, self.cls)

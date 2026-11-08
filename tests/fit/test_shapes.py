@@ -439,7 +439,7 @@ class TestBuildPointShapes:
                 path, POINT, scope, "max_score", "asimov_bkg"
             )
         assert len(bins) == len(CLASSES) - 1
-        assert "2024_nano_v15_tt_t_tt" in caplog.text
+        assert "tt_t_tt_2024_nano_v15" in caplog.text
 
     def test_no_usable_bin_raises(self, tmp_path):
         layout = {

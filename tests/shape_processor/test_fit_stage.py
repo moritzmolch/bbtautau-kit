@@ -51,6 +51,12 @@ def make_cfg(tmp_path, merged_file):
                 "tags.shapes_tag=foo",
                 f"merged_histograms_file={merged_file}",
                 f"fit_dir={tmp_path / 'fit'}",
+                # Independent of local edits of the fit.yaml defaults
+                "fit.campaigns=all",
+                "fit.channels=all",
+                "fit.mass_points=null",
+                "fit.ydm=null",
+                "fit.hdm=null",
                 *overrides,
             ],
         )

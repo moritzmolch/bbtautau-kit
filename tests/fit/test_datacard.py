@@ -60,7 +60,7 @@ class TestBuildDatacardSpec:
         assert spec.systematics == ()
         assert spec.bins == (
             BinSpec(
-                "2024_nano_v15_tt_xyh",
+                "tt_xyh_2024_nano_v15",
                 "2024_nano_v15",
                 "tt",
                 ("signal",),
@@ -87,7 +87,7 @@ class TestBuildDatacardSpec:
             FitBin("c", "et", "xyh"): _bin_shapes(),
         }
         spec = build_datacard_spec(POINT, bins)
-        assert [b.name for b in spec.bins] == ["c_tt_xyh", "c_et_xyh"]
+        assert [b.name for b in spec.bins] == ["tt_xyh_c", "et_xyh_c"]
 
 
 class TestSpecSerialization:

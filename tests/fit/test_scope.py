@@ -92,7 +92,7 @@ class TestFitScope:
 class TestFitBin:
     def test_name_joins_campaign_channel_and_class(self):
         assert (
-            FitBin("2024_nano_v15", "tt", "xyh").name == "2024_nano_v15_tt_xyh"
+            FitBin("2024_nano_v15", "tt", "xyh").name == "tt_xyh_2024_nano_v15"
         )
 
     def test_category_delegates_to_mass_point(self):
