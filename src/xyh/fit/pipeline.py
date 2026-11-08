@@ -41,7 +41,7 @@ def point_dir(
     """Output directory of one mass point."""
     return (
         data_mode_dir(fit_dir, scope, data_mode)
-        / point.decay_label
+        / point.decay_mode
         / point.mass_label
     )
 
@@ -92,9 +92,6 @@ def run_point(task: PointTask) -> LimitResult | None:
     cmb_cfg = task.combine
     prefix = cmb.environment_prefix(cmb_cfg.environment)
 
-    # Define the datacard name
-    datacard_name = f"{task.point.decay_mode}_{task.point.mx}_{task.point.my}"
-
     # default_arguments = DefaultArguments(**cmb_cfg.default_arguments)
     # asymptotic_limits = AsymptoticLimits(**cmb_cfg.asymptotic_limits)
     run_datacard_script(prefix, out / "datacard_spec.json", out)
@@ -110,6 +107,9 @@ def run_point(task: PointTask) -> LimitResult | None:
     if task.stop_after == "workspace":
         return None
 
+    # Define datacard name
+    datacard_name = task.point.signal_process
+
     cmb.run_in_env(
         prefix,
         cmb.asymptotic_limits_command(
@@ -121,7 +121,7 @@ def run_point(task: PointTask) -> LimitResult | None:
         out,
         out / "combine.log",
     )
-    entries = cmb.read_limit_entries(out / cmb.limit_file_name(task.point.mx))
+    entries = cmb.read_limit_entries(out / cmb.limit_file_name(datacard_name))
     result = LimitResult.from_values(
         task.point, cmb.limits_from_entries(entries)
     )
@@ -154,10 +154,7 @@ def run_fit(
         raise ValueError("No fit tasks")
     first = tasks[0]
     if check_env and first.stop_after != "shapes":
-        cfg = first.combine
-        prefix = cmb.environment_prefix(
-            cfg.cmssw_dir, cfg.scram_arch, cfg.setup_cmd
-        )
+        prefix = cmb.environment_prefix(first.combine.environment)
         first.output_dir.mkdir(parents=True, exist_ok=True)
         cmb.check_environment(prefix, first.output_dir)
 
