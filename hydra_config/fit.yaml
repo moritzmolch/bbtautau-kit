@@ -27,6 +27,11 @@ fit:
     mode: asimov_bkg
   # Merge this many adjacent bins, null keeps the binning
   rebin: null
+  # Then merge adjacent bins (from the high end) until the total background
+  # of each Combine bin has at least this many real events,
+  # sum(w) / sqrt(sum(w^2)); the binning is common to all histograms of the
+  # bin. null disables it
+  min_real_events: 10
   # autoMCStats threshold, null disables it
   automcstats: null
   # Processes that are not used as backgrounds

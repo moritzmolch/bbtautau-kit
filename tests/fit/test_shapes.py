@@ -14,14 +14,17 @@ from xyh.fit.shapes import (
     BinShapes,
     Shape,
     add_shapes,
+    apply_groups,
     build_bin_shapes,
     build_point_shapes,
     clip_negative,
     is_signal_process,
     list_categories,
     list_keys,
+    min_events_groups,
     read_bin_processes,
     read_shape,
+    real_events,
     rebin_shape,
     write_shapes_file,
 )
@@ -47,6 +50,52 @@ def processes(**overrides):
     }
     result.update(overrides)
     return result
+
+
+def groups_of(values, threshold, sumw2=None):
+    values = np.asarray(values, dtype=float)
+    sumw2 = values if sumw2 is None else np.asarray(sumw2, dtype=float)
+    return min_events_groups(values, sumw2, threshold)
+
+
+class TestMinEvents:
+    def test_real_events_is_yield_over_sqrt_sumw2(self):
+        assert real_events(np.array([2.0, 2.0]), np.array([2.0, 2.0])) == (
+            pytest.approx(2.0)
+        )
+        assert real_events(np.array([4.0]), np.array([16.0])) == 1.0
+
+    def test_real_events_zero_sumw2_is_zero(self):
+        assert real_events(np.array([3.0]), np.array([0.0])) == 0.0
+
+    def test_threshold_exactly_met_closes_group(self):
+        # unit weights: real = sqrt(N); 4 events give exactly 2
+        assert groups_of([1] * 8, 2.0) == [(0, 4), (4, 8)]
+
+    def test_leftover_is_merged_downward(self):
+        # (6,10), (2,6) close; leftover (0,2) joins the next group
+        assert groups_of([1] * 10, 2.0) == [(0, 6), (6, 10)]
+
+    def test_groups_start_at_the_high_end(self):
+        assert groups_of([0, 0, 0, 4, 4], 2.0) == [(0, 4), (4, 5)]
+
+    def test_never_reaching_threshold_gives_single_bin(self):
+        assert groups_of([1, 1], 5.0) == [(0, 2)]
+
+    def test_zero_sumw2_bins_do_not_reach_threshold(self):
+        assert groups_of([5, 5, 5], 1.0, sumw2=[0, 0, 0]) == [(0, 3)]
+
+    def test_zero_sumw2_bin_is_absorbed_by_neighbour(self):
+        # last bin has real = 0 and is accumulated with the one below
+        groups = groups_of([4, 4, 4], 2.0, sumw2=[4, 4, 0])
+        assert groups == [(0, 1), (1, 3)]
+
+    def test_apply_groups_adds_contents_and_keeps_edges(self):
+        shape = make_shape([1, 2, 3, 4], sumw2=[1, 1, 2, 2])
+        merged = apply_groups(shape, [(0, 1), (1, 4)])
+        assert merged.values.tolist() == [1, 9]
+        assert merged.sumw2.tolist() == [1, 5]
+        assert merged.edges.tolist() == [0.0, 0.25, 1.0]
 
 
 class TestHelpers:
@@ -215,6 +264,69 @@ class TestBuildBinShapes:
         assert shapes.signal.values.tolist() == [2, 2]
         assert shapes.data_obs.values.tolist() == [11, 7]
         assert shapes.data_obs.edges.tolist() == [0.0, 0.5, 1.0]
+
+    def test_min_real_events_common_binning_for_all_histograms(self):
+        # total background [5, 5, 5, 5] -> real = sqrt(N); threshold 3
+        procs = processes(
+            dy=make_shape([4, 4, 4, 4]),
+            tt=make_shape([1, 1, 1, 1]),
+            data=make_shape([5, 5, 5, 5]),
+        )
+        for mode in ("asimov_sb", "observed"):
+            shapes = build_bin_shapes(procs, POINT, mode, min_real_events=3.0)
+            assert shapes.signal.edges.tolist() == [0.0, 0.5, 1.0]
+            assert shapes.data_obs.edges.tolist() == [0.0, 0.5, 1.0]
+            for bkg in shapes.backgrounds.values():
+                assert bkg.edges.tolist() == [0.0, 0.5, 1.0]
+        assert shapes.data_obs.values.tolist() == [10, 10]
+
+    def test_min_real_events_asimov_from_merged_shapes(self):
+        shapes = build_bin_shapes(
+            processes(), POINT, "asimov_sb", min_real_events=2.0
+        )
+        total = shapes.signal.values + sum(
+            b.values for b in shapes.backgrounds.values()
+        )
+        assert shapes.data_obs.values.tolist() == total.tolist()
+        assert shapes.data_obs.sumw2.tolist() == total.tolist()
+
+    def test_min_real_events_uses_total_background_not_signal(self):
+        procs = processes(
+            **{POINT.signal_process: make_shape([100, 100, 100, 100])}
+        )
+        shapes = build_bin_shapes(
+            procs, POINT, "asimov_bkg", min_real_events=100.0
+        )
+        assert len(shapes.data_obs.values) == 1
+
+    def test_min_real_events_unreachable_warns_and_gives_one_bin(self, caplog):
+        with caplog.at_level("WARNING", logger="xyh.fit.shapes"):
+            shapes = build_bin_shapes(
+                processes(), POINT, "asimov_bkg", min_real_events=1000.0
+            )
+        assert len(shapes.data_obs.values) == 1
+        assert shapes.data_obs.edges.tolist() == [0.0, 1.0]
+        assert "single bin" in caplog.text
+
+    def test_min_real_events_none_keeps_binning(self):
+        shapes = build_bin_shapes(
+            processes(), POINT, "asimov_bkg", min_real_events=None
+        )
+        assert len(shapes.data_obs.values) == 4
+
+    def test_min_real_events_applied_after_fixed_rebin(self):
+        procs = processes(
+            dy=make_shape([4, 4, 4, 4]), tt=make_shape([4, 4, 4, 4])
+        )
+        # rebin=2 -> [16, 16]; each bin has real = 4 >= 4
+        shapes = build_bin_shapes(
+            procs, POINT, "asimov_bkg", rebin=2, min_real_events=4.0
+        )
+        assert shapes.data_obs.edges.tolist() == [0.0, 0.5, 1.0]
+        shapes = build_bin_shapes(
+            procs, POINT, "asimov_bkg", rebin=2, min_real_events=5.0
+        )
+        assert shapes.data_obs.edges.tolist() == [0.0, 1.0]
 
     @pytest.mark.parametrize("rebin", [None, 0, 1])
     def test_rebin_none_zero_or_one_keeps_binning(self, rebin):

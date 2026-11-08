@@ -89,7 +89,13 @@ def steps(mocker):
 
 class TestRunPoint:
     def test_full_chain_runs_all_steps_and_writes_limits(self, tmp_path, steps):
-        task = _task(tmp_path, rebin=2, auto_mc_stats=5.0, exclude=("dy",))
+        task = _task(
+            tmp_path,
+            rebin=2,
+            min_real_events=7.0,
+            auto_mc_stats=5.0,
+            exclude=("dy",),
+        )
         result = run_point(task)
 
         steps.build_shapes.assert_called_once_with(
@@ -100,6 +106,7 @@ class TestRunPoint:
             "asimov_bkg",
             ("dy",),
             2,
+            7.0,
         )
         steps.write_shapes.assert_called_once()
         assert steps.write_shapes.call_args.args[0] == (

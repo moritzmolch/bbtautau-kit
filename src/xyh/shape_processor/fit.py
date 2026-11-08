@@ -78,6 +78,7 @@ def build_tasks(cfg: DictConfig) -> list[PointTask]:
             data_mode=data_mode,
             combine=combine,
             rebin=fit["rebin"],
+            min_real_events=fit["min_real_events"],
             auto_mc_stats=fit["automcstats"],
             exclude=tuple(as_list(fit.get("exclude_processes")) or ()),
             stop_after=fit["stop_after"],

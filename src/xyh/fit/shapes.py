@@ -88,12 +88,68 @@ def rebin_shape(shape: Shape, factor: int) -> Shape:
     )
 
 
+def real_events(values: np.ndarray, sumw2: np.ndarray) -> float:
+    """Number of real events, ``sum(w) / sqrt(sum(w^2))``.
+
+    Returns 0 if the sum of squared weights vanishes.
+    """
+    total_w2 = float(np.sum(sumw2))
+    if total_w2 <= 0.0:
+        return 0.0
+    return float(np.sum(values)) / float(np.sqrt(total_w2))
+
+
+def min_events_groups(
+    values: np.ndarray, sumw2: np.ndarray, threshold: float
+) -> list[tuple[int, int]]:
+    """Group adjacent bins such that each group has enough real events.
+
+    Bins are accumulated starting at the last (highest) bin and moving down
+    until `real_events` of the accumulated bins reaches `threshold`. A
+    leftover at the low end that does not reach the threshold is merged into
+    the neighbouring group. If the threshold is never reached, a single
+    group results.
+
+    Returns
+    -------
+    list[tuple[int, int]]
+        Half-open bin ranges ``(start, stop)`` in ascending order that
+        cover all bins.
+    """
+    n = len(values)
+    groups: list[tuple[int, int]] = []
+    stop = n
+    for i in range(n - 1, -1, -1):
+        if real_events(values[i:stop], sumw2[i:stop]) >= threshold:
+            groups.append((i, stop))
+            stop = i
+    if stop > 0:
+        if groups:
+            start, end = groups.pop()
+            groups.append((0, end))
+        else:
+            groups.append((0, n))
+    return groups[::-1]
+
+
+def apply_groups(shape: Shape, groups: Sequence[tuple[int, int]]) -> Shape:
+    """Merge the bins of `shape` according to the ranges in `groups`."""
+    starts = [start for start, _ in groups]
+    stops = [stop for _, stop in groups]
+    return Shape(
+        shape.edges[[*starts, stops[-1]]].copy(),
+        np.array([shape.values[a:b].sum() for a, b in groups]),
+        np.array([shape.sumw2[a:b].sum() for a, b in groups]),
+    )
+
+
 def build_bin_shapes(
     processes: Mapping[str, Shape],
     point: MassPoint,
     data_mode: str,
     exclude: Sequence[str] = (),
     rebin: int | None = None,
+    min_real_events: float | None = None,
 ) -> BinShapes:
     """Assemble signal, backgrounds and data_obs of one bin.
 
@@ -101,6 +157,11 @@ def build_bin_shapes(
     backgrounds. Negative bins are clipped and processes without a positive
     integral are dropped. Asimov data is the sum of the backgrounds (and of
     the signal at its template normalization for ``asimov_sb``).
+
+    The fixed factor `rebin` is applied first. If `min_real_events` is set,
+    adjacent bins are then merged (see `min_events_groups`) such that the
+    total background has at least that many real events per bin. The same
+    binning is applied to all histograms of the bin.
 
     Raises
     ------
@@ -114,6 +175,9 @@ def build_bin_shapes(
     def prepare(shape: Shape) -> Shape:
         shape = clip_negative(shape)
         return rebin_shape(shape, rebin) if rebin and rebin > 1 else shape
+
+    def merge(shape: Shape, groups) -> Shape:
+        return shape if groups is None else apply_groups(shape, groups)
 
     def usable(shape: Shape) -> bool:
         return bool(np.isfinite(shape.integral) and shape.integral > 0.0)
@@ -137,10 +201,36 @@ def build_bin_shapes(
     if not usable(signal):
         signal = None
 
+    observed = None
     if data_mode == "observed":
         if DATA_PROCESS not in processes:
             raise ValueError(f"Process {DATA_PROCESS!r} not found")
         observed = prepare(processes[DATA_PROCESS])
+
+    if min_real_events is not None:
+        total_bkg = add_shapes(list(backgrounds.values()))
+        groups = min_events_groups(
+            total_bkg.values, total_bkg.sumw2, min_real_events
+        )
+        n_before = len(total_bkg.values)
+        if len(groups) == 1 and n_before > 1:
+            real = real_events(total_bkg.values, total_bkg.sumw2)
+            if real < min_real_events:
+                logger.warning(
+                    f"Background has only {real:.2f} real events in total, "
+                    f"below {min_real_events}: merge to a single bin"
+                )
+        logger.info(
+            f"Merge {n_before} into {len(groups)} bins "
+            f"(min {min_real_events} real events)"
+        )
+        backgrounds = {n: merge(b, groups) for n, b in backgrounds.items()}
+        if signal is not None:
+            signal = merge(signal, groups)
+        if observed is not None:
+            observed = merge(observed, groups)
+
+    if observed is not None:
         data_obs = Shape(
             observed.edges,
             observed.values,
@@ -215,6 +305,7 @@ def build_point_shapes(
     data_mode: str,
     exclude: Sequence[str] = (),
     rebin: int | None = None,
+    min_real_events: float | None = None,
 ) -> dict[FitBin, BinShapes]:
     """Read the shapes of all bins of `scope` for one mass point.
 
@@ -242,7 +333,12 @@ def build_point_shapes(
             )
             try:
                 result[fit_bin] = build_bin_shapes(
-                    processes, point, data_mode, exclude, rebin
+                    processes,
+                    point,
+                    data_mode,
+                    exclude,
+                    rebin,
+                    min_real_events,
                 )
             except ValueError as err:
                 logger.warning(f"Skip bin {fit_bin.name}: {err}")

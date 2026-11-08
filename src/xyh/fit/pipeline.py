@@ -58,6 +58,7 @@ class PointTask:
     data_mode: str
     combine: CombineConfig
     rebin: int | None = None
+    min_real_events: float | None = None
     auto_mc_stats: float | None = None
     exclude: tuple[str, ...] = ()
     stop_after: str = "limits"
@@ -79,6 +80,7 @@ def run_point(task: PointTask) -> LimitResult | None:
         task.data_mode,
         task.exclude,
         task.rebin,
+        task.min_real_events,
     )
     write_shapes_file(out / "shapes_in.root", bins, task.point.signal_process)
     spec = build_datacard_spec(task.point, bins, task.auto_mc_stats)

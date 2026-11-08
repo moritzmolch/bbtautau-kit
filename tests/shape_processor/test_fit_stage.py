@@ -85,6 +85,7 @@ class TestBuildTasks:
         assert task.data_mode == "asimov_bkg"
         assert task.variable == "max_score"
         assert task.rebin is None
+        assert task.min_real_events == 10
         assert task.auto_mc_stats is None
         assert task.exclude == ()
         assert task.stop_after == "limits"
@@ -137,6 +138,7 @@ class TestBuildTasks:
         tasks = fit_stage.build_tasks(
             make_cfg(
                 "fit.rebin=2",
+                "fit.min_real_events=5",
                 "fit.automcstats=10",
                 "fit.exclude_processes=[dy,tt]",
                 "fit.stop_after=datacard",
@@ -145,10 +147,15 @@ class TestBuildTasks:
         )
         task = tasks[0]
         assert task.rebin == 2
+        assert task.min_real_events == 5
         assert task.auto_mc_stats == 10
         assert task.exclude == ("dy", "tt")
         assert task.stop_after == "datacard"
         assert task.variable == "other"
+
+    def test_min_real_events_null_disables_merging(self, make_cfg):
+        tasks = fit_stage.build_tasks(make_cfg("fit.min_real_events=null"))
+        assert tasks[0].min_real_events is None
 
     def test_default_combine_config_resolves_relative_cmssw_dir(self, make_cfg):
         combine = fit_stage.build_tasks(make_cfg())[0].combine
