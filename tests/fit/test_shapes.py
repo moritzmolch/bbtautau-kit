@@ -11,7 +11,6 @@ from xyh.fit.mass_points import CLASSES, MassPoint
 from xyh.fit.scope import FitBin, resolve_scope
 from xyh.fit.shapes import (
     DATA_OBS_NAME,
-    SIGNAL_NAME,
     BinShapes,
     Shape,
     add_shapes,
@@ -484,16 +483,20 @@ class TestWriteShapesFile:
             data_obs=make_shape([5, 4, 3, 2]),
         )
         path = tmp_path / "out" / "shapes_in.root"
-        write_shapes_file(path, {fit_bin: shapes})
+        write_shapes_file(path, {fit_bin: shapes}, POINT.signal_process)
 
         root_file = ROOT.TFile.Open(str(path))
         try:
             names = list_keys(root_file, fit_bin.name)
-            signal = read_shape(root_file, f"{fit_bin.name}/{SIGNAL_NAME}")
+            signal = read_shape(
+                root_file, f"{fit_bin.name}/{POINT.signal_process}"
+            )
             data = read_shape(root_file, f"{fit_bin.name}/{DATA_OBS_NAME}")
         finally:
             root_file.Close()
-        assert sorted(names) == ["data_obs", "dy", "signal"]
+        assert sorted(names) == sorted(
+            ["data_obs", "dy", "xyh_y2b_h2tau_mx2000_my500"]
+        )
         assert signal.sumw2.tolist() == pytest.approx([4, 4, 4, 4])
         assert data.values.tolist() == pytest.approx([5, 4, 3, 2])
         assert data.edges.tolist() == pytest.approx(EDGES.tolist())
@@ -504,7 +507,7 @@ class TestWriteShapesFile:
             None, {"dy": make_shape([4, 3, 2, 1])}, make_shape([4, 3, 2, 1])
         )
         path = tmp_path / "s.root"
-        write_shapes_file(path, {fit_bin: shapes})
+        write_shapes_file(path, {fit_bin: shapes}, POINT.signal_process)
         root_file = ROOT.TFile.Open(str(path))
         try:
             names = list_keys(root_file, fit_bin.name)
@@ -518,7 +521,7 @@ class TestWriteShapesFile:
             merged_file, POINT, scope, "max_score", "asimov_sb"
         )
         path = tmp_path / "shapes_in.root"
-        write_shapes_file(path, bins)
+        write_shapes_file(path, bins, POINT.signal_process)
         root_file = ROOT.TFile.Open(str(path))
         try:
             keys = root_file.GetListOfKeys()

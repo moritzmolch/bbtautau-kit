@@ -15,7 +15,7 @@ from typing import Any
 
 from xyh.fit.mass_points import MassPoint
 from xyh.fit.scope import FitBin
-from xyh.fit.shapes import SIGNAL_NAME, BinShapes
+from xyh.fit.shapes import BinShapes
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,9 @@ def build_datacard_spec(
             name=fit_bin.name,
             era=fit_bin.campaign,
             channel=fit_bin.channel,
-            signals=(SIGNAL_NAME,) if shapes.signal is not None else (),
+            signals=(point.signal_process,)
+            if shapes.signal is not None
+            else (),
             backgrounds=tuple(sorted(shapes.backgrounds)),
         )
         for fit_bin, shapes in bins.items()

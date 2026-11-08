@@ -80,7 +80,7 @@ def run_point(task: PointTask) -> LimitResult | None:
         task.exclude,
         task.rebin,
     )
-    write_shapes_file(out / "shapes_in.root", bins)
+    write_shapes_file(out / "shapes_in.root", bins, task.point.signal_process)
     spec = build_datacard_spec(task.point, bins, task.auto_mc_stats)
     write_spec(spec, out / "datacard_spec.json")
     if task.stop_after == "shapes":

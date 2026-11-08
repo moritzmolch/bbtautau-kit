@@ -21,7 +21,6 @@ DATA_MODES = ("asimov_bkg", "asimov_sb", "observed")
 
 # Names in the merged file and in the datacard
 DATA_PROCESS = "data"
-SIGNAL_NAME = "signal"
 DATA_OBS_NAME = "data_obs"
 
 
@@ -254,8 +253,14 @@ def build_point_shapes(
     return result
 
 
-def write_shapes_file(path: Path, bins: Mapping[FitBin, BinShapes]) -> None:
-    """Write ``{bin}/{process}`` histograms (and ``data_obs``) to `path`."""
+def write_shapes_file(
+    path: Path, bins: Mapping[FitBin, BinShapes], signal_name: str
+) -> None:
+    """Write ``{bin}/{process}`` histograms (and ``data_obs``) to `path`.
+
+    The signal is stored under `signal_name`, i.e. the process name of the
+    mass point in the merged file (``xyh_<ydm>_<hdm>_mx<m_x>_my<m_y>``).
+    """
     import ROOT
 
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -266,7 +271,7 @@ def write_shapes_file(path: Path, bins: Mapping[FitBin, BinShapes]) -> None:
             directory.cd()
             named = dict(shapes.backgrounds)
             if shapes.signal is not None:
-                named[SIGNAL_NAME] = shapes.signal
+                named[signal_name] = shapes.signal
             named[DATA_OBS_NAME] = shapes.data_obs
             for name, shape in named.items():
                 hist = ROOT.TH1D(

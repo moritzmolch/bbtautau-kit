@@ -16,7 +16,8 @@ def main(spec_file: str) -> None:
     with open(spec_file) as f:
         spec = json.load(f)
 
-    mass = [str(spec["mass"])]
+    # "*" makes the datacard mass independent (no mass placeholder in paths)
+    mass = ["*"]
     analysis = [spec["analysis"]]
 
     cb = ch.CombineHarvester()

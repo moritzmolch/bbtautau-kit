@@ -42,7 +42,13 @@ def spec():
         analysis="xyh",
         mass=2000,
         bins=(
-            BinSpec("c_tt_xyh", "c", "tt", ("signal",), ("dy", "tt")),
+            BinSpec(
+                "c_tt_xyh",
+                "c",
+                "tt",
+                ("xyh_y2b_h2tau_mx2000_my500",),
+                ("dy", "tt"),
+            ),
             BinSpec("c_tt_t_tt", "c", "tt", (), ("dy",)),
         ),
         auto_mc_stats=10.0,
@@ -63,7 +69,7 @@ class TestBuildDatacardSpec:
                 "tt_xyh_2024_nano_v15",
                 "2024_nano_v15",
                 "tt",
-                ("signal",),
+                (POINT.signal_process,),
                 ("dy", "tt"),
             ),
         )
@@ -163,3 +169,13 @@ class TestRunDatacardScript:
         with pytest.raises(RuntimeError, match=r"(?s)failed \(3\).*boom"):
             run_datacard_script("", tmp_path / "spec.json", tmp_path)
         assert (tmp_path / "write_datacard.log").read_text() == "boom"
+
+
+def test_ch_script_mass_independent_datacard_no_mass_placeholder():
+    # The datacard must be written with CombineHarvester's wildcard mass,
+    # otherwise $MASS appears in the shape paths.
+    from xyh.fit.datacard import CH_SCRIPT
+
+    text = Path(CH_SCRIPT).read_text()
+    assert 'mass = ["*"]' in text
+    assert "MASS" not in text
