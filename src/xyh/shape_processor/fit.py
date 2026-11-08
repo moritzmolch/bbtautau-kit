@@ -62,14 +62,8 @@ def build_tasks(cfg: DictConfig) -> list[PointTask]:
     )
 
     comb = fit["combine"]
-    r_range = as_list(comb.get("r_range"))
     combine = CombineConfig(
-        cmssw_dir=str(_resolve_path(comb["cmssw_dir"]))
-        if comb["cmssw_dir"]
-        else "",
-        scram_arch=comb["scram_arch"] or "",
-        setup_cmd=comb["setup_cmd"] or "",
-        environment=Environment(**comb["env"]),
+        environment=Environment(**comb["environment"]),
         default_arguments=DefaultArguments(**comb["default_arguments"]),
         asymptotic_limits=AsymptoticLimits(**comb["asymptotic_limits"]),
     )
