@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+COMBINE_M_H = 120
+
 
 @dataclass(kw_only=True)
 class Environment:
@@ -13,7 +15,7 @@ class Environment:
     setup_cmd: str | None = field(default=None)
 
     def __post_init__(self):
-        self.cmssw_dir = Path(self.cmssw_dir)
+        self.cmssw_dir = Path(self.cmssw_dir).resolve()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -21,7 +23,7 @@ class DefaultArguments:
     """Default arguments for combine modules."""
 
     verbosity: int = field(default=1)
-    mass: int = field(default=125)
+    mass: int = field(default=COMBINE_M_H)
     cmin_default_minimizer_strategy: int = field(default=0)
     cmin_default_minimizer_tolerance: float = field(default=0.0001)
     fallback_algo: str = field(default="Minuit2,Migrad,2:0.0001")
@@ -29,7 +31,8 @@ class DefaultArguments:
 
     def to_args_list(self) -> list[str]:
         return [
-            f"-{'v' * self.verbosity}",
+            "-v",
+            str(self.verbosity),
             "--mass",
             str(self.mass),
             "--cminDefaultMinimizerStrategy",
@@ -49,7 +52,6 @@ class AsymptoticLimits:
 
     r_min: float = field(default=-1)
     r_max: float = field(default=3)
-    robust_fit: int = field(default=1)
     asimov: bool = field(default=True)
     mode: Literal["expected", "both"] = field(default="expected")
 
@@ -64,9 +66,7 @@ class AsymptoticLimits:
             str(self.r_min),
             "--rMax",
             str(self.r_max),
-            "--robustFit",
-            str(self.robust_fit),
-            "--mode",
+            "--run",
             self.mode,
         ] + asimov_args
 
