@@ -70,29 +70,26 @@ def text2workspace_command(
     return ["text2workspace.py", datacard, "-o", workspace, *extra_args]
 
 
-def combine_command(
+def asymptotic_limits_command(
     workspace: str,
-    mass: int,
-    name: str = ".fit",
-    r_range: tuple[float, float] | None = None,
-    extra_args: Sequence[str] = (),
+    name: str,
+    default_arguments: DefaultArguments,
+    asymptotic_limits: AsymptoticLimits,
 ) -> list[str]:
     """Command for the expected and observed asymptotic limits."""
-    command = [
-        "combine",
-        "-M",
-        "AsymptoticLimits",
-        workspace,
-        "--run",
-        "both",
-        "-m",
-        str(mass),
-        "-n",
-        name,
-    ]
-    if r_range is not None:
-        command += ["--rMin", str(r_range[0]), "--rMax", str(r_range[1])]
-    return command + list(extra_args)
+
+    return (
+        [
+            "combine",
+            "-M",
+            "AsymptoticLimits",
+            workspace,
+            "-n",
+            name,
+        ]
+        + default_arguments.to_args_list()
+        + asymptotic_limits.to_args_list()
+    )
 
 
 def limit_file_name(mass: int, name: str = ".fit") -> str:
