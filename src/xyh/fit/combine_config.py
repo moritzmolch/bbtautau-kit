@@ -25,8 +25,8 @@ class DefaultArguments:
     verbosity: int = field(default=1)
     mass: int = field(default=COMBINE_M_H)
     cmin_default_minimizer_strategy: int = field(default=0)
-    cmin_default_minimizer_tolerance: float = field(default=0.0001)
-    fallback_algo: str = field(default="Minuit2,Migrad,2:0.0001")
+    cmin_default_minimizer_tolerance: float = field(default=0.000001)
+    fallback_algo: str = field(default="Minuit2,Migrad,2:0.000001")
     x_rtd: str = field(default="MINIMIZER_no_analytic")
 
     def to_args_list(self) -> list[str]:
@@ -52,6 +52,7 @@ class AsymptoticLimits:
 
     r_min: float = field(default=-1)
     r_max: float = field(default=3)
+    r_abs_acc: float = field(default=1.0e-6)
     asimov: bool = field(default=True)
     mode: Literal["expected", "both"] = field(default="expected")
 
@@ -66,6 +67,8 @@ class AsymptoticLimits:
             str(self.r_min),
             "--rMax",
             str(self.r_max),
+            "--rAbsAcc",
+            str(self.r_abs_acc),
             "--run",
             self.mode,
         ] + asimov_args
