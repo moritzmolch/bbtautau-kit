@@ -14,7 +14,7 @@ SIGNAL_PREFIX = "xyh_"
 _CATEGORY_RE = re.compile(
     r"^(?P<channel>[a-z]+)_clf_(?P<cls>"
     + "|".join(CLASSES)
-    + r")_xyh_(?P<ydm>[^_]+)_(?P<hdm>[^_]+)_mx(?P<mx>\d+)_my(?P<my>\d+)$"
+    + r")_xyh_(?P<decay_mode>y2[^_]+_h2[^_]+)_mx(?P<mx>\d+)_my(?P<my>\d+)$"
 )
 
 # Mass point given as a string, e.g. "2000_500" or "mx2000_my500"
