@@ -142,6 +142,7 @@ def _calculate_normalization_weight(
 
 def build_correction_set(
     results: dict[tuple[int, int], tuple[float, dict[str, float]]],
+    process_tag,
     description: str = "",
 ) -> schemav2.CorrectionSet:
     """
@@ -180,11 +181,11 @@ def build_correction_set(
         description=description,
         corrections=[
             schemav2.Correction(
-                name="z_normalization",
+                name=f"{process_tag}_normalization",
                 description=(
-                    "Normalization factor of the Z boson process as function "
-                    "of the jet and b-jet multiplicity, nominal and its "
-                    "stat and norm_other variations"
+                    f"Normalization factor of the {process_tag} process as "
+                    "function of the jet and b-jet multiplicity, nominal and "
+                    "its stat and norm_other variations"
                 ),
                 version=1,
                 inputs=[
@@ -267,9 +268,11 @@ def derive_norm_weights(
     # Build the correction set and dump it to an output file
     cset = build_correction_set(
         results,
+        process_tag,
         description=(
-            f"Z normalization weights of {inventory.campaign.name}, derived in "
-            f"the {inventory.channel.name} channel"
+            f"{process_tag} normalization weights of "
+            + f"{inventory.campaign.name}, derived in the "
+            + f"{inventory.channel.name} channel"
         ),
     )
     output_file.parent.mkdir(parents=True, exist_ok=True)

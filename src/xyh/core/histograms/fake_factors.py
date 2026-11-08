@@ -31,10 +31,7 @@ def run_fake_factor_histograms(
     histograms_dir: Path,
 ):
     # Load all histograms
-    histograms = load_all(
-        histograms_dir / "histogram_keys.json.gz",
-        histograms_dir,
-    )
+    histograms = load_all(histograms_dir)
 
     # Store for the output histograms
     histograms_output = {}
