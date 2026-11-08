@@ -7,7 +7,7 @@ from pathlib import Path
 
 from xyh.core.parallel import run_in_parallel
 from xyh.fit import combine as cmb
-from xyh.fit.combine import CombineConfig
+from xyh.fit.combine_config import CombineConfig
 from xyh.fit.datacard import (
     build_datacard_spec,
     run_datacard_script,
@@ -89,10 +89,14 @@ def run_point(task: PointTask) -> LimitResult | None:
         return None
 
     # Datacard, workspace and limits need the CMSSW environment
-    cfg = task.combine
-    prefix = cmb.environment_prefix(
-        cfg.cmssw_dir, cfg.scram_arch, cfg.setup_cmd
-    )
+    cmb_cfg = task.combine
+    prefix = cmb.environment_prefix(cmb_cfg.environment)
+
+    # Define the datacard name
+    datacard_name = f"{task.point.decay_mode}_{task.point.mx}_{task.point.my}"
+
+    # default_arguments = DefaultArguments(**cmb_cfg.default_arguments)
+    # asymptotic_limits = AsymptoticLimits(**cmb_cfg.asymptotic_limits)
     run_datacard_script(prefix, out / "datacard_spec.json", out)
     if task.stop_after == "datacard":
         return None
@@ -108,11 +112,11 @@ def run_point(task: PointTask) -> LimitResult | None:
 
     cmb.run_in_env(
         prefix,
-        cmb.combine_command(
+        cmb.asymptotic_limits_command(
             "workspace.root",
-            task.point.mx,
-            r_range=cfg.r_range,
-            extra_args=cfg.extra_args,
+            datacard_name,
+            cmb_cfg.default_arguments,
+            cmb_cfg.asymptotic_limits,
         ),
         out,
         out / "combine.log",

@@ -8,8 +8,13 @@ import logging
 import shlex
 import subprocess
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from pathlib import Path
+
+from xyh.fit.combine_config import (
+    AsymptoticLimits,
+    DefaultArguments,
+    Environment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,17 +29,6 @@ EXPECTED_QUANTILES = {
     0.975: "exp_p2",
 }
 OBSERVED_QUANTILE = -1.0
-
-
-@dataclass(frozen=True)
-class CombineConfig:
-    """Settings of the Combine installation and the limit calculation."""
-
-    cmssw_dir: str = ""
-    scram_arch: str = ""
-    setup_cmd: str = ""
-    r_range: tuple[float, float] | None = None
-    extra_args: tuple[str, ...] = field(default_factory=tuple)
 
 
 def environment_prefix(

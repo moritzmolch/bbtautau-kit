@@ -7,7 +7,12 @@ from omegaconf import DictConfig
 
 from xyh import ROOT_DIR
 from xyh.core.cli import hydra_cli
-from xyh.fit.combine import CombineConfig
+from xyh.fit.combine_config import (
+    AsymptoticLimits,
+    CombineConfig,
+    DefaultArguments,
+    Environment,
+)
 from xyh.fit.config import as_list
 from xyh.fit.mass_points import discover_mass_points, select_mass_points
 from xyh.fit.pipeline import PointTask, point_dir, run_fit
@@ -65,8 +70,9 @@ def build_tasks(cfg: DictConfig) -> list[PointTask]:
         else "",
         scram_arch=comb["scram_arch"] or "",
         setup_cmd=comb["setup_cmd"] or "",
-        r_range=(float(r_range[0]), float(r_range[1])) if r_range else None,
-        extra_args=tuple(str(a) for a in as_list(comb.get("extra_args")) or ()),
+        environment=Environment(**comb["env"]),
+        default_arguments=DefaultArguments(**comb["default_arguments"]),
+        asymptotic_limits=AsymptoticLimits(**comb["asymptotic_limits"]),
     )
     return [
         PointTask(
