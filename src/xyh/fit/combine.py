@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from xyh.fit.combine_config import (
+    COMBINE_M_H,
     AsymptoticLimits,
     DefaultArguments,
     Environment,
@@ -92,9 +93,9 @@ def asymptotic_limits_command(
     )
 
 
-def limit_file_name(mass: int, name: str = ".fit") -> str:
+def limit_file_name(name: str) -> str:
     """Name of the file written by `combine_command`."""
-    return f"higgsCombine{name}.AsymptoticLimits.mH{mass}.root"
+    return f"higgsCombine{name}.AsymptoticLimits.mH{COMBINE_M_H}.root"
 
 
 def limits_from_entries(
