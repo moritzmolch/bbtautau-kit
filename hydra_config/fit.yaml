@@ -39,13 +39,25 @@ fit:
   # Last step to run: shapes, datacard, workspace or limits
   stop_after: limits
   combine:
-    # Relative paths refer to the repository root, see bin/setup_combine
-    cmssw_dir: external/combine/CMSSW_16_0_0
-    scram_arch: el9_amd64_gcc13
-    # Replaces the default environment setup if not empty
-    setup_cmd: ""
-    # [rMin, rMax] in pb, null keeps the Combine default
-    r_range: null
-    extra_args: []
+    # General settings for the combine environment
+    environment:
+      # Relative paths refer to the repository root, see bin/setup_combine
+      cmssw_dir: external/combine/CMSSW_16_0_0
+      scram_arch: el9_amd64_gcc13
+      # Replaces the default environment setup if not empty
+      setup_cmd: ""
+
+    # Settings for the default combine arguments
+    default_arguments: {}
+
+    # Settings for the AsymptoticLimits command
+    asymptotic_limits:
+      r_min: -10
+      r_max: 10
+      robust_fit: 1
+      asimov: true
+      mode: "both"
+
+  
   # Number of mass points fitted in parallel
   num_workers: 1
