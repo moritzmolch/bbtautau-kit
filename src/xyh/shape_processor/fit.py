@@ -58,8 +58,7 @@ def build_tasks(cfg: DictConfig) -> list[PointTask]:
     points = select_mass_points(
         discover_mass_points(categories),
         as_list(fit["mass_points"]),
-        as_list(fit["ydm"]),
-        as_list(fit["hdm"]),
+        as_list(fit["decay_modes"]),
     )
 
     comb = fit["combine"]

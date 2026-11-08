@@ -25,14 +25,9 @@ _POINT_RE = re.compile(r"^(?:mx)?(?P<mx>\d+)_(?:my)?(?P<my>\d+)$")
 class MassPoint:
     """One signal hypothesis (decay modes and masses)."""
 
-    ydm: str
-    hdm: str
+    decay_mode: str
     mx: int
     my: int
-
-    @property
-    def decay_label(self) -> str:
-        return f"{self.ydm}_{self.hdm}"
 
     @property
     def mass_label(self) -> str:
@@ -41,15 +36,13 @@ class MassPoint:
     @property
     def signal_process(self) -> str:
         """Name of the signal process of this point in the merged file."""
-        return f"{SIGNAL_PREFIX}{self.ydm}_{self.hdm}_{self.mass_label}"
+        return f"{SIGNAL_PREFIX}{self.decay_mode}_{self.mass_label}"
 
     def category(self, channel: str, cls: str) -> str:
         """Name of the classifier category of a channel and class."""
         if cls not in CLASSES:
             raise ValueError(f"Unknown class {cls!r}, expected {CLASSES}")
-        return (
-            f"{channel}_clf_{cls}_xyh_{self.ydm}_{self.hdm}_{self.mass_label}"
-        )
+        return f"{channel}_clf_{cls}_xyh_{self.decay_mode}_{self.mass_label}"
 
 
 def parse_category_name(name: str) -> tuple[str, str, MassPoint] | None:
@@ -65,8 +58,7 @@ def parse_category_name(name: str) -> tuple[str, str, MassPoint] | None:
     if match is None:
         return None
     point = MassPoint(
-        ydm=match["ydm"],
-        hdm=match["hdm"],
+        decay_mode=match["decay_mode"],
         mx=int(match["mx"]),
         my=int(match["my"]),
     )
@@ -100,8 +92,7 @@ def parse_mass_pair(spec: str | Sequence[int | str]) -> tuple[int, int]:
 def select_mass_points(
     available: Iterable[MassPoint],
     mass_points: Sequence[str | Sequence[int | str]] | None = None,
-    ydm: Sequence[str] | None = None,
-    hdm: Sequence[str] | None = None,
+    decay_modes: Sequence[str] | None = None,
 ) -> list[MassPoint]:
     """Select points by masses and decay modes (`None` selects all).
 
@@ -114,7 +105,7 @@ def select_mass_points(
     selected = [
         p
         for p in available
-        if (ydm is None or p.ydm in ydm) and (hdm is None or p.hdm in hdm)
+        if (decay_modes is None or p.decay_mode in decay_modes)
     ]
     if mass_points is not None:
         pairs = {parse_mass_pair(m) for m in mass_points}
