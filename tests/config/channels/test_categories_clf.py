@@ -1,167 +1,156 @@
 """
-Unit tests for xyh.config.channels.categories_clf module.
+Unit tests for xyh.config.channels._categories_clf module.
 
-These tests are completely isolated and use mocks for all external dependencies.
+The analysis profile is stubbed, the channel and the processes are real
+`order` objects.
 """
 
+from types import SimpleNamespace
+
 import pytest
-from order import Category, UniqueObjectIndex
+from order import Channel, Process
 
-# =============================================================================
-# Dummy classes for external dependencies
-# =============================================================================
+from xyh.config.channels import _categories_clf
+from xyh.config.channels._categories_clf import add_clf_categories
 
+# Signal parameters of the stubbed profile: ((y_decay, h_decay), (m_x, m_y))
+SIGNAL_PARAMETERS = [
+    (("y2b", "h2tau"), (300, 60)),
+    (("y2b", "h2tau"), (400, 70)),
+    (("y2tau", "h2b"), (300, 60)),
+]
 
-# class DummyCategoryProxy:
-#     """Dummy CategoryProxy class for testing."""
-
-#     def __init__(
-#         self, name=None, id=None, label=None, label_short=None, **kwargs
-#     ):
-#         self.name = name
-#         self.id = id
-#         self.label = label
-#         self.label_short = label_short
+CLASS_NAMES = ["xyh", "t_tt", "z2tau", "jetfakes"]
 
 
-class DummyChannel:
-    """Dummy Channel class for testing."""
-
-    def __init__(self, name: str, id: int | str = 0, label: str = None):
-        self.name = name
-        self.id = id if isinstance(id, int) else 9999
-        self.label = label if label is not None else name
-        self._categories = UniqueObjectIndex(Category, [])
-
-    def add_category(self, *args, **kwargs):
-        """Mock method to add a category."""
-        category_inst = None
-        if len(args) == 1:
-            category_inst = args[0]
-        elif len(args) == 0:
-            category_inst = Category(**kwargs)
-        else:
-            raise ValueError("Invalid arguments for add_category")
-        self._categories.add(category_inst)
-        return category_inst
-
-
-# =============================================================================
-# Fixtures
-# =============================================================================
+@pytest.fixture(autouse=True)
+def profile(monkeypatch):
+    """Patch the (cached, env-dependent) profile where it is looked up."""
+    stub = SimpleNamespace(
+        iterate_signal_parameters=lambda campaign=None: iter(SIGNAL_PARAMETERS)
+    )
+    monkeypatch.setattr(_categories_clf, "get_profile", lambda: stub)
+    return stub
 
 
 @pytest.fixture
-def mock_channel():
-    """Fixture to create a mock channel instance."""
-    return DummyChannel()
+def channel():
+    channel_inst = Channel(name="et", id=1, label="e#tau")
+    add_clf_categories(channel_inst)
+    return channel_inst
 
 
-# =============================================================================
-# Tests for add_clf_category function
-# =============================================================================
+def _category(channel_inst, name, y="y2b", h="h2tau", m_x=300, m_y=60):
+    return channel_inst.get_category(
+        f"et_clf_{name}_xyh_{y}_{h}_mx{m_x}_my{m_y}"
+    )
 
 
-@pytest.mark.skip(reason="Tests are outdated")
-class TestAddClfCategory:
-    """Tests for the add_clf_category function."""
+def _process(name, id_, tags=(), **aux):
+    return Process(name=name, id=id_, tags=set(tags), aux=aux)
 
-    def test_add_clf_category_creates_four_categories(self):
-        """Verify function creates exactly 4 classification categories."""
-        from xyh.config.channels.categories_clf import add_clf_category
 
-        channel = DummyChannel(name="test_channel")
-        add_clf_category(channel)
+def _signal(id_, y="y2b", h="h2tau", m_x=300, m_y=60):
+    return _process(
+        f"sig_{id_}",
+        id_,
+        tags={"signal"},
+        y_decay_mode=y,
+        h_decay_mode=h,
+        m_x=m_x,
+        m_y=m_y,
+    )
 
-        # Verify that exactly four categories were created
-        assert len(channel._categories) == 4
 
-        # Verify that the created categories have the expected names
-        for expected_cat in ["jetfakes", "tt", "xyh", "ztt"]:
-            assert any(expected_cat in cat.name for cat in channel._categories)
+class TestAddClfCategories:
+    def test_creates_four_classes_per_signal_parameter_set(self, channel):
+        assert len(channel.categories) == 4 * len(SIGNAL_PARAMETERS)
 
-    def test_add_clf_category_created_category_name_and_label_format(self):
-        """Verify created categories have correct names and labels."""
-        from xyh.config.channels.categories_clf import add_clf_category
+    @pytest.mark.parametrize("name", CLASS_NAMES)
+    def test_category_name_encodes_class_and_signal_hypothesis(
+        self, channel, name
+    ):
+        assert channel.has_category(f"et_clf_{name}_xyh_y2tau_h2b_mx300_my60")
 
-        channel_inst = DummyChannel(
-            name="et",
-            label=r"$\text{e}\tau_{\text{h}}$",
+    def test_all_categories_carry_the_clf_tag(self, channel):
+        assert all(c.has_tag("clf") for c in channel.categories)
+
+    def test_only_xyh_class_is_blinded(self, channel):
+        blinded = {
+            c.x.output_class for c in channel.categories if c.has_tag("blinded")
+        }
+        assert blinded == {"xyh"}
+
+    @pytest.mark.parametrize("name", CLASS_NAMES)
+    def test_blinded_tag_per_class(self, channel, name):
+        assert _category(channel, name).has_tag("blinded") is (name == "xyh")
+
+    @pytest.mark.parametrize(("index", "name"), list(enumerate(CLASS_NAMES)))
+    def test_aux_holds_class_name_and_index(self, channel, index, name):
+        category_inst = _category(channel, name)
+        assert category_inst.x.output_class == name
+        assert category_inst.x.output_class_index == index
+
+    def test_aux_holds_signal_hypothesis(self, channel):
+        category_inst = _category(channel, "xyh", "y2tau", "h2b", 300, 60)
+        assert category_inst.x.y_decay_mode == "y2tau"
+        assert category_inst.x.h_decay_mode == "h2b"
+        assert category_inst.x.m_x == 300
+        assert category_inst.x.m_y == 60
+
+    def test_label_contains_channel_label(self, channel):
+        category_inst = _category(channel, "jetfakes")
+        assert category_inst.label.startswith("e#tau channel, ")
+        assert category_inst.label_short.startswith("e#tau, ")
+
+    def test_no_signal_parameters_creates_no_categories(
+        self, monkeypatch, profile
+    ):
+        monkeypatch.setattr(
+            profile, "iterate_signal_parameters", lambda campaign=None: iter(())
         )
-        add_clf_category(channel_inst)
+        channel_inst = Channel(name="et", id=1, label="e#tau")
+        add_clf_categories(channel_inst)
+        assert len(channel_inst.categories) == 0
 
-        for category_inst in channel_inst._categories.values():
-            # Inspect the category name
-            assert category_inst.name.startswith("et_clf_")
-            assert category_inst.name.endswith(
-                "_xyh_{y_decay_mode}_{h_decay_mode}_mx{m_x}_my{m_y}"
-            )
 
-            # Inspect the category label
-            assert category_inst.label.startswith(
-                r"$\text{e}\tau_{\text{h}}$ channel, "
-            )
-            assert category_inst.label.endswith("category")
-            assert "channel" not in category_inst.label_short
-            assert not category_inst.label_short.endswith("category")
+class TestSkipSignalProcess:
+    @pytest.fixture
+    def category_inst(self, channel):
+        return _category(channel, "xyh")
 
-    def test_add_clf_category_created_jetfakes_category(self):
-        """Verify jetfakes category is created correctly."""
-        from xyh.config.channels.categories_clf import add_clf_category
+    def skip(self, category_inst, process_inst):
+        return category_inst.x.skip_process_inst(process_inst)
 
-        channel = DummyChannel(name="et")
-        add_clf_category(channel)
-
-        jetfakes_cat = channel._categories.values()[0]
-        assert "jetfakes" in jetfakes_cat.name
-        assert r"$\text{j} \to \tau_{\text{h}}$" in jetfakes_cat.label
-
-    def test_add_clf_category_tt_category(self):
-        """Verify tt category is created correctly."""
-        from xyh.config.channels.categories_clf import add_clf_category
-
-        channel = DummyChannel(name="mt")
-        add_clf_category(channel)
-
-        tt_cat = channel._categories.values()[1]
-        assert "tt" in tt_cat.name
-        assert r"$\text{t}\bar{\text{t}}$" in tt_cat.label
-
-    def test_add_clf_category_xyh_category(self):
-        """Verify xyh category is created correctly."""
-        from xyh.config.channels.categories_clf import add_clf_category
-
-        channel = DummyChannel(name="tt")
-        add_clf_category(channel)
-
-        xyh_cat = channel._categories.values()[2]
-        assert "xyh" in xyh_cat.name
-        assert r"$\text{X} \to \text{H}\text{Y}$" in xyh_cat.label
-
-    def test_add_clf_category_ztt_category(self):
-        """Verify ztt category is created correctly."""
-        from xyh.config.channels.categories_clf import add_clf_category
-
-        channel = DummyChannel(name="et")
-        add_clf_category(channel)
-
-        ztt_cat = channel._categories.values()[3]
-        assert "ztt" in ztt_cat.name
-        assert r"$\text{Z}(\tau\tau)$" in ztt_cat.label
+    def test_matching_signal_is_kept(self, category_inst):
+        assert self.skip(category_inst, _signal(10)) is False
 
     @pytest.mark.parametrize(
-        "channel_name",
-        ["et", "mt", "tt", "em", "ee", "mm"],
+        "kwargs",
+        [
+            {"m_x": 400},
+            {"m_y": 70},
+            {"y": "y2tau", "h": "h2b"},
+            {"y": "y2tau"},
+            {"h": "h2b"},
+        ],
+        ids=["m_x", "m_y", "decay_modes", "y_decay_mode", "h_decay_mode"],
     )
-    def test_add_clf_category_all_channel_types(self, channel_name):
-        """Verify function works with all channel types."""
-        from xyh.config.channels.categories_clf import add_clf_category
+    def test_signal_of_other_hypothesis_is_skipped(self, category_inst, kwargs):
+        assert self.skip(category_inst, _signal(11, **kwargs)) is True
 
-        channel = DummyChannel(name=channel_name)
-        add_clf_category(channel)
+    def test_background_is_kept(self, category_inst):
+        background = _process("tt", 20, tags={"background"})
+        assert self.skip(category_inst, background) is False
 
-        assert len(channel._categories) == 4
-        assert all(
-            cat.name.startswith(f"{channel_name}_clf_")
-            for cat in channel._categories
-        )
+    def test_process_with_legacy_is_signal_aux_only_is_not_skipped(
+        self, category_inst
+    ):
+        # Only the `signal` tag counts; the old `is_signal` aux is ignored
+        legacy = _process("legacy", 21, is_signal=True, m_x=999)
+        assert self.skip(category_inst, legacy) is False
+
+    def test_skip_depends_on_category_hypothesis(self, channel):
+        other = _category(channel, "xyh", "y2tau", "h2b")
+        signal = _signal(12)  # y2b / h2tau, 300 / 60
+        assert self.skip(other, signal) is True

@@ -1,0 +1,8 @@
+# Plots of the normalization weights, takes the campaigns, process tag and
+# directory of the weights from the derivation config
+defaults:
+- derive_norm_weights
+- _self_
+
+plots_dir: ${output_dir}/plots
+plot_format: png

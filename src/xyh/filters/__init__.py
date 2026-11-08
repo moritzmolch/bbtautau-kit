@@ -42,13 +42,15 @@ def default_filters(self) -> OrderedDict[str, str]:
 
     # Check if this is a classifier output category
     if self.category_inst.has_tag("clf"):
-        # Get the output class name and the hypotheses masses
+        # Get the output class name and index and the hypotheses masses
         output_class = self.category_inst.x.output_class
         m_x = self.category_inst.x.m_x
         m_y = self.category_inst.x.m_y
+        output_class_index = self.category_inst.x.output_class_index
 
+        # Select events assigned to this output class
         selections[f"clf_{output_class}"] = (
-            f"max_score_index_m_x_{m_x}_m_y_{m_y}"
+            f"max_score_index_m_x_{m_x}_m_y_{m_y} == {output_class_index}"
         )
 
     return selections
@@ -80,23 +82,15 @@ def default_filters_without_bjets(self) -> OrderedDict[str, str]:
 
 
 @Wrapper.wrap
-def default_filters_for_z_corrections(self) -> OrderedDict[str, str]:
-    """
-    Default filter selection for the analysis.
-
-    This includes the following selections:
-
-    - Trigger selection
-    - Jet vetomap veto
-    - bb pair selection
-    - Dilepton pair selection
-    - Generator-level tau pair selections
-    """
+def default_filters_for_normalization_corrections(
+    self,
+) -> OrderedDict[str, str]:
 
     # Get the default filters without b jet cuts
     filters = self.get_instance("default_filters_without_bjets").nominal()
 
-    # Add m_ll filter to enhance Z -> ll events
-    filters["m_ll"] = "(m_vis > 70) && (m_vis < 110)"
+    # Add m_ll filter in the di-muon channeel to enhance Z -> ll events
+    if self.channel_inst.name == "mm":
+        filters["m_ll"] = "(m_vis > 70) && (m_vis < 110)"
 
     return filters

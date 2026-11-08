@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import pytest
+from order import Channel
 
 from xyh.core.specs import filters_and_weights as module
 from xyh.core.specs.filters_and_weights import (
@@ -162,6 +163,13 @@ class TestCreateFiltersAndWeightsSpec:
         assert specs[0].weights[0].expression == "2"
 
 
+def _channel(name, categories):
+    channel_inst = Channel(name=name, id=1)
+    for c in categories:
+        channel_inst.add_category(name=c, id="+")
+    return channel_inst
+
+
 class TestCreateFiltersAndWeightsSpecs:
     @pytest.fixture
     def patch_config(self, monkeypatch, set_variations):
@@ -181,11 +189,7 @@ class TestCreateFiltersAndWeightsSpecs:
             loads.append((path, campaign, channel, kwargs))
             return SimpleNamespace(
                 campaign=SimpleNamespace(name=campaign),
-                channel=SimpleNamespace(
-                    name=channel,
-                    has_category=lambda c: c in categories[channel],
-                    get_category=lambda c: SimpleNamespace(name=c),
-                ),
+                channel=_channel(channel, sorted(categories[channel])),
             )
 
         monkeypatch.setattr(module, "load_fn", fake_load_fn)
@@ -231,6 +235,16 @@ class TestCreateFiltersAndWeightsSpecs:
         specs = self._run(
             channels=["tt", "et"], categories=["cat1", "cat2", "cat3"]
         )
+        assert sorted({(s.channel, s.category) for s in specs}) == [
+            ("et", "cat1"),
+            ("tt", "cat1"),
+            ("tt", "cat2"),
+        ]
+
+    def test_regex_categories_are_expanded_to_category_names(
+        self, patch_config
+    ):
+        specs = self._run(channels=["tt", "et"], categories=[r"cat\d"])
         assert sorted({(s.channel, s.category) for s in specs}) == [
             ("et", "cat1"),
             ("tt", "cat1"),

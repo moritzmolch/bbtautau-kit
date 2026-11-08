@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import ROOT
+from order import Channel
 
 from xyh.core.plotting import control_plots
 from xyh.core.plotting.control_plots import (
@@ -33,12 +34,28 @@ def _group(name, processes, scale_factor=None):
     )
 
 
+def _channel(name, categories, blinded, category_aux):
+    channel_inst = Channel(name=name, id=1)
+    for c in categories:
+        channel_inst.add_category(
+            name=c,
+            id="+",
+            label=f"label_{c}",
+            tags={"blinded"} if blinded else set(),
+            aux=category_aux,
+        )
+    return channel_inst
+
+
 def _inventory(
     channel="tt",
     categories=("cat",),
     blinded=False,
     process_set=None,
+    category_aux=None,
+    process_insts=None,
 ):
+    category_aux = category_aux or {}
     if process_set is None:
         process_set = SimpleNamespace(
             data=[_group("data", ["d1", "d2"])],
@@ -52,14 +69,9 @@ def _inventory(
         campaign=SimpleNamespace(
             name="c", x=SimpleNamespace(lumi=100.0), ecm=13.6
         ),
-        channel=SimpleNamespace(
-            name=channel,
-            has_category=lambda c: c in categories,
-            get_category=lambda c: SimpleNamespace(
-                name=c,
-                label=f"label_{c}",
-                has_tag=lambda tag: blinded and tag == "blinded",
-            ),
+        channel=_channel(channel, categories, blinded, category_aux),
+        processes=SimpleNamespace(
+            get=lambda n: (process_insts or {}).get(n, SimpleNamespace(name=n))
         ),
         process_set=process_set,
         variables=SimpleNamespace(
@@ -162,6 +174,13 @@ class TestBuildPlotTasks:
             ("tt", "mass"),
             ("et", "pt"),
         ]
+
+    def test_regex_categories_are_expanded_to_category_names(self, inventories):
+        inventories.by_channel["tt"] = _inventory(
+            "tt", ("cat_a", "cat_b", "other")
+        )
+        tasks = _build_plot_tasks(**_task_args(categories=[r"cat_.*"]))
+        assert [t["category"] for t in tasks] == ["cat_a", "cat_b"]
 
     def test_variable_name_has_channel_restriction_stripped(self, inventories):
         inventories.by_channel["tt"] = _inventory("tt")
@@ -364,3 +383,57 @@ class TestPlotShapes:
         monkeypatch.setattr(control_plots, "run_in_parallel", run)
         plot_shapes(**_task_args())
         assert run.call_args.args[2] == 1
+
+
+class TestPlotCategoryVariableSkippedProcesses:
+    """Processes skipped by the category are neither read nor plotted."""
+
+    @staticmethod
+    def _skip(names):
+        return lambda process_inst: process_inst.name in names
+
+    def test_skipped_signal_needs_no_histogram_and_is_not_plotted(
+        self, inventories, plot_mock, tmp_path
+    ):
+        # The merged file has no histogram for the skipped signal `s1`
+        merged = tmp_path / "merged.root"
+        _write_merged(
+            merged,
+            {
+                _key("d1"): 1.0,
+                _key("d2"): 2.0,
+                _key("a1"): 10.0,
+                _key("a2"): 20.0,
+                _key("b1"): 100.0,
+            },
+        )
+        inventories.by_channel["tt"] = _inventory(
+            category_aux={"skip_process_inst": self._skip({"s1"})}
+        )
+        _plot_category_variable(_task(merged, tmp_path))
+        assert plot_mock.call_args.kwargs["hist_signals"] == []
+
+    def test_only_skipped_processes_of_a_group_are_left_out(
+        self, inventories, plot_mock, merged_file, tmp_path
+    ):
+        inventories.by_channel["tt"] = _inventory(
+            category_aux={"skip_process_inst": self._skip({"a2"})}
+        )
+        _plot_category_variable(_task(merged_file, tmp_path))
+        (bkg_a, _), _ = plot_mock.call_args.kwargs["hist_backgrounds"]
+        assert _contents(bkg_a) == [10.0, 20.0]
+
+    def test_skip_function_receives_process_instance(
+        self, inventories, plot_mock, merged_file, tmp_path
+    ):
+        seen = []
+
+        def skip(process_inst):
+            seen.append(process_inst.name)
+            return False
+
+        inventories.by_channel["tt"] = _inventory(
+            category_aux={"skip_process_inst": skip}
+        )
+        _plot_category_variable(_task(merged_file, tmp_path))
+        assert sorted(seen) == ["a1", "a2", "b1", "d1", "d2", "s1"]

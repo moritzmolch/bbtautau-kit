@@ -9,7 +9,7 @@ def add_clf_categories(channel_inst: Channel):
     # Filter for processes to only consider signals which are relevant for this
     # category
     def _skip_signal_process(category_inst: Category, process_inst: Process):
-        return process_inst.has_tag("is_signal") and not (
+        return process_inst.has_tag("signal") and not (
             process_inst.x.y_decay_mode == category_inst.x.y_decay_mode
             and process_inst.x.h_decay_mode == category_inst.x.h_decay_mode
             and process_inst.x.m_x == category_inst.x.m_x
@@ -35,13 +35,13 @@ def add_clf_categories(channel_inst: Channel):
                 id="+",
                 label=f"{channel_inst.label} channel, {label} class",
                 label_short=f"{channel_inst.label}, {label}",
-                tags={"clf"},
+                tags={"clf"} | ({"blinded"} if name == "xyh" else set()),
             )
 
             # Add process filter and metadata
             category_inst.aux = {
                 "skip_process_inst": partial(
-                    _skip_signal_process, category_inst=category_inst
+                    _skip_signal_process, category_inst
                 ),
                 "output_class": name,
                 "output_class_index": i,

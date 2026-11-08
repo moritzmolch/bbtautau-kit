@@ -1,0 +1,37 @@
+# Load base parameters as default
+defaults:
+- base/global
+- base/artifacts@artifacts
+- base/ntuples@ntuples
+- base/tags@tags
+- inventory: control_regions_z_normalization
+- _self_
+
+# Input (merged histograms of the shapes tag) and output directory
+histograms_dir: ${artifacts.histograms_dir}
+output_dir: "${artifacts.z_norm_dir}"
+
+# Analysis channel and categories considered for this correction
+channel: "mm"
+categories:
+- "mm_eq2j_eq1b"
+- "mm_eq2j_eq2b"
+- "mm_eq3j_eq1b"
+- "mm_eq3j_eq2b"
+- "mm_eq3j_geq3b"
+- "mm_eq4j_eq1b"
+- "mm_eq4j_eq2b"
+- "mm_eq4j_geq3b"
+
+# Information needed for histogram processing
+# - The yield_variable defines the histogram which is used to derive the
+#   process normalization
+# - The process_tag is used to identify the process of interest and to subtract
+#   contamination from other processes
+yield_variable: yield
+process_tag: z
+
+# Uncertainties
+# - unc_rel_norm_other: Relative uncertainty in the normalization of processes
+#   which are subtracted from data
+unc_rel_norm_other: 0.1

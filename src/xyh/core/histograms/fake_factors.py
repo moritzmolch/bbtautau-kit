@@ -8,7 +8,7 @@ from typing import Any
 import ROOT
 
 from xyh.core.config import load_inventory
-from xyh.core.config.util import gen_dataset_insts
+from xyh.core.config.util import gen_category_insts, gen_dataset_insts
 from xyh.core.histograms.util import (
     add_histograms,
     filter_histograms,
@@ -31,10 +31,7 @@ def run_fake_factor_histograms(
     histograms_dir: Path,
 ):
     # Load all histograms
-    histograms = load_all(
-        histograms_dir / "histogram_keys.json.gz",
-        histograms_dir,
-    )
+    histograms = load_all(histograms_dir)
 
     # Store for the output histograms
     histograms_output = {}
@@ -97,9 +94,8 @@ def run_fake_factor_histograms(
             ),
         )
 
-        for category in (c for c in categories if channel_inst.has_category(c)):
-            # Get the category instance for this channel and category
-            category_inst = channel_inst.get_category(category)
+        for category_inst in gen_category_insts(channel_inst, categories):
+            category = category_inst.name
             for variable_arg in variables:
                 # Parse the variable name to extract the 'pure' name and the
                 # channels the variable is restricted to (if any)

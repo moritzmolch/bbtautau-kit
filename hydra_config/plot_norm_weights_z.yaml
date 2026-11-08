@@ -1,0 +1,7 @@
+# Plots of the z normalization weights, see plot_norm_weights.yaml
+defaults:
+- derive_norm_weights_z
+- _self_
+
+plots_dir: ${output_dir}/plots
+plot_format: png

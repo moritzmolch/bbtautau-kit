@@ -1,0 +1,29 @@
+# Load base parameters as default
+defaults:
+- base/global
+- base/artifacts@artifacts
+- base/ntuples@ntuples
+- base/tags@tags
+- inventory: ???
+- _self_
+
+# Input (merged histograms of the shapes tag) and output directory
+histograms_dir: ${artifacts.histograms_dir}
+output_dir: ???
+
+# Analysis channel and categories considered for this correction
+channel: ???
+categories: ???
+
+# Information needed for histogram processing
+# - The yield_variable defines the histogram which is used to derive the
+#   process normalization
+# - The process_tag is used to identify the process of interest and to subtract
+#   contamination from other processes
+yield_variable: yield
+process_tag: ???
+
+# Uncertainties
+# - unc_rel_norm_other: Relative uncertainty in the normalization of processes
+#   which are subtracted from data
+unc_rel_norm_other: 0.1
