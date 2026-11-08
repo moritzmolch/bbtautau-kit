@@ -24,3 +24,4 @@ binning_dir: data/output/${tags.shapes_tag}/binning
 tt_norm_dir: data/corrections/tt_normalization/${tags.tt_norm_tag}
 z_pt_weights_dir: data/output/${tags.shapes_tag}/z_pt_weights
 btag_renormalization_dir: data/output/btag_renorm_weights/${tags.btag_renorm_tag}
+fit_dir: data/output/fit/${tags.shapes_tag}

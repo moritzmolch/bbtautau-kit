@@ -1,0 +1,46 @@
+# Fit stage: Combine datacards, workspaces and asymptotic limits per mass
+# point. Reads the merged histograms of the classifier categories.
+defaults:
+- base/global
+- base/artifacts@artifacts
+- base/ntuples@ntuples
+- base/tags@tags
+- inventory: nn
+- _self_
+
+merged_histograms_file: ${artifacts.merged_histograms_file}
+fit_dir: ${artifacts.fit_dir}
+
+fit:
+  # Scope: campaigns (full or short names, e.g. 2024) and channels, or "all"
+  campaigns: all
+  channels: all
+  # Points to fit, e.g. [[2000,500],[3000,100]]; null selects all in the file
+  mass_points: null
+  # Decay modes, e.g. [y2b]; null selects all
+  ydm: null
+  hdm: null
+  # Fitted variable of the merged histograms
+  variable: max_score
+  data:
+    # asimov_bkg, asimov_sb or observed
+    mode: asimov_bkg
+  # Merge this many adjacent bins, null keeps the binning
+  rebin: null
+  # autoMCStats threshold, null disables it
+  automcstats: null
+  # Processes that are not used as backgrounds
+  exclude_processes: []
+  # Last step to run: shapes, datacard, workspace or limits
+  stop_after: limits
+  combine:
+    # Relative paths refer to the repository root, see bin/setup_combine
+    cmssw_dir: external/combine/CMSSW_16_0_0
+    scram_arch: el9_amd64_gcc13
+    # Replaces the default environment setup if not empty
+    setup_cmd: ""
+    # [rMin, rMax] in pb, null keeps the Combine default
+    r_range: null
+    extra_args: []
+  # Number of mass points fitted in parallel
+  num_workers: 1

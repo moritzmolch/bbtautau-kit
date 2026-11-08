@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# One-time, idempotent installation of Combine and CombineHarvester inside
+# CMSSW_16_0_0, following the "within CMSSW" instructions of the Combine
+# documentation (https://cms-analysis.github.io/HiggsAnalysis-CombinedLimit/).
+#
+# Usage: bin/setup_combine [install_dir]
+#   install_dir defaults to external/combine in the repository root and must
+#   match fit.combine.cmssw_dir (<install_dir>/CMSSW_16_0_0).
+#
+# Environment overrides: CMSSW_VERSION, SCRAM_ARCH, COMBINE_TAG, CH_BRANCH.
+# Check the documentation for the recommended Combine release tag and a
+# CombineHarvester branch that builds against this CMSSW release.
+
+set -eu -o pipefail
+
+this_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+install_dir="${1:-${this_dir}/../external/combine}"
+CMSSW_VERSION="${CMSSW_VERSION:-CMSSW_16_0_0}"
+export SCRAM_ARCH="${SCRAM_ARCH:-el9_amd64_gcc13}"
+COMBINE_TAG="${COMBINE_TAG:-main}"   # TODO set the recommended release tag
+CH_BRANCH="${CH_BRANCH:-main}"       # TODO verify compatibility with CMSSW
+
+mkdir -p "${install_dir}"
+cd "${install_dir}"
+
+# shellcheck disable=SC1091
+source /cvmfs/cms.cern.ch/cmsset_default.sh
+
+if [[ ! -d "${CMSSW_VERSION}" ]]; then
+    scramv1 project CMSSW "${CMSSW_VERSION}"
+fi
+cd "${CMSSW_VERSION}/src"
+eval "$(scramv1 runtime -sh)"
+
+if [[ ! -d HiggsAnalysis/CombinedLimit ]]; then
+    git clone https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git \
+        HiggsAnalysis/CombinedLimit
+    (cd HiggsAnalysis/CombinedLimit && git checkout "${COMBINE_TAG}")
+fi
+
+if [[ ! -d CombineHarvester ]]; then
+    git clone https://github.com/cms-analysis/CombineHarvester.git \
+        CombineHarvester
+    (cd CombineHarvester && git checkout "${CH_BRANCH}")
+fi
+
+scram b -j "$(nproc)"
+
+echo "Combine installed in ${PWD}; set fit.combine.cmssw_dir accordingly."
