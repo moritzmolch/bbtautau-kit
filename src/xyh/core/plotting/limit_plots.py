@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import mplhep
 import numpy as np
 import pandas as pd
+from matplotlib.colors import LogNorm
 
 mpl.style.use(mplhep.style.CMS)
 
@@ -44,10 +45,10 @@ LIMIT_NAME = "statonly"
 CHANNEL = "all"
 DECAY_MODE = "y2b_h2tau"
 LIMITS_FILE = Path(
-    "/work/mmolch/xyh-bbtautau-crown/bbtautau-kit/data/output/fit/shapes-2026-11-07/2024_all/asimov_bkg/limits.csv"
+    "/work/mmolch/xyh-bbtautau-crown/bbtautau-kit/data/output/fit/shapes-2026-11-07/all_all/asimov_bkg/limits.csv"
 )
 OUTPUT_DIR = Path(
-    "/work/mmolch/xyh-bbtautau-crown/bbtautau-kit/data/output/fit/shapes-2026-11-07/2024_all/asimov_bkg/plots"
+    "/work/mmolch/xyh-bbtautau-crown/bbtautau-kit/data/output/fit/shapes-2026-11-07/all_all/asimov_bkg/plots"
 )
 
 
@@ -95,6 +96,73 @@ def _plot_limit_1d(
     )
 
 
+def _plot_limit_2d(
+    fig,
+    ax,
+    x,
+    y,
+    exp,
+):
+    # Get unique values for x and y and x -> x_u (y -> y_u) index mapping
+    x_u, y_u = np.unique(x), np.unique(y)
+    x_i, y_i = np.searchsorted(x_u, x), np.searchsorted(y_u, y)
+    ex_u = (x_u[1:] + x_u[:-1]) / 2
+    ey_u = (y_u[1:] + y_u[:-1]) / 2
+    ex_u = np.concatenate(
+        (
+            [2 * x_u[0] - ex_u[0]],
+            ex_u,
+            [2 * x_u[-1] - ex_u[-1]],
+        )
+    )
+    ey_u = np.concatenate(
+        (
+            [2 * y_u[0] - ey_u[0]],
+            ey_u,
+            [2 * y_u[-1] - ey_u[-1]],
+        )
+    )
+
+    # Create the meshgrid
+    x_mesh, y_mesh = np.meshgrid(ex_u, ey_u)
+    z_mesh = np.full((x_u.shape[0], y_u.shape[0]), np.nan)
+    z_mesh[x_i, y_i] = exp
+    z_mesh = np.transpose(z_mesh)
+
+    # Set logarithmic z axis
+    min_exp, max_exp = (
+        np.floor(np.log10(np.min(exp))),
+        np.ceil(np.log10(np.max(exp))),
+    )
+    z_min, z_max = np.pow(10, min_exp), np.pow(10, max_exp)
+    norm = LogNorm(vmin=z_min, vmax=z_max)
+
+    # Plot expected limit
+    pm = ax.pcolormesh(
+        x_mesh,
+        y_mesh,
+        z_mesh,
+        cmap="viridis",
+        norm=norm,
+        label="Expected",
+    )
+
+    # Add colorbar for z axis
+    cbar = fig.colorbar(
+        pm,
+        ax=ax,
+        label=r"95% CL upper limit on $\sigma\mathcal{B}$ (pb)",
+    )
+
+    return (
+        pm,
+        cbar,
+        (np.min(ex_u), np.max(ex_u)),
+        (np.min(ey_u), np.max(ey_u)),
+        (z_min, z_max),
+    )
+
+
 def plot_limits_for_constant_my(
     data_frame,
     m_y,
@@ -126,14 +194,14 @@ def plot_limits_for_constant_my(
     if decay_mode == "y2b_h2tau" and m_y == 150:
         x, y = zip(*run2_my150_y2b_h2tau_limits, strict=True)
         x, y = np.array(x), np.array(y)
-        y = np.sqrt(138 / 109) * y
+        y = np.sqrt(138 / (109.8 + 110.4)) * y
         ax.plot(
             x,
             y,
             color="#bd1f01",
             linestyle="dashed",
             linewidth=2,
-            label="HIG-20-014 (13 TeV, scaled to 109 $fb^{-1}$)",
+            label=f"HIG-20-014 (13 TeV, scaled to {109.8 + 110.4} $fb^{{-1}}$)",
             zorder=20,
         )
 
@@ -156,7 +224,7 @@ def plot_limits_for_constant_my(
         y_label[decay_mode]
         + r", $m_{\text{Y}}$ = "
         + str(m_y)
-        + " GeV, 109 $fb^{-1}$"
+        + f" GeV, {109.8 + 110.4} $fb^{{-1}}$"
     )
 
     return fig, ax
@@ -208,8 +276,46 @@ def plot_limits_for_constant_mx(
         y_label[decay_mode]
         + r", $m_{\text{X}}$ = "
         + str(m_x)
-        + " GeV, 109 $fb^{-1}$"
+        + f" GeV, {109.8 + 110.4} $fb^{{-1}}$"
     )
+
+    return fig, ax
+
+
+def plot_limits(
+    data_frame,
+    decay_mode,
+):
+    # Select rows required for this plot
+    data_frame = data_frame.loc[
+        (data_frame["decay_mode"] == decay_mode)
+    ].sort_values(["m_x", "m_y"])
+
+    fig, ax = plt.subplots()
+
+    _, _, x_range, y_range, _ = _plot_limit_2d(
+        fig,
+        ax,
+        data_frame["m_x"],
+        data_frame["m_y"],
+        data_frame["exp"],
+    )
+
+    y_label = {
+        "y2tau_h2b": r"$X \to \text{H}(\text{b}\text{b})\text{Y}(\tau\tau)$",
+        "y2b_h2tau": r"$X \to \text{H}(\tau\tau)\text{Y}(\text{b}\text{b})$",
+    }
+
+    # Set axes labels
+    ax.set_xlabel(r"$m_{\text{X}}\ (GeV)$")
+    ax.set_ylabel(r"$m_{\text{Y}}\ (GeV)$")
+
+    # Shrink x and y axes to boundaries inputs
+    ax.set_xlim(*x_range)
+    ax.set_ylim(*y_range)
+
+    # Set axis title
+    ax.set_title(y_label[decay_mode] + f", {109.8 + 110.4} $fb^{{-1}}$")
 
     return fig, ax
 
@@ -224,6 +330,16 @@ def main():
     m_x_values = df["m_x"].drop_duplicates().tolist()
     m_y_values = df["m_y"].drop_duplicates().tolist()
     decay_modes = df["decay_mode"].drop_duplicates().tolist()
+
+    # Plot median expected limits in m_x-m_y 2D plane
+    for decay_mode in decay_modes:
+        fig, ax = plot_limits(
+            df,
+            decay_mode,
+        )
+        for ext in ["pdf", "png"]:
+            fig.savefig(OUTPUT_DIR / f"limits_xyh_{decay_mode}.{ext}")
+        plt.close()
 
     # Plot limits as function of m_X for constant m_Y
     for m_y, decay_mode in product(m_y_values, decay_modes):
