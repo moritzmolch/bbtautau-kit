@@ -74,6 +74,73 @@ class AsymptoticLimits:
         ] + asimov_args
 
 
+@dataclass(frozen=True, kw_only=True)
+class FitDiagnostics:
+    """Arguments for the `FitDiagnostics` combine module."""
+
+    r_min: float = field(default=-1)
+    r_max: float = field(default=3)
+    r_abs_acc: float = field(default=1.0e-6)
+    robust_fit: bool = field(default=True)
+    asimov: bool = field(default=True)
+    expect_signal: float = field(default=0.001)
+    save_shapes: bool = field(default=True)
+    save_overall_shapes: bool = field(default=True)
+    save_nll: bool = field(default=True)
+    save_with_uncertainties: bool = field(default=True)
+    skip_b_only_fit: bool = field(default=False)
+    skip_sb_fit: bool = field(default=False)
+
+    def to_args_list(self) -> list[str]:
+        # Construct arguments for tests on Asimov dataset
+        asimov_args = []
+        if self.asimov:
+            asimov_args = [
+                "-t",
+                "-1",
+                "--expectSignal",
+                self.expect_signal,
+            ]
+
+        # Construct optional fit setup arguments
+        robust_fit_args = []
+        if self.robust_fit:
+            robust_fit_args = ["--robustFit", "1"]
+
+        # Construct save arguments
+        save_args = []
+        if self.save_nll:
+            save_args.append("--saveNLL")
+        if self.save_shapes:
+            save_args.append("--saveShapes")
+        if self.save_overall_shapes:
+            save_args.append("--saveOverallShapes")
+        if self.save_with_uncertainties:
+            save_args.append("--saveWithUncertainties")
+
+        # Construct skip arguments
+        skip_args = []
+        if self.skip_b_only_fit:
+            skip_args.append("--skipBOnlyFit")
+        if self.skip_sb_fit:
+            skip_args.append("--skipSBFit")
+
+        return (
+            [
+                "--rMin",
+                str(self.r_min),
+                "--rMax",
+                str(self.r_max),
+                "--rAbsAcc",
+                str(self.r_abs_acc),
+            ]
+            + asimov_args
+            + robust_fit_args
+            + save_args
+            + skip_args
+        )
+
+
 @dataclass(frozen=True)
 class CombineConfig:
     """Settings of the Combine installation and the limit calculation."""
@@ -85,3 +152,4 @@ class CombineConfig:
     asymptotic_limits: AsymptoticLimits = field(
         default_factory=AsymptoticLimits
     )
+    fit_diagnostics: FitDiagnostics = field(default_factory=FitDiagnostics)

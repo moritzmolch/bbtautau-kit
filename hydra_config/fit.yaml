@@ -54,11 +54,23 @@ fit:
 
     # Settings for the AsymptoticLimits command
     asymptotic_limits:
-      r_min: -10
-      r_max: 10
+      r_min: -1
+      r_max: 1
       asimov: true
       mode: "both"
 
+    fit_diagnostics:
+      r_min: -1
+      r_max: 1
+      robust_fit: true
+      asimov: true
+      expect_signal: 0.001
+      save_shapes: true
+      save_overall_shapes: true
+      save_nll: true
+      save_with_uncertainties: true
+      skip_b_only_fit: false
+      skip_sb_fit: false
   
   # Number of mass points fitted in parallel
   num_workers: 8
