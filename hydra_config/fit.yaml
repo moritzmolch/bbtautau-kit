@@ -37,6 +37,9 @@ fit:
   exclude_processes: []
   # Last step to run: shapes, datacard, workspace or limits
   stop_after: limits
+  # Recreate datacards, workspaces and limits that are already on disk;
+  # otherwise only missing files are produced
+  overwrite: false
   combine:
     # General settings for the combine environment
     environment:

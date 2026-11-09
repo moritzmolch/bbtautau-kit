@@ -9,6 +9,7 @@ from xyh.core.parallel import run_in_parallel
 from xyh.fit import combine as cmb
 from xyh.fit.combine_config import CombineConfig
 from xyh.fit.datacard import (
+    DatacardSpec,
     build_datacard_spec,
     run_datacard_script,
     write_spec,
@@ -18,6 +19,7 @@ from xyh.fit.limits import (
     LIMITS_JSON,
     LimitResult,
     collect_limits,
+    read_limits_json,
     write_limits_csv,
     write_limits_json,
 )
@@ -62,58 +64,100 @@ class PointTask:
     auto_mc_stats: float | None = None
     exclude: tuple[str, ...] = ()
     stop_after: str = "limits"
+    # Recreate files that are already on disk
+    overwrite: bool = False
 
 
-def run_point(task: PointTask) -> LimitResult | None:
-    """Run the chain for one point; returns `None` if stopped early."""
+WORKSPACE_FILE = "workspace.root"
+SHAPES_IN_FILE = "shapes_in.root"
+SPEC_FILE = "datacard_spec.json"
+
+
+def _done(task: PointTask, *files: Path) -> bool:
+    """Whether all `files` exist and may be reused."""
+    return not task.overwrite and all(f.exists() for f in files)
+
+
+def _check_step(task: PointTask) -> None:
     if task.stop_after not in STEPS:
         raise ValueError(f"Unknown step {task.stop_after!r}, use {STEPS}")
+
+
+def prepare_point(task: PointTask) -> None:
+    """Stage 1: shapes, datacard and workspace of one point.
+
+    Steps whose output files are already on disk are skipped (unless
+    `task.overwrite` is set). Stops after `task.stop_after`.
+    """
+    _check_step(task)
     out = task.output_dir
     out.mkdir(parents=True, exist_ok=True)
+    defaults = DatacardSpec(analysis="", mass=0, bins=())
+    datacard = out / defaults.datacard_file
+    datacard_files = (datacard, out / defaults.shapes_out_file)
 
     # Shapes and datacard specification
-    bins = build_point_shapes(
-        task.merged_file,
-        task.point,
-        task.scope,
-        task.variable,
-        task.data_mode,
-        task.exclude,
-        task.rebin,
-        task.min_real_events,
-    )
-    write_shapes_file(out / "shapes_in.root", bins, task.point.signal_process)
-    spec = build_datacard_spec(task.point, bins, task.auto_mc_stats)
-    write_spec(spec, out / "datacard_spec.json")
+    if not _done(task, out / SHAPES_IN_FILE, out / SPEC_FILE) and not (
+        _done(task, *datacard_files) and task.stop_after != "shapes"
+    ):
+        bins = build_point_shapes(
+            task.merged_file,
+            task.point,
+            task.scope,
+            task.variable,
+            task.data_mode,
+            task.exclude,
+            task.rebin,
+            task.min_real_events,
+        )
+        write_shapes_file(out / SHAPES_IN_FILE, bins, task.point.signal_process)
+        spec = build_datacard_spec(task.point, bins, task.auto_mc_stats)
+        write_spec(spec, out / SPEC_FILE)
+    else:
+        logger.info(f"Reuse shapes of {task.point.signal_process}")
     if task.stop_after == "shapes":
-        return None
+        return
 
-    # Datacard, workspace and limits need the CMSSW environment
-    cmb_cfg = task.combine
-    prefix = cmb.environment_prefix(cmb_cfg.environment)
+    # Datacard and workspace need the CMSSW environment
+    prefix = cmb.environment_prefix(task.combine.environment)
 
-    # default_arguments = DefaultArguments(**cmb_cfg.default_arguments)
-    # asymptotic_limits = AsymptoticLimits(**cmb_cfg.asymptotic_limits)
-    run_datacard_script(prefix, out / "datacard_spec.json", out)
+    if not _done(task, *datacard_files):
+        run_datacard_script(prefix, out / SPEC_FILE, out)
+    else:
+        logger.info(f"Reuse datacard of {task.point.signal_process}")
     if task.stop_after == "datacard":
-        return None
+        return
 
-    cmb.run_in_env(
-        prefix,
-        cmb.text2workspace_command(spec.datacard_file, "workspace.root"),
-        out,
-        out / "text2workspace.log",
-    )
-    if task.stop_after == "workspace":
-        return None
+    if not _done(task, out / WORKSPACE_FILE):
+        cmb.run_in_env(
+            prefix,
+            cmb.text2workspace_command(defaults.datacard_file, WORKSPACE_FILE),
+            out,
+            out / "text2workspace.log",
+        )
+    else:
+        logger.info(f"Reuse workspace of {task.point.signal_process}")
 
-    # Define datacard name
+
+def limit_point(task: PointTask) -> LimitResult | None:
+    """Stage 2: asymptotic limits of one point from its workspace.
+
+    Reuses an existing ``limits.json`` (unless `task.overwrite` is set).
+    """
+    out = task.output_dir
+    limits_file = out / LIMITS_JSON
+    if _done(task, limits_file):
+        logger.info(f"Reuse limits of {task.point.signal_process}")
+        return read_limits_json(limits_file)
+
+    # Name of the combine output
     datacard_name = task.point.signal_process
-
+    prefix = cmb.environment_prefix(task.combine.environment)
+    cmb_cfg = task.combine
     cmb.run_in_env(
         prefix,
         cmb.asymptotic_limits_command(
-            "workspace.root",
+            WORKSPACE_FILE,
             datacard_name,
             cmb_cfg.default_arguments,
             cmb_cfg.asymptotic_limits,
@@ -125,17 +169,35 @@ def run_point(task: PointTask) -> LimitResult | None:
     result = LimitResult.from_values(
         task.point, cmb.limits_from_entries(entries)
     )
-    write_limits_json(result, out / LIMITS_JSON)
+    write_limits_json(result, limits_file)
     return result
 
 
-def _run_point_safe(task: PointTask) -> tuple[MassPoint, str | None]:
-    try:
-        run_point(task)
-    except Exception as err:  # noqa: BLE001 - reported at the end
-        logger.exception(f"Fit of {task.point} failed")
-        return task.point, f"{type(err).__name__}: {err}"
-    return task.point, None
+def run_point(task: PointTask) -> LimitResult | None:
+    """Run both stages for one point; returns `None` if stopped early."""
+    prepare_point(task)
+    if task.stop_after != "limits":
+        return None
+    return limit_point(task)
+
+
+def _safe(fn):
+    """Wrap a stage function so that failures are returned, not raised."""
+
+    def wrapped(task: PointTask) -> tuple[MassPoint, str | None]:
+        try:
+            fn(task)
+        except Exception as err:  # noqa: BLE001 - reported at the end
+            logger.exception(f"{fn.__name__} of {task.point} failed")
+            return task.point, f"{type(err).__name__}: {err}"
+        return task.point, None
+
+    wrapped.__name__ = f"{fn.__name__}_safe"
+    return wrapped
+
+
+_prepare_point_safe = _safe(prepare_point)
+_limit_point_safe = _safe(limit_point)
 
 
 def run_fit(
@@ -158,8 +220,18 @@ def run_fit(
         first.output_dir.mkdir(parents=True, exist_ok=True)
         cmb.check_environment(prefix, first.output_dir)
 
-    outcomes = run_in_parallel(_run_point_safe, tasks, num_workers)
-    failed = {p: e for p, e in outcomes if e is not None}
+    # Stage 1: datacards and workspaces of all points
+    for task in tasks:
+        _check_step(task)
+    failed: dict[MassPoint, str] = {}
+    outcomes = run_in_parallel(_prepare_point_safe, tasks, num_workers)
+    failed.update({p: e for p, e in outcomes if e is not None})
+
+    # Stage 2: limits of all points with a workspace
+    if first.stop_after == "limits":
+        ready = [t for t in tasks if t.point not in failed]
+        outcomes = run_in_parallel(_limit_point_safe, ready, num_workers)
+        failed.update({p: e for p, e in outcomes if e is not None})
 
     results: list[LimitResult] = []
     if first.stop_after == "limits":

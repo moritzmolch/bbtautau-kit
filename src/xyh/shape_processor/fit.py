@@ -81,6 +81,7 @@ def build_tasks(cfg: DictConfig) -> list[PointTask]:
             auto_mc_stats=fit["automcstats"],
             exclude=tuple(as_list(fit.get("exclude_processes")) or ()),
             stop_after=fit["stop_after"],
+            overwrite=fit.get("overwrite", False),
         )
         for point in points
     ]
