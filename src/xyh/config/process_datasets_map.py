@@ -206,14 +206,29 @@ def get_process_datasets_map(
     ]
 
     # HH -> bbtautau datasets
-    # hh_2b2tau_datasets = []
-    # if campaign_inst.x.year == 2022:
-    #     hh_2b2tau_datasets = [
-    #         "gg_hh_2b2tau_powheg",
-    #         "vbf_hh_2b2tau_powheg",
-    #     ]
-    # elif campaign_inst.x.year in [2023, 2024, 2025]:
-    #     hh_2b2tau_datasets = ["gg_hh_2b2tau_powheg"]
+    hh_2b2tau_datasets = ["gg_hh_2b2tau_powheg"]
+
+    # tt+X and tt+XX datasets
+    ttx_datasets = [
+        "ttll_m4to50_amcatnlo",
+        "ttll_m50_amcatnlo",
+        "ttlnu_amcatnlo",
+        "ttw_w_2q_ancatnlo",
+        "ttz_z_2q_amcatnlo",
+    ]
+    ttxx_datasets = [
+        "ttww_madgraph",
+        "ttwz_madgraph",
+        "ttzz_madgraph",
+    ]
+
+    # VVV datasets
+    vvv_datasets = [
+        "www_amcatnlo",
+        "wwx_amcatnlo",
+        "wzz_amcatnlo",
+        "zzz_amcatnlo",
+    ]
 
     # Set up the process-datasets map for signals
     xyh_process_datasets_map = {
@@ -269,7 +284,10 @@ def get_process_datasets_map(
             ("h_2tau_jetfakes", "h_2tau_tautau", "h_2tau_rem"): h_2tau_datasets,
             ("h_2b_jetfakes", "h_2b_tautau", "h_2b_rem"): h_2b_datasets,
             ("tth_jetfakes", "tth_rem", "tth_tautau"): tth_datasets,
-            # "gg_hh_2b2tau": hh_2b2tau_datasets,
+            "gg_hh_2b2tau": hh_2b2tau_datasets,
+            ("ttx_jetfakes", "ttx_rem", "ttx_tautau"): ttx_datasets,
+            ("ttxx_jetfakes", "ttxx_rem", "ttxx_tautau"): ttxx_datasets,
+            ("vvv_tautau", "vvv_jetfakes", "vvv_rem"): vvv_datasets,
             "jetfakes": [],  # data-driven estimate, dataset list stays empty
         }
     )

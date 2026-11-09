@@ -97,8 +97,8 @@ single_t_jetfakes = ProcessGroup(
 single_h = ProcessGroup(
     name="single_h",
     processes=[
-        # "h_2tau_tautau",
-        # "h_2tau_rem",
+        "h_2tau_tautau",
+        "h_2tau_rem",
         "h_2b_tautau",
         "h_2b_rem",
     ],
@@ -113,9 +113,30 @@ vv = ProcessGroup(
     color="#b9ac70",
 )
 
+remaining_tautau_rem = ProcessGroup(
+    name="remaining_tautau_rem",
+    processes=[
+        "ttx_tautau",
+        "ttxx_tautau",
+        "vvv_tautau",
+        "ttx_rem",
+        "ttxx_rem",
+        "vvv_rem",
+    ],
+    label="Other",
+    color="#5ec3b7",
+)
+
 remaining_jetfakes = ProcessGroup(
     name="remaining_jetfakes",
-    processes=["h_2tau_jetfakes", "h_2b_jetfakes", "vv_jetfakes"],
+    processes=[
+        "h_2tau_jetfakes",
+        "h_2b_jetfakes",
+        "vv_jetfakes",
+        "ttx_jetfakes",
+        "ttxx_jetfakes",
+        "vvv_jetfakes",
+    ],
     label="$\\text{H}$, $\\text{V}\\text{V}$ ($\\text{j} \\to \\tau_{\\text{h}}$)",
     color="#a96b59",
 )
@@ -156,6 +177,7 @@ def get_process_set(
             single_t,
             single_h,
             vv,
+            remaining_tautau_rem,
             jetfakes,
         ],
     )
@@ -180,8 +202,9 @@ def get_process_set(
             # w_lnu_jetfakes,
             single_t,
             # single_t_jetfakes,
-            # single_h,
+            single_h,
             vv,
+            remaining_tautau_rem,
             # remaining_jetfakes,
         ],
     )
