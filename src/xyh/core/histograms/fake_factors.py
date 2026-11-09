@@ -11,8 +11,8 @@ from xyh.core.config import load_inventory
 from xyh.core.config.util import gen_category_insts, gen_dataset_insts
 from xyh.core.histograms.util import (
     add_histograms,
-    filter_histograms,
     get_histogram,
+    index_histograms,
     load_all,
 )
 from xyh.core.io import dump_json, load_json
@@ -30,8 +30,10 @@ def run_fake_factor_histograms(
     variables: list[str],
     histograms_dir: Path,
 ):
-    # Load all histograms
-    histograms = load_all(histograms_dir)
+    # Load only the fake factor histograms and index them once, since
+    # scanning the full list for every category is prohibitively slow
+    histograms = load_all(histograms_dir, variations=["fake_factors"])
+    histograms_index = index_histograms(histograms)
 
     # Store for the output histograms
     histograms_output = {}
@@ -126,15 +128,9 @@ def run_fake_factor_histograms(
                 )
 
                 # Get the input histograms for this variable
-                histograms_variable = list(
-                    filter_histograms(
-                        histograms,
-                        campaign=campaign,
-                        channel=channel,
-                        category=category,
-                        variable=variable,
-                        variation="fake_factors",
-                    )
+                histograms_variable = histograms_index.get(
+                    (campaign, channel, category, variable, "fake_factors"),
+                    [],
                 )
 
                 # Sum the histograms for the data and the non-jet fakes backgrounds separately

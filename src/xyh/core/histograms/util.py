@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Generator
+from collections.abc import Collection, Generator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -25,6 +25,7 @@ class TH1Wrapper:
 
 def load_all(
     histograms_dir: Path,
+    variations: Collection[str] | None = None,
 ) -> list[TH1Wrapper]:
     """
     Load all histograms from graph output files of a production campaign.
@@ -38,6 +39,11 @@ def load_all(
     histograms_dir : Path
         Path to the directory containing the output files of the production
         campaign.
+
+    variations : Collection[str] | None, optional
+        If given, only histograms of these variations are read, and files
+        without any of them are not opened. Loading everything can take very
+        long for large productions.
 
     Returns
     -------
@@ -57,6 +63,14 @@ def load_all(
     for output_file, hist_keys in histogram_keys.items():
         # Construct the full path of the output file
         output_file_path = histograms_dir / output_file
+
+        # Select the keys to read before touching the file
+        if variations is not None:
+            hist_keys = [
+                k for k in hist_keys if k.rsplit("__", 1)[-1] in variations
+            ]
+            if not hist_keys:
+                continue
 
         # Open the ROOT file and load all histograms
         rf = ROOT.TFile.Open(str(output_file_path), "READ")
@@ -345,3 +359,19 @@ def add_th1_wrappers(th1_wrappers: list[TH1Wrapper]) -> ROOT.TH1:
     return [
         add_histograms([th1_wrapper.histogram for th1_wrapper in th1_wrappers])
     ]
+
+
+def index_histograms(
+    histograms: list[TH1Wrapper],
+) -> dict[tuple[str, str, str, str, str], list[TH1Wrapper]]:
+    """
+    Group histograms by (campaign, channel, category, variable, variation).
+
+    Looking up a group in the dictionary replaces a `filter_histograms` scan
+    over all histograms, which is quadratic when done for every category.
+    """
+    index: dict[tuple[str, str, str, str, str], list[TH1Wrapper]] = {}
+    for h in histograms:
+        key = (h.campaign, h.channel, h.category, h.variable, h.variation)
+        index.setdefault(key, []).append(h)
+    return index
