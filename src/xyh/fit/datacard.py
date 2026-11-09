@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+from xyh.fit.combine_config import COMBINE_M_H
 from xyh.fit.mass_points import MassPoint
 from xyh.fit.scope import FitBin
 from xyh.fit.shapes import BinShapes
@@ -92,7 +93,7 @@ def build_datacard_spec(
     )
     return DatacardSpec(
         analysis=analysis,
-        mass=point.mx,
+        mass=COMBINE_M_H,
         bins=bin_specs,
         auto_mc_stats=auto_mc_stats,
     )

@@ -90,6 +90,7 @@ def asymptotic_limits_command(
         ]
         + default_arguments.to_args_list()
         + asymptotic_limits.to_args_list()
+        # + ["--freezeParameters", "rgx{prop.*}"]
     )
 
 

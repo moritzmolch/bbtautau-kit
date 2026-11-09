@@ -14,11 +14,11 @@ SIGNAL_PREFIX = "xyh_"
 _CATEGORY_RE = re.compile(
     r"^(?P<channel>[a-z]+)_clf_(?P<cls>"
     + "|".join(CLASSES)
-    + r")_xyh_(?P<decay_mode>y2[^_]+_h2[^_]+)_mx(?P<mx>\d+)_my(?P<my>\d+)$"
+    + r")_xyh_(?P<decay_mode>y2[^_]+_h2[^_]+)_mx(?P<m_x>\d+)_my(?P<m_y>\d+)$"
 )
 
 # Mass point given as a string, e.g. "2000_500" or "mx2000_my500"
-_POINT_RE = re.compile(r"^(?:mx)?(?P<mx>\d+)_(?:my)?(?P<my>\d+)$")
+_POINT_RE = re.compile(r"^(?:mx)?(?P<m_x>\d+)_(?:my)?(?P<m_y>\d+)$")
 
 
 @dataclass(frozen=True, order=True)
@@ -26,12 +26,12 @@ class MassPoint:
     """One signal hypothesis (decay modes and masses)."""
 
     decay_mode: str
-    mx: int
-    my: int
+    m_x: int
+    m_y: int
 
     @property
     def mass_label(self) -> str:
-        return f"mx{self.mx}_my{self.my}"
+        return f"mx{self.m_x}_my{self.m_y}"
 
     @property
     def signal_process(self) -> str:
@@ -59,8 +59,8 @@ def parse_category_name(name: str) -> tuple[str, str, MassPoint] | None:
         return None
     point = MassPoint(
         decay_mode=match["decay_mode"],
-        mx=int(match["mx"]),
-        my=int(match["my"]),
+        m_x=int(match["m_x"]),
+        m_y=int(match["m_y"]),
     )
     return match["channel"], match["cls"], point
 
@@ -76,14 +76,14 @@ def discover_mass_points(categories: Iterable[str]) -> list[MassPoint]:
 
 
 def parse_mass_pair(spec: str | Sequence[int | str]) -> tuple[int, int]:
-    """Parse ``(mx, my)`` from ``[mx, my]`` or ``"mx_my"`` strings."""
+    """Parse ``(m_x, m_y)`` from ``[m_x, m_y]`` or ``"{m_x}_{m_y}"`` strings."""
     if isinstance(spec, str):
         match = _POINT_RE.match(spec)
         if match is None:
             raise ValueError(
                 f"Cannot parse mass point {spec!r}, expected e.g. '2000_500'"
             )
-        return int(match["mx"]), int(match["my"])
+        return int(match["m_x"]), int(match["m_y"])
     if len(spec) != 2:
         raise ValueError(f"Mass point {spec!r} must have two entries")
     return int(spec[0]), int(spec[1])
@@ -109,12 +109,12 @@ def select_mass_points(
     ]
     if mass_points is not None:
         pairs = {parse_mass_pair(m) for m in mass_points}
-        missing = pairs - {(p.mx, p.my) for p in selected}
+        missing = pairs - {(p.m_x, p.m_y) for p in selected}
         if missing:
             raise ValueError(
                 f"Requested mass points not available: {sorted(missing)}"
             )
-        selected = [p for p in selected if (p.mx, p.my) in pairs]
+        selected = [p for p in selected if (p.m_x, p.m_y) in pairs]
     if not selected:
         raise ValueError("No mass points selected")
     return selected
