@@ -15,6 +15,7 @@ from xyh.fit.combine_config import (
     AsymptoticLimits,
     DefaultArguments,
     Environment,
+    FitDiagnostics,
 )
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,29 @@ def text2workspace_command(
     return ["text2workspace.py", datacard, "-o", workspace, *extra_args]
 
 
+def fit_diagnostics_command(
+    workspace: str,
+    name: str,
+    default_arguments: DefaultArguments,
+    fit_diagnostics: FitDiagnostics,
+) -> list[str]:
+    """Command for the expected and observed asymptotic limits."""
+
+    return (
+        [
+            "combine",
+            "-M",
+            "FitDiagnostics",
+            workspace,
+            "-n",
+            name,
+        ]
+        + default_arguments.to_args_list()
+        + fit_diagnostics.to_args_list()
+        # + ["--freezeParameters", "rgx{prop.*}"]
+    )
+
+
 def asymptotic_limits_command(
     workspace: str,
     name: str,
@@ -90,7 +114,6 @@ def asymptotic_limits_command(
         ]
         + default_arguments.to_args_list()
         + asymptotic_limits.to_args_list()
-        # + ["--freezeParameters", "rgx{prop.*}"]
     )
 
 
