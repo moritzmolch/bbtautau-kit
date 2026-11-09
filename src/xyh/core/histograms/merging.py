@@ -14,8 +14,8 @@ from xyh.core.config.util import (
 )
 from xyh.core.histograms.util import (
     add_histograms,
-    filter_histograms,
     get_histogram,
+    index_histograms,
     load_all,
 )
 from xyh.core.specs.binning import _parse_variable_name
@@ -37,8 +37,15 @@ def merge_histograms(
     histograms_dir: Path,
     output_file: Path,
 ):
-    # Load all histograms
-    histograms = load_all(histograms_dir)
+    # Load only the histograms in scope and index them once, since scanning
+    # the full list for every category is prohibitively slow
+    histograms = load_all(
+        histograms_dir,
+        campaigns=campaigns,
+        channels=channels,
+        variables=[_parse_variable_name(v)[0] for v in variables],
+    )
+    histograms_index = index_histograms(histograms)
 
     # Store for the output histograms
     histograms_output = {}
@@ -88,15 +95,6 @@ def merge_histograms(
                 )
 
                 # Get the input histograms for this variable
-                histograms_variable = list(
-                    filter_histograms(
-                        histograms,
-                        campaign=campaign,
-                        channel=channel,
-                        category=category,
-                        variable=variable,
-                    )
-                )
 
                 for process_inst in gen_process_insts(inventory):
                     # Skip processes that are not relevant for this category,
@@ -122,6 +120,18 @@ def merge_histograms(
 
                         # Declare variable for merged histogram
                         hist = None
+
+                        # Input histograms of this variation
+                        histograms_variable = histograms_index.get(
+                            (
+                                campaign,
+                                channel,
+                                category,
+                                variable,
+                                variation_name,
+                            ),
+                            [],
+                        )
 
                         # Handle jetfakes histograms
                         # TODO needs to be done more generic
