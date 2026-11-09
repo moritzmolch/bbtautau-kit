@@ -1,0 +1,76 @@
+# Fit stage: Combine datacards, workspaces and asymptotic limits per mass
+# point. Reads the merged histograms of the classifier categories.
+defaults:
+- base/global
+- base/artifacts@artifacts
+- base/ntuples@ntuples
+- base/tags@tags
+- inventory: nn
+- _self_
+
+merged_histograms_file: ${artifacts.merged_histograms_file}
+fit_dir: ${artifacts.fit_dir}
+
+fit:
+  # Scope: campaigns (full or short names, e.g. 2024) and channels, or "all"
+  campaigns: ["2024_nano_v15", "2025_nano_v15"]
+  channels: all
+  # Points to fit, e.g. [[2000,500],[3000,100]]; null selects all in the file
+  mass_points: null
+  # Decay modes, e.g. [y2b]; null selects all
+  decay_modes: ["y2b_h2tau"]
+  # Fitted variable of the merged histograms
+  variable: max_score
+  data:
+    # asimov_bkg, asimov_sb or observed
+    mode: asimov_bkg
+  # Merge this many adjacent bins, null keeps the binning
+  rebin: null
+  # Then merge adjacent bins (from the high end) until the total background
+  # of each Combine bin has at least this many real events,
+  # sum(w) / sqrt(sum(w^2)); the binning is common to all histograms of the
+  # bin. null disables it
+  min_real_events: 10
+  # autoMCStats threshold, null disables it
+  automcstats: null
+  # Processes that are not used as backgrounds
+  exclude_processes: []
+  # Last step to run: shapes, datacard, workspace or limits
+  stop_after: limits
+  # Recreate datacards, workspaces and limits that are already on disk;
+  # otherwise only missing files are produced
+  overwrite: false
+  combine:
+    # General settings for the combine environment
+    environment:
+      # Relative paths refer to the repository root, see bin/setup_combine
+      cmssw_dir: external/combine/CMSSW_16_0_0
+      scram_arch: el9_amd64_gcc13
+      # Replaces the default environment setup if not empty
+      setup_cmd: ""
+
+    # Settings for the default combine arguments
+    default_arguments: {}
+
+    # Settings for the AsymptoticLimits command
+    asymptotic_limits:
+      r_min: -1
+      r_max: 1
+      asimov: true
+      mode: "both"
+
+    fit_diagnostics:
+      r_min: -1
+      r_max: 1
+      robust_fit: true
+      asimov: true
+      expect_signal: 0.001
+      save_shapes: true
+      save_overall_shapes: true
+      save_nll: true
+      save_with_uncertainties: true
+      skip_b_only_fit: false
+      skip_sb_fit: false
+  
+  # Number of mass points fitted in parallel
+  num_workers: 8

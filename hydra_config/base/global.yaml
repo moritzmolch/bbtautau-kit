@@ -37,7 +37,7 @@ hydra:
     chdir: false
     env_set:
       XYH_SAMPLE_DATABASE: "/work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database"
-      XYH_PROFILE: "BKG_ONLY" # BKG_ONLY, BENCHMARK, BENCHMARK_GRID, FULL
+      XYH_PROFILE: "FULL" # BKG_ONLY, BENCHMARK, BENCHMARK_GRID, FULL
       # Directory with the correctionlib files of the Z corrections. Prefer
       # `z_pt_weights.input_dir`, which takes precedence if set.
       XYH_Z_PT_WEIGHTS_DIR: ""

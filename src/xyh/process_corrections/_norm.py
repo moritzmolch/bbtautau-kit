@@ -9,6 +9,7 @@ from correctionlib import schemav2
 from xyh.core.config import Inventory
 from xyh.core.config.util import gen_process_insts
 from xyh.core.histograms.util import (
+    TH1Wrapper,
     add_histograms,
     get_histograms_for_process_set,
     load_all,
@@ -69,7 +70,7 @@ def _compute_nominal_and_shifts(
 
 
 def _calculate_normalization_weight(
-    histograms_dir: Path,
+    histograms: list[TH1Wrapper],
     inventory: Inventory,
     campaign: str,
     channel: str,
@@ -81,8 +82,7 @@ def _calculate_normalization_weight(
     # Get process instances
     process_insts_lookup = {p.name: p for p in gen_process_insts(inventory)}
 
-    # Load histograms for the process
-    histograms = load_all(histograms_dir)
+    # Select the histograms for the process
     histograms_dict = get_histograms_for_process_set(
         histograms,
         inventory.process_set,
@@ -233,6 +233,16 @@ def derive_norm_weights(
     output_file: Path,
 ):
 
+    # Load the nominal histograms of the yield variable only, once for all
+    # categories
+    histograms = load_all(
+        histograms_dir,
+        campaigns=[inventory.campaign.name],
+        channels=[inventory.channel.name],
+        variables=[yield_variable],
+        variations=["nominal"],
+    )
+
     results = {}
     for category in categories:
         # Get the category instance
@@ -254,7 +264,7 @@ def derive_norm_weights(
         # Calculate normalization and store it with the number of jets in this
         # bin as key
         norm, shifts = _calculate_normalization_weight(
-            histograms_dir,
+            histograms,
             inventory,
             inventory.campaign,
             inventory.channel,

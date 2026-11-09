@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Generator
+from collections.abc import Collection, Generator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -23,8 +23,32 @@ class TH1Wrapper:
     histogram: ROOT.TH1
 
 
+def _key_selected(
+    hist_key: str, selection: dict[str, Collection[str] | None]
+) -> bool:
+    """Whether a histogram key passes the (AND-combined) selection."""
+    parts = hist_key.split("/")
+    if len(parts) != 6 or "__" not in parts[-1]:
+        return True  # Malformed, let `load_all` raise
+    variable, variation = parts[-1].rsplit("__", 1)
+    values = {
+        "campaign": parts[0],
+        "channel": parts[1],
+        "variable": variable,
+        "variation": variation,
+    }
+    return all(
+        allowed is None or values[name] in allowed
+        for name, allowed in selection.items()
+    )
+
+
 def load_all(
     histograms_dir: Path,
+    campaigns: Collection[str] | None = None,
+    channels: Collection[str] | None = None,
+    variables: Collection[str] | None = None,
+    variations: Collection[str] | None = None,
 ) -> list[TH1Wrapper]:
     """
     Load all histograms from graph output files of a production campaign.
@@ -39,6 +63,12 @@ def load_all(
         Path to the directory containing the output files of the production
         campaign.
 
+    campaigns, channels, variables, variations : Collection[str] | None, optional
+        If given, only histograms with one of these values are read, and files
+        without any of them are not opened. Loading everything can take very
+        long for large productions. Keys that do not have the expected form
+        are never filtered out, so that they still raise.
+
     Returns
     -------
     list[TH1Wrapper]
@@ -52,11 +82,23 @@ def load_all(
     histogram_keys_file = histograms_dir / "histogram_keys.json.gz"
     histogram_keys = load_json(histogram_keys_file)
 
+    selection = {
+        "campaign": campaigns,
+        "channel": channels,
+        "variable": variables,
+        "variation": variations,
+    }
+
     histograms = []
 
     for output_file, hist_keys in histogram_keys.items():
         # Construct the full path of the output file
         output_file_path = histograms_dir / output_file
+
+        # Select the keys to read before touching the file
+        hist_keys = [k for k in hist_keys if _key_selected(k, selection)]
+        if not hist_keys:
+            continue
 
         # Open the ROOT file and load all histograms
         rf = ROOT.TFile.Open(str(output_file_path), "READ")
@@ -345,3 +387,19 @@ def add_th1_wrappers(th1_wrappers: list[TH1Wrapper]) -> ROOT.TH1:
     return [
         add_histograms([th1_wrapper.histogram for th1_wrapper in th1_wrappers])
     ]
+
+
+def index_histograms(
+    histograms: list[TH1Wrapper],
+) -> dict[tuple[str, str, str, str, str], list[TH1Wrapper]]:
+    """
+    Group histograms by (campaign, channel, category, variable, variation).
+
+    Looking up a group in the dictionary replaces a `filter_histograms` scan
+    over all histograms, which is quadratic when done for every category.
+    """
+    index: dict[tuple[str, str, str, str, str], list[TH1Wrapper]] = {}
+    for h in histograms:
+        key = (h.campaign, h.channel, h.category, h.variable, h.variation)
+        index.setdefault(key, []).append(h)
+    return index
