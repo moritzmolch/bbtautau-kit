@@ -181,23 +181,22 @@ def run_point(task: PointTask) -> LimitResult | None:
     return limit_point(task)
 
 
-def _safe(fn):
-    """Wrap a stage function so that failures are returned, not raised."""
-
-    def wrapped(task: PointTask) -> tuple[MassPoint, str | None]:
-        try:
-            fn(task)
-        except Exception as err:  # noqa: BLE001 - reported at the end
-            logger.exception(f"{fn.__name__} of {task.point} failed")
-            return task.point, f"{type(err).__name__}: {err}"
-        return task.point, None
-
-    wrapped.__name__ = f"{fn.__name__}_safe"
-    return wrapped
+def _run_safe(fn, task: PointTask) -> tuple[MassPoint, str | None]:
+    try:
+        fn(task)
+    except Exception as err:  # noqa: BLE001 - reported at the end
+        logger.exception(f"{fn.__name__} of {task.point} failed")
+        return task.point, f"{type(err).__name__}: {err}"
+    return task.point, None
 
 
-_prepare_point_safe = _safe(prepare_point)
-_limit_point_safe = _safe(limit_point)
+# Module-level so that they can be pickled for the process pool
+def _prepare_point_safe(task: PointTask) -> tuple[MassPoint, str | None]:
+    return _run_safe(prepare_point, task)
+
+
+def _limit_point_safe(task: PointTask) -> tuple[MassPoint, str | None]:
+    return _run_safe(limit_point, task)
 
 
 def run_fit(
