@@ -29,7 +29,7 @@ from xyh.fit.shapes import build_point_shapes, write_shapes_file
 
 logger = logging.getLogger(__name__)
 
-STEPS = ("shapes", "datacard", "workspace", "limits")
+STEPS = ("shapes", "datacard", "workspace", "fit", "limits")
 
 
 def data_mode_dir(fit_dir: Path, scope: FitScope, data_mode: str) -> Path:
@@ -139,6 +139,39 @@ def prepare_point(task: PointTask) -> None:
         logger.info(f"Reuse workspace of {task.point.signal_process}")
 
 
+def fit_point(task: PointTask) -> Path | None:
+    """Stage 2: fit of one point from its workspace.
+
+    Reuses an existing ``limits.json`` (unless `task.overwrite` is set).
+    """
+    # Name of the combine output
+    datacard_name = task.point.signal_process
+
+    out = task.output_dir
+    fit_diagnostics_file = out / f"fitDiagnostics{datacard_name}.root"
+    if _done(task, fit_diagnostics_file):
+        logger.info(
+            f"Reuse fit diagnostics result of {task.point.signal_process}"
+        )
+        return fit_diagnostics_file
+
+    prefix = cmb.environment_prefix(task.combine.environment)
+    cmb_cfg = task.combine
+    cmb.run_in_env(
+        prefix,
+        cmb.fit_diagnostics_command(
+            WORKSPACE_FILE,
+            datacard_name,
+            cmb_cfg.default_arguments,
+            cmb_cfg.fit_diagnostics,
+        ),
+        out,
+        out / "fit_diagnostics_combine.log",
+    )
+
+    return fit_diagnostics_file
+
+
 def limit_point(task: PointTask) -> LimitResult | None:
     """Stage 2: asymptotic limits of one point from its workspace.
 
@@ -195,6 +228,10 @@ def _prepare_point_safe(task: PointTask) -> tuple[MassPoint, str | None]:
     return _run_safe(prepare_point, task)
 
 
+def _fit_point_safe(task: PointTask) -> tuple[MassPoint, str | None]:
+    return _run_safe(fit_point, task)
+
+
 def _limit_point_safe(task: PointTask) -> tuple[MassPoint, str | None]:
     return _run_safe(limit_point, task)
 
@@ -226,7 +263,13 @@ def run_fit(
     outcomes = run_in_parallel(_prepare_point_safe, tasks, num_workers)
     failed.update({p: e for p, e in outcomes if e is not None})
 
-    # Stage 2: limits of all points with a workspace
+    # Stage 2: Fits with FitDiagnostics
+    if first.stop_after in ["fit", "limits"]:
+        ready = [t for t in tasks if t.point not in failed]
+        outcomes = run_in_parallel(_fit_point_safe, tasks, num_workers)
+        failed.update({p: e for p, e in outcomes if e is not None})
+
+    # Stage 3: limits of all points with a workspace
     if first.stop_after == "limits":
         ready = [t for t in tasks if t.point not in failed]
         outcomes = run_in_parallel(_limit_point_safe, ready, num_workers)

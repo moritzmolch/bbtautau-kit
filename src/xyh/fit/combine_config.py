@@ -80,7 +80,6 @@ class FitDiagnostics:
 
     r_min: float = field(default=-1)
     r_max: float = field(default=3)
-    r_abs_acc: float = field(default=1.0e-6)
     robust_fit: bool = field(default=True)
     asimov: bool = field(default=True)
     expect_signal: float = field(default=0.001)
@@ -99,7 +98,7 @@ class FitDiagnostics:
                 "-t",
                 "-1",
                 "--expectSignal",
-                self.expect_signal,
+                str(self.expect_signal),
             ]
 
         # Construct optional fit setup arguments
@@ -131,8 +130,6 @@ class FitDiagnostics:
                 str(self.r_min),
                 "--rMax",
                 str(self.r_max),
-                "--rAbsAcc",
-                str(self.r_abs_acc),
             ]
             + asimov_args
             + robust_fit_args
