@@ -61,4 +61,4 @@ fit:
 
   
   # Number of mass points fitted in parallel
-  num_workers: 1
+  num_workers: 8
