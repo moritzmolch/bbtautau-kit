@@ -7,7 +7,12 @@ from itertools import chain
 from order import Process, UniqueObjectIndex
 
 from ._data import get_data_processes
-from ._ewk import get_vv_processes, get_w_processes, get_z_processes
+from ._ewk import (
+    get_vv_processes,
+    get_vvv_processes,
+    get_w_processes,
+    get_z_processes,
+)
 from ._higgs import (
     get_hh_2b2tau_processes,
     get_higgs_2b_processes,
@@ -15,7 +20,12 @@ from ._higgs import (
     get_tth_processes,
 )
 from ._jetfakes import get_jetfakes_processes
-from ._top import get_single_t_processes, get_tt_processes
+from ._top import (
+    get_single_t_processes,
+    get_tt_processes,
+    get_ttx_processes,
+    get_ttxx_processes,
+)
 from ._xyh import get_xyh_processes
 
 # Only expose the processes index
@@ -34,6 +44,7 @@ processes = UniqueObjectIndex(
         get_z_processes(),
         get_w_processes(),
         get_vv_processes(),
+        get_vvv_processes(),
         # Higgs processes
         get_higgs_2tau_processes(),
         get_higgs_2b_processes(),
@@ -44,6 +55,8 @@ processes = UniqueObjectIndex(
         # Top quark processes
         get_tt_processes(),
         get_single_t_processes(),
+        get_ttx_processes(),
+        get_ttxx_processes(),
         # X -> HY signal processes
         get_xyh_processes(),
     ),
