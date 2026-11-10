@@ -34,7 +34,7 @@ def default_weights(self) -> OrderedDict[str, str]:
             self.get_instance("pileup_weights").nominal().items(),
             # Theory weights
             self.get_instance("top_pt_reweighting").nominal().items(),
-            self.get_instance("z_pt_reweighting").nominal().items(),
+            # self.get_instance("z_pt_reweighting").nominal().items(),
             # Normalization weights
             self.get_instance("normalization").nominal().items(),
             self.get_instance("tt_normalization").nominal().items(),
@@ -75,7 +75,7 @@ def default_weights_for_tt_normalization_corrections(
     # Get the default weights
     weights = self.get_instance("default_weights").nominal()
 
-    # Remove the Z pt and Z normalization weights
+    # Remove the tt normalization, Z normalization, and Z pt weights
     weights.pop("z_normalization_weight", None)
     weights.pop("z_pt_weight", None)
     weights.pop("tt_normalization_weight", None)
@@ -90,7 +90,7 @@ def default_weights_for_z_normalization_corrections(
     # Get the default weights
     weights = self.get_instance("default_weights").nominal()
 
-    # Remove the Z pt and Z normalization weights
+    # Remove the Z normalization and Z pt weights
     weights.pop("z_normalization_weight", None)
     weights.pop("z_pt_weight", None)
 
