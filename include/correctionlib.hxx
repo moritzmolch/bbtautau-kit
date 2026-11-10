@@ -64,11 +64,19 @@ inline int xyh_n_correction_sets_loaded() {
 }
 
 
+inline double xyh_tt_normalization(
+    const char* file, int n_jets, int n_bjets, const char* variation) {
+  static thread_local xyh::CorrectionCache cache;
+  return xyh::get_correction(cache, file, "tt_normalization")->evaluate(
+      {n_jets, n_bjets, variation});
+}
+
+
 inline double xyh_z_normalization(
-    const char* file, int n_jets, int n_bjets) {
+    const char* file, int n_jets, int n_bjets, const char* variation) {
   static thread_local xyh::CorrectionCache cache;
   return xyh::get_correction(cache, file, "z_normalization")->evaluate(
-      {n_jets, n_bjets});
+      {n_jets, n_bjets, variation});
 }
 
 
