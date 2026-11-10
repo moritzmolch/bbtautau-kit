@@ -1,0 +1,34 @@
+#!/usr/bin/env zsh
+
+set -eu -o pipefail
+
+main () {
+    local this_file="${(%):-%x}"
+    local this_dir="$( cd "$( dirname "${this_file}" )" && pwd)"
+
+    local shapes_tag="${1}"
+    if [[ -z "${shapes_tag}" ]]; then
+        echo "Error: shapes_tag argument is required."
+        exit 1
+    fi
+
+    local defaults=(
+        "tags.shapes_tag=${shapes_tag}-for-z-normalization"
+        "inventory=control_regions_z_normalization"
+        "inventory.campaigns=[\"2024_nano_v15\", \"2025_nano_v15\"]"
+    )
+
+    # Calculation of normalization weights
+    python3 -m xyh.shape_processor.run_graphs "${defaults[@]}"
+
+    # Normalization weight plots
+    python3 -m xyh.process_corrections.derive_norm_weights --config-name derive_norm_weights_z "${defaults[@]}"
+    python3 -m xyh.process_corrections.plot_norm_weights --config-name plot_norm_weights_z "${defaults[@]}"
+
+    # Control plots for shapes
+    python3 -m xyh.shape_processor.merge_histograms "${defaults[@]}"
+    python3 -m xyh.shape_processor.plot_shapes "${defaults[@]}"
+
+}
+
+main "${@}"
