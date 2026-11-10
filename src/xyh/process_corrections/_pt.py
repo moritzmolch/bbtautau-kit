@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Mapping
 from pathlib import Path
 
 import numpy as np
@@ -421,7 +422,17 @@ def derive_z_pt_weights(
     unc_rel_norm_other: float,
     histograms_dir: Path,
     output_file: Path,
+    bw_overrides: Mapping[str, float] | None = None,
 ):
+    """
+    Derive the pt weights of the process with the tag `process_tag` in the
+    given jet multiplicity categories (tag `jet_cat`) and write them to a
+    correctionlib file, see `build_correction_set`. `bw` is the kernel
+    bandwidth of the smoothing, which `bw_overrides` can replace for
+    individual categories (keyed by category name).
+    """
+
+    bw_overrides = bw_overrides or {}
 
     # Load the nominal histograms of the yield variable only, once for all
     # categories
@@ -447,16 +458,16 @@ def derive_z_pt_weights(
                 + f" {category}"
             )
 
-        # Get the number of jets and b-jets in this category
-        n_jets = category_inst.x.n_jets
+        # Get the number of jets in this category (stored as string)
+        n_jets = int(category_inst.x.n_jets)
 
-        # Calculate normalization and store it with the number of jets in this
-        # bin as key
+        # Calculate the pt weights and store them with the number of jets in
+        # this bin as key
         nominal, shifts = _calculate_pt_weights(
             histograms,
             inventory,
-            inventory.campaign,
-            inventory.channel,
+            inventory.campaign.name,
+            inventory.channel.name,
             category,
             pt_variable,
             process_tag,
@@ -464,7 +475,7 @@ def derive_z_pt_weights(
             var_min,
             var_max,
             var_steps,
-            bw,
+            bw_overrides.get(category, bw),
             bw_down_factor,
             bw_up_factor,
             unc_rel_norm_other,
