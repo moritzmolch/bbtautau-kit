@@ -3,7 +3,14 @@
 # Logging
 log_level: INFO
 
+# tt corrections
+tt_corrections:
+  input_dir: "data/corrections/tt_normalization/tt-norm-2026-11-09"
+
 # Data-driven Z corrections, see `xyh.shape_processor.derive_z_pt_weights`
+z_corrections:
+  input_dir: "data/corrections/z_normalization/z-norm-2026-11-09"
+
 z_pt_weights:
   # Production (shapes tag) from which the corrections are taken. If set and
   # different from `tags.shapes_tag`, the workflow derives the corrections
@@ -37,10 +44,13 @@ hydra:
     chdir: false
     env_set:
       XYH_SAMPLE_DATABASE: "/work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database"
-      XYH_PROFILE: "FULL" # BKG_ONLY, BENCHMARK, BENCHMARK_GRID, FULL
+      XYH_PROFILE: "BKG_ONLY" # BKG_ONLY, BENCHMARK, BENCHMARK_GRID, FULL
       # Directory with the correctionlib files of the Z corrections. Prefer
       # `z_pt_weights.input_dir`, which takes precedence if set.
       XYH_Z_PT_WEIGHTS_DIR: ""
+      # Directory with the correctionlib files of the Z corrections. Prefer
+      # `z_pt_weights.input_dir`, which takes precedence if set.
+      XYH_TT_CORRECTIONS_DIR: ""
       # Directory with the correctionlib files of the b-tag weight
       # normalization. Prefer `btag_renorm_weights.input_dir`, which takes
       # precedence if set.
