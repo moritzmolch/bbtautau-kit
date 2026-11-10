@@ -4,7 +4,7 @@ defaults:
 - base/artifacts@artifacts
 - base/ntuples@ntuples
 - base/tags@tags
-- inventory: control_regions_z_normalization
+- inventory: control_regions_z_pt
 - _self_
 
 # Input (merged histograms of the shapes tag) and output directory
@@ -15,13 +15,11 @@ output_dir: "${artifacts.z_norm_dir}"
 channel: "mm"
 categories:
 - "mm_eq2j_eq1b"
-- "mm_eq2j_eq2b"
+- "mm_eq2j_geq2b"
 - "mm_eq3j_eq1b"
-- "mm_eq3j_eq2b"
-- "mm_eq3j_geq3b"
-- "mm_eq4j_eq1b"
-- "mm_eq4j_eq2b"
-- "mm_eq4j_geq3b"
+- "mm_eq3j_geq2b"
+- "mm_geq4j_eq1b"
+- "mm_geq4j_geq2b"
 
 # Information needed for histogram processing
 # - The yield_variable defines the histogram which is used to derive the
