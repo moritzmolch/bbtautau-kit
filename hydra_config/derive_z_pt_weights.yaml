@@ -78,85 +78,83 @@ pt_variable: pt_vis
 #                        above it) are merged into a single tail bin, which is
 #                        not smoothed. null for no tail bin.
 derivation_settings:
-  rebin: 1
-  max_rel_error: 1.0
-  bandwidth: 1.0
-  stat_sigma: 1.0
-  bandwidth_variations: [0.5, 2.0]
+  bw: 1.0
   n_samples: 100
-  seed: 19
-  sparsify_threshold: 0.001
-  # pt_clip: 200
+  v_min: 0.
+  v_max: 500.
+  v_steps: 50000
+  bw_down_factor: 0.5
+  bw_up_factor: 2.0
   campaigns:
     2022_pre_ee_nano_v12:
       channels:
         mm:
           categories:
             mm_eq0j:
-              bandwidth: 1.0
+              bw: 1.0
             mm_eq1j:
-              bandwidth: 2.0
+              bw: 2.0
             mm_eq2j:
-              bandwidth: 20.0
+              bw: 20.0
             mm_geq3j:
-              bandwidth: 30.0
+              bw: 30.0
     2022_post_ee_nano_v12:
       channels:
         mm:
           categories:
             mm_eq0j:
-              bandwidth: 1.0
+              bw: 1.0
             mm_eq1j:
-              bandwidth: 2.0
+              bw: 2.0
             mm_eq2j:
-              bandwidth: 20.0
+              bw: 20.0
             mm_geq3j:
-              bandwidth: 30.0
+              bw: 30.0
     2023_pre_bpix_nano_v12:
       channels:
         mm:
           categories:
             mm_eq0j:
-              bandwidth: 1.0
+              bw: 1.0
             mm_eq1j:
-              bandwidth: 2.0
+              bw: 2.0
             mm_eq2j:
-              bandwidth: 20.0
+              bw: 20.0
             mm_geq3j:
-              bandwidth: 30.0
+              bw: 30.0
     2023_post_bpix_nano_v12:
       channels:
         mm:
           categories:
             mm_eq0j:
-              bandwidth: 1.0
+              bw: 1.0
             mm_eq1j:
-              bandwidth: 2.0
+              bw: 2.0
             mm_eq2j:
-              bandwidth: 20.0
+              bw: 20.0
             mm_geq3j:
-              bandwidth: 30.0
+              bw: 30.0
     2024_nano_v15:
       channels:
         mm:
           categories:
             mm_eq0j:
-              bandwidth: 1.0
+              bw: 1.0
             mm_eq1j:
-              bandwidth: 2.0
+              bw: 2.0
             mm_eq2j:
-              bandwidth: 10.0
+              bw: 10.0
             mm_geq3j:
-              bandwidth: 15.0
+              bw: 15.0
     2025_nano_v15:
       channels:
         mm:
           categories:
             mm_eq0j:
-              bandwidth: 1.0
+              bw: 1.0
             mm_eq1j:
-              bandwidth: 2.0
+              bw: 2.0
             mm_eq2j:
-              bandwidth: 10.0
+              bw: 10.0
             mm_geq3j:
-              bandwidth: 15.0
+              bw: 15.0

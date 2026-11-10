@@ -139,8 +139,8 @@ def _compute_pt_weights_and_shifts(
     var_max: float,
     var_steps: int,
     bw: float,
-    bw_down: float,
-    bw_up: float,
+    bw_down_factor: float,
+    bw_up_factor: float,
     unc_rel_norm_other: float,
 ) -> tuple[
     tuple[np.ndarray, np.ndarray], dict[str, tuple[np.ndarray, np.ndarray]]
@@ -188,15 +188,15 @@ def _compute_pt_weights_and_shifts(
         )
 
     # Get result for shifted bandwidth
-    for shift, bw_shifted in [("up", bw_up), ("down", bw_down)]:
+    for shift, factor in [("up", bw_up_factor), ("down", bw_down_factor)]:
         x_smooth, shifted_smooth, _ = _smooth(
             h_data_subtracted,
             h_proc,
+            n_samples,
             var_min,
             var_max,
             var_steps,
-            bw_shifted,
-            n_samples,
+            factor * bw,
         )
         shifts[f"bw_{shift}"] = (x_smooth, shifted_smooth)
 
@@ -233,8 +233,8 @@ def _calculate_pt_weights(
     var_max: float,
     var_steps: int,
     bw: float,
-    bw_down: float,
-    bw_up: float,
+    bw_down_factor: float,
+    bw_up_factor: float,
     unc_rel_norm_other: float,
 ):
     # Get process instances
@@ -288,8 +288,8 @@ def _calculate_pt_weights(
         var_max,
         var_steps,
         bw,
-        bw_down,
-        bw_up,
+        bw_down_factor,
+        bw_up_factor,
         unc_rel_norm_other,
     )
 
@@ -389,8 +389,8 @@ def derive_z_pt_weights(
     var_max: float,
     var_steps: int,
     bw: float,
-    bw_down: float,
-    bw_up: float,
+    bw_down_factor: float,
+    bw_up_factor: float,
     unc_rel_norm_other: float,
     histograms_dir: Path,
     output_file: Path,
@@ -438,8 +438,8 @@ def derive_z_pt_weights(
             var_max,
             var_steps,
             bw,
-            bw_down,
-            bw_up,
+            bw_down_factor,
+            bw_up_factor,
             unc_rel_norm_other,
         )
         results[n_jets] = (nominal, shifts)
