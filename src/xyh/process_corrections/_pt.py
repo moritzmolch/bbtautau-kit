@@ -13,7 +13,7 @@ from xyh.core.histograms.util import (
     get_histograms_for_process_set,
     load_all,
 )
-from xyh.core.z_pt_reweighting import _nested_binning
+from xyh.core.z_pt_reweighting import _jet_binning
 
 logger = logging.getLogger(__name__)
 
@@ -209,11 +209,11 @@ def _compute_pt_weights_and_shifts(
         x_smooth, shifted_smooth, _ = _smooth(
             h_data_subtracted_shifted,
             h_proc,
+            n_samples,
             var_min,
             var_max,
             var_steps,
             bw,
-            n_samples,
         )
         shifts[f"norm_other_{shift}"] = (x_smooth, shifted_smooth)
 
@@ -296,40 +296,70 @@ def _calculate_pt_weights(
     return nominal, shifts
 
 
+def _pt_binning(x: np.ndarray, y: np.ndarray) -> schemav2.Binning:
+    """
+    Binning in `pt` with one bin per interpolation point `x`: the bin edges
+    are the midpoints between neighbouring points, extrapolated by half a step
+    at both ends. Out-of-range values are clamped.
+    """
+    x = np.asarray(x, dtype=float)
+    mid = 0.5 * (x[1:] + x[:-1])
+    edges = np.concatenate(
+        ([x[0] - (mid[0] - x[0])], mid, [x[-1] + (x[-1] - mid[-1])])
+    )
+    return schemav2.Binning(
+        nodetype="binning",
+        input="pt",
+        edges=[float(e) for e in edges],
+        content=[float(v) for v in y],
+        flow="clamp",
+    )
+
+
 def build_correction_set(
-    results: dict[tuple[int, int], tuple[float, dict[str, float]]],
-    process_tag,
+    results: dict[
+        int,
+        tuple[
+            tuple[np.ndarray, np.ndarray],
+            dict[str, tuple[np.ndarray, np.ndarray]],
+        ],
+    ],
+    process_tag: str,
     description: str = "",
 ) -> schemav2.CorrectionSet:
     """
-    Build the correctionlib set with the correction `z_normalization`, which
-    gives the Z normalization weight as function of the jet and b-jet
-    multiplicity lower edges and a variation, evaluated as
-    `correction.evaluate(n_jets, n_bjets, "stat_up")`. The results are keyed
-    by `(n_jets, n_bjets)` and map to the nominal normalization and its
-    variations, see `_compute_nominal_and_shifts`. Evaluating an unknown
-    variation raises.
+    Build the correctionlib set with the correction `<process_tag>_pt`, which
+    gives the pt weight as function of the number of jets, the pt and a
+    variation, evaluated as `correction.evaluate(n_jets, pt, "stat_up")`. The
+    results are keyed by the jet multiplicity lower edge and map to
+    `((x, nominal), shifts)` as returned by `_compute_pt_weights_and_shifts`,
+    where `shifts` maps the variation names to `(x, y)` arrays. Evaluating an
+    unknown variation raises.
     """
 
-    # Named variations stored in the correctionlib file, see the shifts returned
-    # by `_compute_nominal_and_shifts`
-    variation_names = (
-        "nominal",
-        "stat_up",
-        "stat_down",
-        "norm_other_up",
-        "norm_other_down",
-    )
-
-    # Create correctionlib structure for each variation
-    variation_leaves = {
-        variation: {
-            (n_jets, n_bjets): (
-                norm if variation == "nominal" else shifts[variation]
+    # Variation names from the first result, "nominal" plus all shifts
+    n_jets_values = sorted(results)
+    shift_names = list(results[n_jets_values[0]][1])
+    for n_jets in n_jets_values:
+        if set(results[n_jets][1]) != set(shift_names):
+            raise ValueError(
+                f"Inconsistent variations for n_jets={n_jets}: "
+                f"{sorted(results[n_jets][1])} vs {sorted(shift_names)}"
             )
-            for (n_jets, n_bjets), (norm, shifts) in results.items()
-        }
-        for variation in variation_names
+
+    def _get(n_jets: int, variation: str) -> tuple[np.ndarray, np.ndarray]:
+        nominal, shifts = results[n_jets]
+        return nominal if variation == "nominal" else shifts[variation]
+
+    # Binning in n_jets (leaves: binning in pt) for each variation
+    variation_nodes = {
+        variation: _jet_binning(
+            {
+                n_jets: _pt_binning(*_get(n_jets, variation))
+                for n_jets in n_jets_values
+            }
+        )
+        for variation in ["nominal", *shift_names]
     }
 
     return schemav2.CorrectionSet(
@@ -337,11 +367,11 @@ def build_correction_set(
         description=description,
         corrections=[
             schemav2.Correction(
-                name=f"{process_tag}_normalization",
+                name=f"{process_tag}_pt",
                 description=(
-                    f"Normalization factor of the {process_tag} process as "
-                    "function of the jet and b-jet multiplicity, nominal and "
-                    "its stat and norm_other variations"
+                    f"pt weight of the {process_tag} process as function of "
+                    "the jet multiplicity and pt, nominal and its "
+                    f"{', '.join(shift_names)} variations"
                 ),
                 version=1,
                 inputs=[
@@ -351,14 +381,14 @@ def build_correction_set(
                         description="Number of jets",
                     ),
                     schemav2.Variable(
-                        name="n_bjets",
-                        type="int",
-                        description="Number of b-tagged jets",
+                        name="pt",
+                        type="real",
+                        description="Transverse momentum",
                     ),
                     schemav2.Variable(
                         name="variation",
                         type="string",
-                        description="Nominal or one of the stat and norm_other shifts",
+                        description="Nominal or one of the shifts",
                     ),
                 ],
                 output=schemav2.Variable(name="weight", type="real"),
@@ -366,11 +396,8 @@ def build_correction_set(
                     nodetype="category",
                     input="variation",
                     content=[
-                        schemav2.CategoryItem(
-                            key=variation,
-                            value=_nested_binning(leaves),
-                        )
-                        for variation, leaves in variation_leaves.items()
+                        schemav2.CategoryItem(key=variation, value=node)
+                        for variation, node in variation_nodes.items()
                     ],
                     # Missing variations raise instead of returning a weight
                 ),
