@@ -80,11 +80,14 @@ inline double xyh_z_normalization(
 }
 
 
+// Z pt weight (correction `z_pt` written by
+// `xyh.process_corrections.derive_z_pt_weights`) as function of the number of
+// jets, the pt and the variation ("nominal", "stat_up", "bw_down", ...)
 inline double xyh_z_pt_correction(
-    const char* file, int n_jets, double genboson_pt) {
+    const char* file, int n_jets, double pt, const char* variation) {
   static thread_local xyh::CorrectionCache cache;
-  return xyh::get_correction(cache, file, "z_pt_correction")->evaluate(
-      {n_jets, genboson_pt});
+  return xyh::get_correction(cache, file, "z_pt")->evaluate(
+      {n_jets, pt, variation});
 }
 
 
