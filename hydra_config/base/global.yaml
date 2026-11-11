@@ -7,22 +7,13 @@ log_level: INFO
 tt_corrections:
   input_dir: "data/corrections/tt_normalization/tt-norm-2026-11-09"
 
-# Data-driven Z corrections, see `xyh.shape_processor.derive_z_pt_weights`
+# Data-driven Z corrections
 z_corrections:
   input_dir: "data/corrections/z_normalization/z-norm-2026-11-09"
 
-z_pt_weights:
-  # Production (shapes tag) from which the corrections are taken. If set and
-  # different from `tags.shapes_tag`, the workflow derives the corrections
-  # first and applies them in this production.
-  tag: null
-  # Hydra overrides for the production the corrections are derived from, on
-  # top of the user overrides (they take precedence)
-  overrides:
-  - "inventory=control_regions_z_pt"
-  # Directory with the correctionlib files that are applied in this
-  # production. Empty disables the corrections. Set by the workflow.
-  input_dir: "data/output/shapes-2026-10-25-for-dy-corrections/z_pt_weights"
+# Data-driven Z pt corrections
+z_pt_corrections:
+  input_dir: "data/corrections/z_pt/z-pt-2026-11-09"
 
 # B-tag weight normalization corrections applied in `b_jet_weights`, see
 # `xyh.btag_weight_renormalization`. One file per era and channel is required

@@ -48,7 +48,7 @@ def hydra_cli(config_name: str) -> Callable[[], None]:
 
             # Enable the data-driven Z corrections, if configured. They are
             # picked up by the weights via the environment variable.
-            z_pt_weights_dir = cfg.get("z_pt_weights", {}).get("input_dir")
+            z_pt_weights_dir = cfg.get("z_pt_corrections", {}).get("input_dir")
             if z_pt_weights_dir:
                 os.environ["XYH_Z_PT_WEIGHTS_DIR"] = str(
                     ROOT_DIR / z_pt_weights_dir

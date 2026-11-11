@@ -20,9 +20,9 @@ snapshots_dir: /ceph/mmolch/xyh-bbtautau-crown/bbtautau-kit/data/output/${tags.s
 # Binning configs
 binning_dir: data/output/${tags.shapes_tag}/binning
 
-# Process normalization
+# Process normalization and corrections
 tt_norm_dir: data/corrections/tt_normalization/${tags.tt_norm_tag}
 z_norm_dir: data/corrections/z_normalization/${tags.z_norm_tag}
-z_pt_weights_dir: data/output/${tags.shapes_tag}/z_pt_weights
+z_pt_weights_dir: data/corrections/z_pt/${tags.z_pt_tag}
 btag_renormalization_dir: data/output/btag_renorm_weights/${tags.btag_renorm_tag}
 fit_dir: data/output/fit/${tags.shapes_tag}
