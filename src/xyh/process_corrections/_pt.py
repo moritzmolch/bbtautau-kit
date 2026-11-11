@@ -22,11 +22,11 @@ _BDR_CHUNK_SIZE = 500
 
 
 def _bdr_ksmooth(
-    x,
-    y,
-    x_p,
+    x: np.ndarray,
+    y: np.ndarray,
+    x_p: np.ndarray,
     bw: float = 1.0,
-):
+) -> np.ndarray:
     """
     Smooth data with specified kernel.
     Based on R function ksmooth: Translated to C++ by C. Stratowa
@@ -86,13 +86,15 @@ def _smooth(
     var_max: float,
     var_steps: int,
     bw: float,
-):
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     # Get random generator
     rand_gen = np.random.default_rng()
 
     # Get the binned nominal weights and statistical uncertainties
     weights = h_data_subtracted.Clone()
-    weights.Divide(h_proc)
+    h_proc_norm = h_proc.Clone()
+    h_proc_norm.Scale(h_data_subtracted.Integral() / h_proc.Integral())
+    weights.Divide(h_proc_norm)
     x = np.array(
         [
             weights.GetXaxis().GetBinCenter(i)
@@ -103,7 +105,7 @@ def _smooth(
         [weights.GetBinContent(i) for i in range(1, weights.GetNbinsX() + 1)],
     )
     yerr = np.array(
-        [weights.GetError(i) for i in range(1, weights.GetNbinsX() + 1)],
+        [weights.GetBinError(i) for i in range(1, weights.GetNbinsX() + 1)],
     )
 
     # Construct array of interpolation points
@@ -122,6 +124,18 @@ def _smooth(
     # Concatenate results from different samples. The output array has shape
     # (n_samples, len(x_p))
     y_p_samples = np.concatenate(y_p_samples, axis=0)
+
+    # Interpolation points without data within the kernel window (outside of
+    # the histogram range) are NaN. Extrapolate them with the value of the
+    # nearest valid point, which also keeps the correctionlib output finite.
+    valid = ~np.isnan(y_p_samples).any(axis=0)
+    if not valid.any():
+        raise ValueError("Kernel smoothing returned no valid points")
+    nearest = np.maximum.accumulate(np.where(valid, np.arange(len(x_p)), -1))
+    nearest = np.where(
+        nearest < 0, np.argmax(valid), nearest
+    )  # leading invalid points
+    y_p_samples = y_p_samples[:, nearest]
 
     # Get nominal result as mean and uncertainty as standard deviation of
     # samples
@@ -156,7 +170,8 @@ def _compute_pt_weights_and_shifts(
     n_proc = h_proc.Integral()
     n_other = h_other.Integral()
     logger.info(
-        f"Got {n_data} data events, {n_proc} process events, and {n_other} other events"
+        f"Got {n_data} data events, {n_proc} process events, and {n_other} "
+        + "other events"
     )
 
     # Check that h_data_subtracted is not negative
