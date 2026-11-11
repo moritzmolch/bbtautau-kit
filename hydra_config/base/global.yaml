@@ -11,9 +11,20 @@ tt_corrections:
 z_corrections:
   input_dir: "data/corrections/z_normalization/z-norm-2026-11-09"
 
-# Data-driven Z pt corrections
+# Data-driven Z pt corrections, see `bin/z_pt_weights`
 z_pt_corrections:
+  # Directory with the correctionlib files that are applied in this
+  # production (`z_pt_<campaign>.json`). Empty disables the corrections.
   input_dir: "data/corrections/z_pt/z-pt-2026-11-09"
+  # Law workflow only: production (shapes tag) from which the corrections are
+  # taken. If set and different from `tags.shapes_tag`, the workflow derives
+  # the corrections first (with `tags.z_pt_tag` set to this tag) and applies
+  # them in this production by setting `input_dir`.
+  tag: null
+  # Hydra overrides for the production the corrections are derived from, on
+  # top of the user overrides (they take precedence)
+  overrides:
+  - "inventory=control_regions_z_pt"
 
 # B-tag weight normalization corrections applied in `b_jet_weights`, see
 # `xyh.btag_weight_renormalization`. One file per era and channel is required
@@ -36,12 +47,12 @@ hydra:
     env_set:
       XYH_SAMPLE_DATABASE: "/work/mmolch/xyh-bbtautau-crown/KingMaker/sample_database"
       XYH_PROFILE: "BKG_ONLY" # BKG_ONLY, BENCHMARK, BENCHMARK_GRID, FULL
-      # Directory with the correctionlib files of the Z corrections. Prefer
-      # `z_pt_weights.input_dir`, which takes precedence if set.
-      XYH_Z_PT_WEIGHTS_DIR: ""
-      # Directory with the correctionlib files of the Z corrections. Prefer
-      # `z_pt_weights.input_dir`, which takes precedence if set.
+      # Directories with the correctionlib files of the data-driven
+      # corrections. Prefer the `input_dir` entries above, which take
+      # precedence if set.
       XYH_TT_CORRECTIONS_DIR: ""
+      XYH_Z_CORRECTIONS_DIR: ""
+      XYH_Z_PT_WEIGHTS_DIR: ""
       # Directory with the correctionlib files of the b-tag weight
       # normalization. Prefer `btag_renorm_weights.input_dir`, which takes
       # precedence if set.

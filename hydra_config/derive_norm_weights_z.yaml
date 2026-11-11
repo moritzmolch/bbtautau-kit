@@ -4,7 +4,7 @@ defaults:
 - base/artifacts@artifacts
 - base/ntuples@ntuples
 - base/tags@tags
-- inventory: control_regions_z_pt
+- inventory: control_regions_z_normalization
 - _self_
 
 # Input (merged histograms of the shapes tag) and output directory

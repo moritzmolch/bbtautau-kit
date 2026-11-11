@@ -5,12 +5,12 @@ Run with, e.g.::
     law run xyh.Shapes --overrides "tags.shapes_tag=foo" --fake-factors
 
 To apply the data-driven Z corrections, set the production they are derived
-from (`z_pt_weights.tag`, see `base/global.yaml`). The workflow then first
+from (`z_pt_corrections.tag`, see `base/global.yaml`). The workflow then first
 produces and merges that production, derives the corrections from it and
 applies them in the production `tags.shapes_tag`::
 
     law run xyh.Shapes --overrides \\
-        "tags.shapes_tag=foo z_pt_weights.tag=foo-z-pt-derivation"
+        "tags.shapes_tag=foo z_pt_corrections.tag=foo-z-pt-derivation"
 """
 
 import luigi
