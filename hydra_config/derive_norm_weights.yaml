@@ -7,7 +7,7 @@ defaults:
 - inventory: ???
 - _self_
 
-# Input (merged histograms of the shapes tag) and output directory
+# Input (histograms of the shapes tag) and output directory
 histograms_dir: ${artifacts.histograms_dir}
 output_dir: ???
 

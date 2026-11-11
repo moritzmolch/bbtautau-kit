@@ -7,9 +7,6 @@ defaults:
 - inventory: control_regions_z_pt
 - _self_
 
-tags:
-  shapes_tag: "shapes-2026-10-14-for-zpt-reweighting"
-
 # Input (histograms of the shapes tag) and output directory
 histograms_dir: ${artifacts.histograms_dir}
 output_dir: ${artifacts.z_pt_weights_dir}
