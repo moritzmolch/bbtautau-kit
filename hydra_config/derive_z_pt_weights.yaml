@@ -37,31 +37,31 @@ process_tag: z
 unc_rel_norm_other: 0.1
 
 # Kernel regression smoothing of the binwise data / simulation ratio
-# - bw: Bandwidth in GeV, replaced per campaign and category by bw_overrides
+# - bw: Bandwidth in GeV, or "auto" to choose per campaign and category the
+#   largest bandwidth of a scan for which the binned ratio is still compatible
+#   with the smoothed curve (chi2/ndf <= chi2_ndf_max)
 # - n_samples: Number of samples within the statistical uncertainties. The
 #   mean and standard deviation give the weights and their stat. uncertainty
 # - var_min, var_max, var_steps: Grid on which the smoothed result is evaluated
 # - bw_down_factor, bw_up_factor: Factors for the bandwidth variations
+# - bw_scan_min, bw_scan_max, bw_scan_steps: Geometric bandwidth grid (GeV) of
+#   the scan for bw=auto
+# - chi2_ndf_max: Largest accepted chi2/ndf in the scan
+# - overrides: Replace any of the settings above per campaign and category
+#   (campaigns and categories not listed use the defaults)
 smoothing:
-  bw: 1.0
+  bw: auto
   n_samples: 100
   var_min: 0.0
   var_max: 500.0
   var_steps: 50000
   bw_down_factor: 0.5
   bw_up_factor: 2.0
-  bw_overrides:
-    2022_pre_ee_nano_v12: &bw_run3_2022_2023
-      mm_eq0j: 1.0
-      mm_eq1j: 2.0
-      mm_eq2j: 20.0
-      mm_geq3j: 30.0
-    2022_post_ee_nano_v12: *bw_run3_2022_2023
-    2023_pre_bpix_nano_v12: *bw_run3_2022_2023
-    2023_post_bpix_nano_v12: *bw_run3_2022_2023
-    2024_nano_v15: &bw_run3_2024_2025
-      mm_eq0j: 1.0
-      mm_eq1j: 2.0
-      mm_eq2j: 10.0
-      mm_geq3j: 15.0
-    2025_nano_v15: *bw_run3_2024_2025
+  bw_scan_min: 0.5
+  bw_scan_max: 100.0
+  bw_scan_steps: 60
+  chi2_ndf_max: 1.0
+  # Overrides of the settings above per campaign and category. A numeric bw
+  # disables the scan for that category, e.g.
+  # 2024_nano_v15: {mm_eq2j: {bw: 10.0}}
+  overrides: {}
