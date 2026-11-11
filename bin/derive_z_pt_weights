@@ -6,7 +6,7 @@ main () {
     local this_file="${(%):-%x}"
     local this_dir="$( cd "$( dirname "${this_file}" )" && pwd)"
 
-    python3 -m xyh.shape_processor.derive_z_pt_weights "${@}"
+    python3 -m xyh.process_corrections.derive_z_pt_weights "${@}"
 }
 
 
