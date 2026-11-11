@@ -98,6 +98,19 @@ def default_weights_for_z_normalization_corrections(
 
 
 @Wrapper.wrap
+def default_weights_for_z_pt_corrections(
+    self,
+) -> OrderedDict[str, str]:
+    # Get the default weights
+    weights = self.get_instance("default_weights").nominal()
+
+    # Remove the Z pt weights
+    weights.pop("z_pt_weight", None)
+
+    return weights
+
+
+@Wrapper.wrap
 def default_weights_without_muon_iso_weights(self) -> OrderedDict[str, str]:
     # Get the default weights
     weights = self.get_instance("default_weights").nominal()
