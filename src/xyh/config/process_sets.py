@@ -66,6 +66,36 @@ z_2l_jetfakes = ProcessGroup(
     color="#ffebc0",
 )
 
+z_2l_0b = ProcessGroup(
+    name="z_2l_0b",
+    processes=[
+        "z_2e_2mu_0b",
+        "z_2tau_0b",
+    ],
+    label="Z (0 b matches)",
+    color="#ffa600",
+)
+
+z_2l_1b = ProcessGroup(
+    name="z_2l_1b",
+    processes=[
+        "z_2e_2mu_1b",
+        "z_2tau_1b",
+    ],
+    label="DY (1 b match)",
+    color="#ffce72",
+)
+
+z_2l_2b = ProcessGroup(
+    name="z_2l_2b",
+    processes=[
+        "z_2e_2mu_2b",
+        "z_2tau_2b",
+    ],
+    label="DY (2 b matches)",
+    color="#fbe6bf",
+)
+
 w_lnu = ProcessGroup(
     name="w_lnu",
     processes=["w_lnu_tautau", "w_lnu_rem"],
