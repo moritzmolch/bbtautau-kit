@@ -2,8 +2,8 @@
 
 Reads the correctionlib files written by ``xyh.process_corrections.
 derive_z_pt_weights`` (one file per campaign) and draws one panel per jet
-multiplicity bin of the correction ``z_pt`` (n_jets = 0, 1, 2, >= 3). Each
-panel shows
+multiplicity bin of the correction ``z_pt`` selected with ``--n-jets``
+(default: n_jets = 2 and >= 3), arranged vertically. Each panel shows
 
 - the binned correction ``z_pt_binned`` with its statistical uncertainty as
   points with error bars (if present in the file),
@@ -20,6 +20,8 @@ category with chi2/ndf as a function of the bandwidth, the maximum accepted
 chi2/ndf and the chosen bandwidth.
 
 The normalization factors are shown by ``plot_z_normalization``.
+
+The figures are written in all ``--formats`` (default: png and pdf).
 
 Usage
 -----
@@ -324,7 +326,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("inputs", nargs="+", type=Path)
     parser.add_argument("--output-dir", type=Path, default=Path("."))
-    parser.add_argument("--format", default="png")
+    parser.add_argument(
+        "--formats",
+        nargs="+",
+        default=["png", "pdf"],
+        help="Output file formats",
+    )
+    parser.add_argument(
+        "--n-jets",
+        nargs="+",
+        type=int,
+        default=[2, 3],
+        help="Jet multiplicity bins (lower edges) shown in the correction plot",
+    )
     parser.add_argument(
         "--bw-scan-dir",
         type=Path,
@@ -336,43 +350,58 @@ def main():
     matplotlib.style.use(mplhep.style.CMS)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for path in args.inputs:
-        # One figure per campaign with one panel per jet multiplicity
+        # One figure per campaign with the selected jet multiplicities as
+        # vertically arranged panels
         data = load(path)
-        n_jets_bins = sorted(data)
-        n_cols = 2
-        n_rows = -(-len(n_jets_bins) // n_cols)
+        missing = sorted(set(args.n_jets) - set(data))
+        if missing:
+            raise KeyError(
+                f"Jet multiplicity bins {missing} not in {path}, "
+                f"available: {sorted(data)}"
+            )
+        n_jets_bins = sorted(args.n_jets)
+        max_jets = max(data)
+        # Total figure size of the CMS style, panels share the x axis
         fig, axes = plt.subplots(
-            n_rows,
-            n_cols,
-            figsize=(10 * n_cols, 9 * n_rows),
+            len(n_jets_bins),
+            1,
+            figsize=matplotlib.rcParams["figure.figsize"],
+            sharex=True,
             squeeze=False,
         )
-        for ax, n_jets in zip(axes.flat, n_jets_bins, strict=False):
-            _plot_panel(
-                ax,
-                data[n_jets],
-                _label(n_jets, n_jets == n_jets_bins[-1]),
-            )
-        for ax in axes.flat[len(n_jets_bins) :]:
-            ax.set_visible(False)
+        axes = axes[:, 0]
+        for ax, n_jets in zip(axes, n_jets_bins, strict=True):
+            _plot_panel(ax, data[n_jets], _label(n_jets, n_jets == max_jets))
+        for ax in axes[:-1]:
+            ax.set_xlabel("")
 
         # Labels and legend
         campaign = path.stem.removeprefix("z_pt_")
         mplhep.cms.label(
-            ax=axes[0][0],
+            ax=axes[0],
             data=True,
             com=13.6,
             lumi=None,
             text="Work in progress",
         )
-        axes[0][-1].set_title(campaign, loc="right", fontsize=20)
-        axes[0][0].legend(loc="upper left", fontsize=14, ncols=2)
+        axes[0].text(
+            0.03,
+            0.95,
+            campaign,
+            transform=axes[0].transAxes,
+            ha="left",
+            va="top",
+            fontsize=18,
+        )
+        axes[0].legend(loc="lower right", fontsize=14, ncols=2)
 
+        # Write the figure in all formats
         fig.tight_layout()
-        out = args.output_dir / f"z_pt_correction_{campaign}.{args.format}"
-        fig.savefig(out, dpi=100)
+        for fmt in args.formats:
+            out = args.output_dir / f"z_pt_correction_{campaign}.{fmt}"
+            fig.savefig(out, dpi=100)
+            print(f"Wrote {out}")
         plt.close(fig)
-        print(f"Wrote {out}")
 
     # Bandwidth scans
     if args.bw_scan_dir is not None:
@@ -382,7 +411,8 @@ def main():
                 f"No bandwidth scan files in {args.bw_scan_dir}"
             )
         for path in scan_files:
-            _plot_bw_scans(path, args.output_dir, args.format)
+            for fmt in args.formats:
+                _plot_bw_scans(path, args.output_dir, fmt)
 
 
 if __name__ == "__main__":
