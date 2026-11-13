@@ -94,3 +94,42 @@ def default_filters_for_normalization_corrections(
         filters["m_ll"] = "(m_vis > 70) && (m_vis < 110)"
 
     return filters
+
+
+@Wrapper.wrap
+def default_filters_for_fake_factors(self) -> OrderedDict[str, str]:
+    """
+    Loose preselection used as input for the TauFakeFactors framework.
+
+    Same as the default filters without b jet selections and without the
+    opposite-sign, extra lepton veto and lepton isolation requirements, but with the tau-vs-jet ID loosened to the anti-ID working point of the channel, such
+    that the application and determination regions can be built downstream
+    from the `id_tau_vsJet_*` columns.
+    """
+
+    # Get the filters without b jet selections
+    filters = self.get_instance("default_filters_without_bjets").nominal()
+
+    # Keep same-sign pairs, they are needed for the QCD and W + jets regions
+    filters.pop("ll_pair_os", None)
+
+    # Drop the extra lepton vetoes, events failing them are used in the
+    # DR -> SR corrections of the fake factor framework
+    for key in ("extraelec_veto", "extramuon_veto", "dilepton_veto"):
+        filters.pop(key, None)
+
+    # Drop the lepton isolation requirements, the non-isolated events are
+    # needed for the DR -> SR corrections
+    for key in list(filters):
+        if key.startswith(("electron", "muon")) and key.endswith("_iso"):
+            del filters[key]
+
+    # Loosen the tau-vs-jet ID (no effect in channels without hadronic taus)
+    if "tau_id_vs_jet" in filters:
+        wp = self.channel_inst.x.tau["antiid_vs_jet_wp"]
+        indices = {"et": [2], "mt": [2], "tt": [1, 2]}[self.channel_inst.name]
+        filters["tau_id_vs_jet"] = " && ".join(
+            f"(id_tau_vsJet_{wp}_{i} > 0.5)" for i in indices
+        )
+
+    return filters

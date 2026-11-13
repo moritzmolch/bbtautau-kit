@@ -8,6 +8,9 @@ def _skip_fake_factors(self) -> bool:
         self.process_inst.has_tag({"signal"})
         or self.process_inst.name == "jetfakes"
         or self.channel_inst.name not in ["et", "mt", "tt"]
+        # The loose preselection for TauFakeFactors is already inclusive in
+        # the tau-vs-jet ID
+        or self.category_inst.name.endswith("_ff_presel")
     )
 
 
