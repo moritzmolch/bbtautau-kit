@@ -91,7 +91,7 @@ def triggers(self) -> OrderedDict[str, str]:
                 ("tt",): """
                     (pt_1 >= 35)
                     && (pt_2 >= 35)
-                    && (trg_double_tau30_mediumpnet > 0.5)
+                    && (trg_double_tau30_pnet > 0.5)
                 """,
             },
         }

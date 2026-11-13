@@ -40,8 +40,8 @@ def trigger_weights(self) -> OrderedDict[str, str]:
             "mt": "trg_wgt_single_mu24",
             "tt": """
                 (
-                    trg_wgt_double_tau30_mediumpnet_leg1
-                    * trg_wgt_double_tau30_mediumpnet_leg2
+                    trg_wgt_double_tau30_pnet_leg1
+                    * trg_wgt_double_tau30_pnet_leg2
                 )
             """,
             "em": "trg_wgt_single_ele30",
