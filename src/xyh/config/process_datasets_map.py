@@ -213,7 +213,7 @@ def get_process_datasets_map(
         "ttll_m4to50_amcatnlo",
         "ttll_m50_amcatnlo",
         "ttlnu_amcatnlo",
-        "ttw_w_2q_ancatnlo",
+        "ttw_w_2q_amcatnlo",
         "ttz_z_2q_amcatnlo",
     ]
     ttxx_datasets = [
@@ -225,7 +225,7 @@ def get_process_datasets_map(
     # VVV datasets
     vvv_datasets = [
         "www_amcatnlo",
-        "wwx_amcatnlo",
+        "wwz_amcatnlo",
         "wzz_amcatnlo",
         "zzz_amcatnlo",
     ]
