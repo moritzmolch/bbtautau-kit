@@ -1,0 +1,29 @@
+# Loose preselection snapshots as input for TauFakeFactors, produce with
+#   python3 -m xyh.shape_processor.run_graphs --config-name run_graphs_ff
+# The factory function to set up the inventory
+factory_fn: "xyh.config.inventory.create_inventory"
+factory_fn_kwargs:
+  process_set: "fake_factors"
+
+# Filter and weight functions
+filters_fn: "xyh.filters.default_filters_for_fake_factors"
+weights_fn: "xyh.weights.default_weights"
+
+# Analysis context: campaigns, channels, categories, and variables to process
+campaigns:
+- "2022_pre_ee_nano_v12"
+- "2022_post_ee_nano_v12"
+- "2023_pre_bpix_nano_v12"
+- "2023_post_bpix_nano_v12"
+- "2024_nano_v15"
+- "2025_nano_v15"
+channels:
+- "et"
+- "mt"
+- "tt"
+categories:
+- "et_ff_presel"
+- "mt_ff_presel"
+- "tt_ff_presel"
+variables:
+- "yield"

@@ -178,6 +178,28 @@ jetfakes = ProcessGroup(
     color="#a96b59",
 )
 
+# Groups for the TauFakeFactors input: one group per physics process, split by
+# the origin of the hadronic tau candidates (tautau -> "T", jetfakes -> "J",
+# rem -> "L" in TauFakeFactors); the full set of processes of each family
+# is needed, including the jet -> tau_h fakes taken from simulation
+_ff_families = {
+    "tt": ["tt"],
+    "z_2l": ["z_2e_2mu", "z_2tau"],
+    "w_lnu": ["w_lnu"],
+    "single_t": ["single_t"],
+    "vv": ["vv"],
+}
+fake_factor_groups = [
+    ProcessGroup(
+        name=f"ff_{family}_{origin}",
+        processes=[f"{p}_{origin}" for p in members],
+        label=f"{family} ({origin})",
+        color="#888888",
+    )
+    for family, members in _ff_families.items()
+    for origin in ["tautau", "jetfakes", "rem"]
+]
+
 # -----------------------------------------------------------------------------
 # Process sets
 # -----------------------------------------------------------------------------
@@ -239,7 +261,47 @@ def get_process_set(
         ],
     )
 
+    # Process set for the TauFakeFactors input: data and background simulation
+    # in all three tau origins, no signals
+    process_set_fake_factors = ProcessSet(
+        name="fake_factors",
+        data=[data],
+        signals=[],
+        backgrounds=fake_factor_groups,
+    )
+
+    # Reduced version of the above for quick tests: data, tt, W and Z -> tautau
+    process_set_fake_factors_quick = ProcessSet(
+        name="fake_factors_quick",
+        data=[data],
+        signals=[],
+        backgrounds=[
+            ProcessGroup(
+                name=f"ff_{family}_{origin}",
+                processes=[f"{p}_{origin}" for p in members],
+                label=f"{family} ({origin})",
+                color="#888888",
+            )
+            for family, members in {
+                "tt": ["tt"],
+                "z_2tau": ["z_2tau"],
+                "w_lnu": ["w_lnu"],
+            }.items()
+            for origin in ["tautau", "jetfakes", "rem"]
+        ],
+    )
+
     process_sets = {
+        "fake_factors_quick": {
+            "et": process_set_fake_factors_quick,
+            "mt": process_set_fake_factors_quick,
+            "tt": process_set_fake_factors_quick,
+        },
+        "fake_factors": {
+            "et": process_set_fake_factors,
+            "mt": process_set_fake_factors,
+            "tt": process_set_fake_factors,
+        },
         "default": {
             "et": process_set_jetfakes,
             "mt": process_set_jetfakes,
