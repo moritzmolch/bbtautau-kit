@@ -18,6 +18,7 @@ campaigns:
 channels:
 - "mm"
 categories:
+# Exclusive jet multiplicities to derive the Z pt correction
 - "mm_eq2j"
 - "mm_geq3j"
 variables:
