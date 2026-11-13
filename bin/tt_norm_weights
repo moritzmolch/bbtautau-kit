@@ -15,16 +15,17 @@ main () {
     local defaults=(
         "tags.shapes_tag=${shapes_tag}-for-tt-normalization"
         "inventory=control_regions_tt_normalization"
-        "inventory.campaigns=[\"2024_nano_v15\", \"2025_nano_v15\"]"
+        "z_corrections.input_dir=\"\""
+        "z_pt_corrections.input_dir=\"\""
     )
 
     # Calculation of normalization weights
-    python3 -m xyh.shape_processor.run_graphs "${defaults[@]}"
-    python3 -m xyh.process_corrections.derive_norm_weights --config-name derive_norm_weights_tt "${defaults[@]}"
+    python3 -m xyh.shape_processor.run_graphs "${defaults[@]}" "tt_corrections.input_dir=\"\""
+    python3 -m xyh.process_corrections.derive_norm_weights --config-name derive_norm_weights_tt "${defaults[@]}" "tt_corrections.input_dir=\"\""
 
     # Control plots for shapes
-    python3 -m xyh.shape_processor.merge_histograms "${defaults[@]}"
-    python3 -m xyh.shape_processor.plot_shapes "${defaults[@]}"
+    python3 -m xyh.shape_processor.merge_histograms "${defaults[@]}" "tt_corrections.input_dir=\"\""
+    python3 -m xyh.shape_processor.plot_shapes "${defaults[@]}" "tt_corrections.input_dir=\"\""
 
     # Normalization weight plots
     python3 -m xyh.process_corrections.plot_norm_weights --config-name plot_norm_weights_tt "${defaults[@]}"
