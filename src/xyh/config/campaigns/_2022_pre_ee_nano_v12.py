@@ -167,7 +167,7 @@ dataset_nicks = {
     ],
     "ttlnu_amcatnlo": "TTLNu-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_Run3Summer22NanoAODv12-mg35x_130X_mcRun3_2022_realistic_v5-v2",
     "ttw_w_2q_amcatnlo": "TTW-WtoQQ-1Jets_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8_Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2",
-    "ttz_z_2q": "TTZ-ZtoQQ-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2",
+    "ttz_z_2q_amcatnlo": "TTZ-ZtoQQ-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2",
     "ttww_madgraph": "TTWW_TuneCP5_13p6TeV_madgraph-madspin-pythia8_Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2",
     "ttwz_madgraph": "TTWZ_TuneCP5_13p6TeV_madgraph-pythia8_Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2",
     "ttzz_madgraph": "TTZZ_TuneCP5_13p6TeV_madgraph-madspin-pythia8_Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2",

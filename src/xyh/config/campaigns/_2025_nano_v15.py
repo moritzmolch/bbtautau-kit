@@ -191,14 +191,14 @@ dataset_nicks = {
     "ttll_m4to50_amcatnlo": "TTLL_Bin-MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "ttll_m50_amcatnlo": "TTLL_Bin-MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "ttlnu_amcatnlo": "TTLNu-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8_RunIII2025Summer24NanoAODv15-mg35x_150X_mcRun3_2024_realistic_v2-v2",
-    "ttw_w_2q_ancatnlo": "TTW-WtoQQ-1Jets_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
+    "ttw_w_2q_amcatnlo": "TTW-WtoQQ-1Jets_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "ttz_z_2q_amcatnlo": "TTZ-ZtoQQ-1Jets_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "ttww_madgraph": "TTWW_TuneCP5_13p6TeV_madgraph-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "ttwz_madgraph": "TTWZ_TuneCP5_13p6TeV_madgraph-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "ttzz_madgraph": "TTZZ_TuneCP5_13p6TeV_madgraph-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     # --- Triboson production --------------------------------------------------
     "www_amcatnlo": "WWW-4F_TuneCP5_13p6TeV_amcatnlo-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
-    "wwx_amcatnlo": "WWZ-4F_TuneCP5_13p6TeV_amcatnlo-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
+    "wwz_amcatnlo": "WWZ-4F_TuneCP5_13p6TeV_amcatnlo-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "wzz_amcatnlo": "WZZ-5F_TuneCP5_13p6TeV_amcatnlo-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
     "zzz_amcatnlo": "ZZZ-5F_TuneCP5_13p6TeV_amcatnlo-pythia8_RunIII2025Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2",
 }
