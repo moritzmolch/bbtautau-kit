@@ -66,6 +66,40 @@ def triggers(self) -> OrderedDict[str, str]:
     # Storage for trigger selections
     selections = OrderedDict()
 
+    # Construct di-tau+jet trigger string for 2022/2023
+    ditau_jet_trigger_2022_2023 = " && ".join(
+        [
+            "(pt_1 >= 35)",
+            "(pt_2 >= 35)",
+            "(jpt_1 >= 65)",
+            "trg_double_tau30_jet60_mediumdeeptau",
+        ]
+    )
+    ditau_trigger_2022_2023 = " && ".join(
+        [
+            "(pt_1 >= 40)",
+            "(pt_2 >= 40)",
+            "trg_double_tau35_mediumdeeptau",
+        ]
+    )
+
+    # Construct di-tau+jet trigger string for 2024/2025
+    ditau_jet_trigger_2024_2025 = " && ".join(
+        [
+            "(pt_1 >= 30)",
+            "(pt_2 >= 30)",
+            "(jpt_1 >= 65)",
+            "trg_double_tau26_jet60_pnet",
+        ]
+    )
+    ditau_trigger_2024_2025 = " && ".join(
+        [
+            "(pt_1 >= 35)",
+            "(pt_2 >= 35)",
+            "trg_double_tau30_pnet",
+        ]
+    )
+
     # Trigger selections are summarized in a nested map, where the first key
     # is an era or a tuple of eras, and the second key is the channel or a
     # tuple of channels.
@@ -79,20 +113,16 @@ def triggers(self) -> OrderedDict[str, str]:
             ): {
                 ("et", "em", "ee"): "(pt_1 >= 32) && (trg_single_ele30 > 0.5)",
                 ("mt", "mm"): "(pt_1 >= 26) && (trg_single_mu24 > 0.5)",
-                ("tt",): """
-                    (pt_1 >= 40)
-                    && (pt_2 >= 40)
-                    && (trg_double_tau35_mediumdeeptau > 0.5)
-                """,
+                (
+                    "tt",
+                ): f"({ditau_trigger_2022_2023}) && ({ditau_jet_trigger_2022_2023})",
             },
             ("2024_nano_v15", "2025_nano_v15"): {
                 ("et", "em", "ee"): "(pt_1 >= 32) && (trg_single_ele30 > 0.5)",
                 ("mt", "mm"): "(pt_1 >= 26) && (trg_single_mu24 > 0.5)",
-                ("tt",): """
-                    (pt_1 >= 35)
-                    && (pt_2 >= 35)
-                    && (trg_double_tau30_pnet > 0.5)
-                """,
+                (
+                    "tt",
+                ): f"({ditau_trigger_2024_2025}) && ({ditau_jet_trigger_2024_2025})",
             },
         }
     )
