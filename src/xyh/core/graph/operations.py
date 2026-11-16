@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Weight prefix to prepend to the name of weight columns
 WEIGHT_PREFIX = "__weight_"
-TOTAL_WEIGHT_NAME = f"{WEIGHT_PREFIX}total"
+TOTAL_WEIGHT_NAME = "__total_weight"
 
 
 def _get_single_parent(node: Node) -> Node:

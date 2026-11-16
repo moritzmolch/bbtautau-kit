@@ -4,7 +4,10 @@ Channels of the analysis.
 
 from order import Channel
 
-from xyh.config.channels._categories_base import add_base_category
+from xyh.config.channels._categories_base import (
+    add_base_category,
+    add_ff_presel_category,
+)
 from xyh.config.channels._categories_clf import add_clf_categories
 from xyh.config.channels._categories_jets import add_jet_categories
 
@@ -83,6 +86,9 @@ ch_mm = Channel(
 for channel_inst in [ch_et, ch_mt, ch_tt, ch_em, ch_ee, ch_mm]:
     # Add base category to each channel
     add_base_category(channel_inst)
+
+    # Add the loose fake factor preselection category to each channel
+    add_ff_presel_category(channel_inst)
 
     # Add jet-splitted categories to each channel
     add_jet_categories(channel_inst)

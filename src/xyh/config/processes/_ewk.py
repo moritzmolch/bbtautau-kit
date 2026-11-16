@@ -72,6 +72,60 @@ def get_z_processes() -> list[Process]:
         tags=_default_tags_tau | {"tautau_remaining"},
     )
 
+    # Z -> light leptons + jets production; zero matches to genuine b's
+    add_process(
+        processes,
+        name="z_2e_2mu_0b",
+        id="+",
+        is_data=False,
+        tags=_default_tags_light | {"0b"},
+    )
+
+    # Z -> light leptons + jets production; one match to genuine b
+    add_process(
+        processes,
+        name="z_2e_2mu_1b",
+        id="+",
+        is_data=False,
+        tags=_default_tags_light | {"1b"},
+    )
+
+    # Z -> light leptons + jets production; two matches to genuine b's
+    add_process(
+        processes,
+        name="z_2e_2mu_2b",
+        id="+",
+        is_data=False,
+        tags=_default_tags_light | {"2b"},
+    )
+
+    # Z -> tau leptons + jets production; zero matches to genuine b's
+    add_process(
+        processes,
+        name="z_2tau_0b",
+        id="+",
+        is_data=False,
+        tags=_default_tags_tau | {"0b"},
+    )
+
+    # Z -> tau leptons + jets production; one match to genuine b
+    add_process(
+        processes,
+        name="z_2tau_1b",
+        id="+",
+        is_data=False,
+        tags=_default_tags_tau | {"1b"},
+    )
+
+    # Z -> tau leptons + jets production; two matches to genuine b's
+    add_process(
+        processes,
+        name="z_2tau_2b",
+        id="+",
+        is_data=False,
+        tags=_default_tags_tau | {"2b"},
+    )
+
     return processes
 
 
@@ -150,6 +204,48 @@ def get_vv_processes() -> list[Process]:
     add_process(
         processes,
         name="vv_rem",
+        id="+",
+        is_data=False,
+        tags=_default_tags | {"tautau_remaining"},
+    )
+
+    return processes
+
+
+def get_vvv_processes() -> list[Process]:
+    """
+    Triboson production
+    """
+
+    # List of processes
+    processes = []
+
+    # Default tags to be used for these processes
+    _default_tags = {"background", "vvv"}
+
+    # Triboson production; genuine tau tau pairs
+    add_process(
+        processes,
+        name="vvv_tautau",
+        id="+",
+        is_data=False,
+        tags=_default_tags | {"tautau_genuine"},
+    )
+
+    # Triboson production; jets faking hadronic taus
+    add_process(
+        processes,
+        name="vvv_jetfakes",
+        id="+",
+        is_data=False,
+        tags=_default_tags | {"tautau_jetfakes"},
+    )
+
+    # Triboson production; remaining events (leptons faking hadronic taus and
+    # prompt leptons)
+    add_process(
+        processes,
+        name="vvv_rem",
         id="+",
         is_data=False,
         tags=_default_tags | {"tautau_remaining"},

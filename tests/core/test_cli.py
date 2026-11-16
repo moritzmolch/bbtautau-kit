@@ -6,6 +6,7 @@ and the project's ``ROOT_DIR`` are mocked out so that the tests are fully
 isolated from any real filesystem or Hydra machinery.
 """
 
+import os
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -123,23 +124,43 @@ def test_hydra_cli_wrapper_passes_through_return_value(mock_root_dir, _mock_hydr
     assert wrapped({}) == 42
 
 
-def test_z_pt_weights_dir_is_exported_to_the_environment(
-    mock_root_dir, monkeypatch
+@pytest.mark.parametrize(
+    ("key", "env_var"),
+    [
+        ("z_pt_corrections", "XYH_Z_PT_WEIGHTS_DIR"),
+        ("tt_corrections", "XYH_TT_CORRECTIONS_DIR"),
+        ("z_corrections", "XYH_Z_CORRECTIONS_DIR"),
+    ],
+)
+def test_corrections_dir_is_exported_to_the_environment(
+    mock_root_dir, monkeypatch, key, env_var
 ):
-    """The configured Z corrections directory enables the weights."""
+    """The configured corrections directory is exported relative to
+    ROOT_DIR; an empty directory leaves the environment untouched."""
+    monkeypatch.delenv(env_var, raising=False)
+    seen = {}
+
+    @hydra_cli("some_stage")
+    def stage(cfg):
+        seen["dir"] = os.environ.get(env_var)
+
+    stage(DictConfig({key: {"input_dir": "data/dir"}}))
+    assert seen["dir"] == "/fake/root/data/dir"
+
+    # An empty directory leaves the environment untouched
+    monkeypatch.delenv(env_var)
+    stage(DictConfig({key: {"input_dir": ""}}))
+    assert seen["dir"] is None
+
+
+def test_old_z_pt_weights_key_is_not_exported(mock_root_dir, monkeypatch):
+    """The renamed ``z_pt_weights`` key no longer enables the corrections."""
     monkeypatch.delenv("XYH_Z_PT_WEIGHTS_DIR", raising=False)
     seen = {}
 
     @hydra_cli("some_stage")
     def stage(cfg):
-        import os
-
         seen["dir"] = os.environ.get("XYH_Z_PT_WEIGHTS_DIR")
 
     stage(DictConfig({"z_pt_weights": {"input_dir": "data/z"}}))
-    assert seen["dir"] == "/fake/root/data/z"
-
-    # An empty directory leaves the environment untouched
-    monkeypatch.delenv("XYH_Z_PT_WEIGHTS_DIR")
-    stage(DictConfig({"z_pt_weights": {"input_dir": ""}}))
     assert seen["dir"] is None

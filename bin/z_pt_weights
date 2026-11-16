@@ -1,0 +1,49 @@
+#!/usr/bin/env zsh
+
+set -eu -o pipefail
+
+main () {
+    local this_file="${(%):-%x}"
+    local this_dir="$( cd "$( dirname "${this_file}" )" && pwd)"
+
+    local shapes_tag="${1:-}"
+    if [[ -z "${shapes_tag}" ]]; then
+        echo "Error: shapes_tag argument is required."
+        exit 1
+    fi
+    shift
+
+    local tag="${shapes_tag}-for-z-pt-reweighting"
+    local defaults=(
+        "tags.shapes_tag=${tag}"
+        "inventory=control_regions_z_pt"
+        "z_pt_corrections.input_dir=\"\""
+    )
+
+    # Equipopulated binning on data (see hydra_config/base/binning.yaml),
+    # which replaces the inventory binning in the following steps
+    python3 -m xyh.shape_processor.run_graphs "${defaults[@]}" \
+        "graph_processing.mode=binning" "${@}"
+    defaults+=("binning_overrides.file=data/output/${tag}/binning/binning.json")
+
+    # Histograms for the derivation of the pt weights
+    python3 -m xyh.shape_processor.run_graphs "${defaults[@]}" "${@}"
+    python3 -m xyh.shape_processor.merge_histograms "${defaults[@]}" "${@}"
+
+    # Calculation of the pt weights and plots. The weights are written to
+    # `artifacts.z_pt_weights_dir` (data/corrections/z_pt/<tags.z_pt_tag>),
+    # resolved from the Hydra config with the same overrides
+    python3 -m xyh.process_corrections.derive_z_pt_weights "${defaults[@]}" "${@}"
+    local weights_dir
+    weights_dir="$(python3 -m xyh.process_corrections.derive_z_pt_weights \
+        "${defaults[@]}" "${@}" --cfg job --resolve --package output_dir)"
+    python3 -m xyh.scripts.plot_z_pt_weights \
+        "${weights_dir}/"z_pt_*.json \
+        --output-dir "${weights_dir}/plots" \
+        --bw-scan-dir "${weights_dir}/bw_scan"
+
+    # Control plots for shapes
+    python3 -m xyh.shape_processor.plot_shapes "${defaults[@]}" "${@}"
+}
+
+main "${@}"

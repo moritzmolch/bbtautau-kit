@@ -1,22 +1,37 @@
-"""Plot the Z pt correction as a function of pt for each n_jets.
+"""Plot the Z pt correction as a function of pt, one figure per campaign.
 
-Reads the correctionlib files written by ``xyh.shape_processor.
-derive_z_pt_weights`` and evaluates ``z_pt_correction`` at the pt bin centers
-for every jet multiplicity bin of the correction. One plot per
-multiplicity bin is written, with one curve per input file (campaign). The
-shaded band is the
-statistical uncertainty of the bin contents, if stored in the file. It is
-uncorrelated between pt bins (neighboring points are correlated if the
-correction is smoothed) and does not include the normalization uncertainty. The normalization
-factors are shown by ``plot_z_normalization``.
+Reads the correctionlib files written by ``xyh.process_corrections.
+derive_z_pt_weights`` (one file per campaign) and draws one panel per jet
+multiplicity bin of the correction ``z_pt`` selected with ``--n-jets``
+(default: n_jets = 2 and >= 3), arranged vertically. Each panel shows
+
+- the binned correction ``z_pt_binned`` with its statistical uncertainty as
+  points with error bars (if present in the file),
+- the smoothed correction ``z_pt`` as a line,
+- the envelopes of its uncertainty sources (statistical, kernel bandwidth,
+  normalization of the subtracted backgrounds; variations ``<source>_up`` and
+  ``<source>_down``) as lines,
+- the total uncertainty, the quadratic sum of the upward and downward
+  deviations of all sources, as a filled band.
+
+With ``--bw-scan-dir`` the bandwidth scans written by the derivation (one
+JSON file per campaign) are plotted as well: per campaign one panel per
+category with chi2/ndf as a function of the bandwidth, the maximum accepted
+chi2/ndf and the chosen bandwidth.
+
+The normalization factors are shown by ``plot_z_normalization``.
+
+The figures are written in all ``--formats`` (default: png and pdf).
 
 Usage
 -----
     python3 -m xyh.scripts.plot_z_pt_weights \\
-        data/output/<tag>/z_pt_weights/*.json --output-dir plots
+        data/output/<tag>/z_pt_weights/*.json --output-dir plots \\
+        [--bw-scan-dir data/output/<tag>/z_pt_weights/bw_scan]
 """
 
 import argparse
+import json
 from pathlib import Path
 
 import correctionlib
@@ -28,6 +43,13 @@ from correctionlib import schemav2
 
 matplotlib.use("Agg")
 
+# Labels and colors of the uncertainty sources, keyed by the variation prefix
+_SOURCES = {
+    "stat": ("Stat.", "#3f90da"),
+    "bw": ("Bandwidth", "#ffa90e"),
+    "norm_other": ("Bkg. norm.", "#bd1f01"),
+}
+
 
 def _leaf_binnings(node) -> dict[int, object]:
     """The pt binning of each n_jets bin of the binning."""
@@ -37,57 +59,177 @@ def _leaf_binnings(node) -> dict[int, object]:
     }
 
 
-def _evaluate(evaluator, name, n_jets, centers) -> np.ndarray:
-    return np.array([evaluator[name].evaluate(n_jets, pt) for pt in centers])
-
-
-def _load_raw(evaluator, cset, n_jets: int) -> dict | None:
-    """The binwise ratios before smoothing, if stored in the file."""
-    raw = next(c for c in cset.corrections if c.name == "z_pt_ratio_unsmoothed")
-    leaf = _leaf_binnings(raw.data).get(n_jets)
-    if leaf is None:
-        return None
+def _binned(evaluator, n_jets: int, leaf) -> dict:
+    """The binned correction and its error at the bin centers of `leaf`."""
     edges = np.array(leaf.edges, dtype=float)
     centers = 0.5 * (edges[:-1] + edges[1:])
+    corr = evaluator["z_pt_binned"]
+    up = corr.evaluate(n_jets, centers, "stat_up")
+    down = corr.evaluate(n_jets, centers, "stat_down")
     return {
         "centers": centers,
-        "values": _evaluate(
-            evaluator, "z_pt_ratio_unsmoothed", n_jets, centers
-        ),
-        "errors": _evaluate(
-            evaluator, "z_pt_ratio_unsmoothed_stat_unc", n_jets, centers
-        ),
+        "values": corr.evaluate(n_jets, centers, "nominal"),
+        "errors": 0.5 * np.abs(up - down),
     }
 
 
 def load(path: Path) -> dict:
     """Evaluate the pt correction for all jet multiplicity bins.
 
-    The pt binning differs between the multiplicity bins. The statistical
-    uncertainty is `None` if the file does not contain it.
+    The correction ``z_pt`` is evaluated at the pt bin centers of each
+    variation. ``shifts`` maps the variation names (e.g. ``stat_up``) to the
+    shifted corrections. If the correction ``z_pt_binned`` is present,
+    ``binned`` holds its values and statistical uncertainties (half
+    difference of ``stat_up`` and ``stat_down``) at its own bin centers,
+    otherwise `None`.
     """
+    # Load the correction set for the structure and the evaluator
     cset = schemav2.CorrectionSet.model_validate_json(path.read_text())
     evaluator = correctionlib.CorrectionSet.from_file(str(path))
-    pt_corr = next(c for c in cset.corrections if c.name == "z_pt_correction")
-    has_unc = any(
-        c.name == "z_pt_correction_stat_unc" for c in cset.corrections
+    names = {c.name for c in cset.corrections}
+    corr = next(c for c in cset.corrections if c.name == "z_pt")
+    variations = [item.key for item in corr.data.content]
+    nominal_node = next(
+        item.value for item in corr.data.content if item.key == "nominal"
     )
-    has_raw = any(c.name == "z_pt_ratio_unsmoothed" for c in cset.corrections)
+
+    # Binning of the binned correction, if present
+    binned_leaves = None
+    if "z_pt_binned" in names:
+        corr_binned = next(
+            c for c in cset.corrections if c.name == "z_pt_binned"
+        )
+        binned_leaves = _leaf_binnings(
+            next(
+                item.value
+                for item in corr_binned.data.content
+                if item.key == "nominal"
+            )
+        )
+
+    # Evaluate all variations per jet multiplicity
     result = {}
-    for n_jets, leaf in _leaf_binnings(pt_corr.data).items():
+    for n_jets, leaf in _leaf_binnings(nominal_node).items():
         edges = np.array(leaf.edges, dtype=float)
         centers = 0.5 * (edges[:-1] + edges[1:])
+        values = {
+            v: evaluator["z_pt"].evaluate(n_jets, centers, v)
+            for v in variations
+        }
         result[n_jets] = {
-            "edges": edges,
-            "values": _evaluate(evaluator, "z_pt_correction", n_jets, centers),
-            "errors": _evaluate(
-                evaluator, "z_pt_correction_stat_unc", n_jets, centers
-            )
-            if has_unc
+            "x": centers,
+            "values": values.pop("nominal"),
+            "shifts": values,
+            "binned": _binned(evaluator, n_jets, binned_leaves[n_jets])
+            if binned_leaves is not None
             else None,
-            "raw": _load_raw(evaluator, cset, n_jets) if has_raw else None,
         }
     return result
+
+
+def _total_uncertainty(
+    nominal: np.ndarray,
+    shifts: dict[str, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Downward and upward total uncertainty: per source, the largest downward
+    and upward deviations of its variations from the nominal, added in
+    quadrature over the sources.
+    """
+    down = np.zeros_like(nominal)
+    up = np.zeros_like(nominal)
+    for source in _sources(shifts):
+        deviations = np.stack(
+            [
+                shifts[f"{source}_up"] - nominal,
+                shifts[f"{source}_down"] - nominal,
+            ]
+        )
+        up += np.maximum(deviations.max(axis=0), 0.0) ** 2
+        down += np.minimum(deviations.min(axis=0), 0.0) ** 2
+    return np.sqrt(down), np.sqrt(up)
+
+
+def _sources(shifts: dict[str, np.ndarray]) -> list[str]:
+    """Uncertainty sources with both an up and a down variation."""
+    sources = []
+    for name in shifts:
+        if name.endswith("_up") and f"{name[:-3]}_down" in shifts:
+            sources.append(name[:-3])
+    return sources
+
+
+def _plot_panel(ax, h: dict, label: str):
+    """Draw the correction of one jet multiplicity bin into `ax`."""
+    x, nominal, shifts = h["x"], h["values"], h["shifts"]
+
+    # Total uncertainty as filled band
+    down, up = _total_uncertainty(nominal, shifts)
+    ax.fill_between(
+        x,
+        nominal - down,
+        nominal + up,
+        color="#94a4a2",
+        alpha=0.4,
+        linewidth=0,
+        label="Total unc.",
+    )
+
+    # Envelopes of the individual sources as lines
+    for source in _sources(shifts):
+        name, color = _SOURCES.get(source, (source, None))
+        line = ax.plot(
+            x, shifts[f"{source}_up"], color=color, linewidth=1, label=name
+        )[0]
+        ax.plot(
+            x,
+            shifts[f"{source}_down"],
+            color=line.get_color(),
+            linewidth=1,
+            linestyle="--",
+        )
+
+    # Smoothed nominal correction
+    ax.plot(x, nominal, color="black", linewidth=1.5, label="Smoothed")
+
+    # Binned correction with stat. uncertainty
+    binned = h["binned"]
+    if binned is not None:
+        ax.errorbar(
+            binned["centers"],
+            binned["values"],
+            yerr=binned["errors"],
+            fmt="o",
+            markersize=3,
+            linewidth=1,
+            color="black",
+            label="Binned",
+        )
+
+    # Axis range: grid of the smoothed correction, total band and binned
+    # points within it
+    ax.set_xlim(x[0], x[-1])
+    lo = (nominal - down).min()
+    hi = (nominal + up).max()
+    if binned is not None:
+        in_range = binned["centers"] <= x[-1]
+        lo = min(lo, (binned["values"] - binned["errors"])[in_range].min())
+        hi = max(hi, (binned["values"] + binned["errors"])[in_range].max())
+    margin = 0.1 * (hi - lo)
+    ax.set_ylim(lo - margin, hi + 2 * margin)
+
+    ax.axhline(1.0, color="gray", linestyle=":", linewidth=1)
+    ax.text(
+        0.97,
+        0.95,
+        label,
+        transform=ax.transAxes,
+        ha="right",
+        va="top",
+        fontsize=18,
+    )
+    ax.set_xlabel(r"$p_{T}^{\mu\mu}$ [GeV]")
+    ax.set_ylabel("Z $p_{T}$ correction")
 
 
 def _label(n_jets: int, jets_open: bool):
@@ -95,83 +237,182 @@ def _label(n_jets: int, jets_open: bool):
     return f"$n_{{jets}}$ = {j}"
 
 
+def _plot_bw_scan_panel(ax, scan: dict, label: str):
+    """Draw chi2/ndf as a function of the bandwidth into `ax`."""
+    bw = np.array(scan["bw"], dtype=float)
+    chi2_ndf = np.array(
+        [np.nan if v is None else v for v in scan["chi2_ndf"]], dtype=float
+    )
+
+    # chi2/ndf of the scan (undefined values are not drawn)
+    ax.plot(
+        bw,
+        chi2_ndf,
+        marker="o",
+        markersize=3,
+        linewidth=1,
+        color="black",
+        label=r"$\chi^{2}$/ndf",
+    )
+
+    # Accepted maximum and chosen bandwidth
+    ax.axhline(
+        scan["chi2_ndf_max"],
+        color="#bd1f01",
+        linestyle="--",
+        linewidth=1,
+        label=r"Max. $\chi^{2}$/ndf",
+    )
+    ax.axvline(
+        scan["chosen"],
+        color="#3f90da",
+        linestyle="-",
+        linewidth=1.5,
+        label=f"Chosen: {scan['chosen']:.3g} GeV",
+    )
+
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.text(
+        0.97,
+        0.05,
+        label,
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=18,
+    )
+    ax.set_xlabel("Bandwidth [GeV]")
+    ax.set_ylabel(r"$\chi^{2}$/ndf")
+    ax.legend(loc="upper left", fontsize=14)
+
+
+def _plot_bw_scans(path: Path, output_dir: Path, fmt: str):
+    """One figure with a panel per category for the scan file `path`."""
+    scans = json.loads(path.read_text())
+    categories = list(scans)
+    n_cols = 2
+    n_rows = -(-len(categories) // n_cols)
+    fig, axes = plt.subplots(
+        n_rows,
+        n_cols,
+        figsize=(10 * n_cols, 9 * n_rows),
+        squeeze=False,
+    )
+    for ax, category in zip(axes.flat, categories, strict=False):
+        _plot_bw_scan_panel(ax, scans[category], category)
+    for ax in axes.flat[len(categories) :]:
+        ax.set_visible(False)
+
+    # Labels
+    campaign = path.stem.split("_pt_bw_scan_", 1)[-1]
+    mplhep.cms.label(
+        ax=axes[0][0],
+        data=True,
+        com=13.6,
+        lumi=None,
+        text="Work in progress",
+    )
+    axes[0][-1].set_title(campaign, loc="right", fontsize=20)
+
+    fig.tight_layout()
+    out = output_dir / f"bw_scan_{campaign}.{fmt}"
+    fig.savefig(out, dpi=100)
+    plt.close(fig)
+    print(f"Wrote {out}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("inputs", nargs="+", type=Path)
     parser.add_argument("--output-dir", type=Path, default=Path("."))
-    parser.add_argument("--format", default="png")
-    parser.add_argument("--log-y", action="store_true")
+    parser.add_argument(
+        "--formats",
+        nargs="+",
+        default=["png", "pdf"],
+        help="Output file formats",
+    )
+    parser.add_argument(
+        "--n-jets",
+        nargs="+",
+        type=int,
+        default=[2, 3],
+        help="Jet multiplicity bins (lower edges) shown in the correction plot",
+    )
+    parser.add_argument(
+        "--bw-scan-dir",
+        type=Path,
+        default=None,
+        help="Directory with the bandwidth scan files, one plot per file",
+    )
     args = parser.parse_args()
-
-    data = {p.stem: load(p) for p in args.inputs}
-    all_bins = sorted({k for d in data.values() for k in d})
-    max_jets = max(all_bins)
 
     matplotlib.style.use(mplhep.style.CMS)
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    for n_jets in all_bins:
-        fig, ax = plt.subplots()
-        colors = {}
-        for name, d in data.items():
-            if n_jets not in d:
-                continue
-            h = d[n_jets]
-            step = ax.stairs(
-                h["values"],
-                h["edges"],
-                baseline=None,
-                label=name,
+    for path in args.inputs:
+        # One figure per campaign with the selected jet multiplicities as
+        # vertically arranged panels
+        data = load(path)
+        missing = sorted(set(args.n_jets) - set(data))
+        if missing:
+            raise KeyError(
+                f"Jet multiplicity bins {missing} not in {path}, "
+                f"available: {sorted(data)}"
             )
-            if h["errors"] is not None:
-                ax.stairs(
-                    h["values"] + h["errors"],
-                    h["edges"],
-                    baseline=h["values"] - h["errors"],
-                    fill=True,
-                    alpha=0.3,
-                    color=step.get_edgecolor(),
-                    linewidth=0,
-                )
-            colors[name] = step.get_edgecolor()
-        # Make sure the uncertainty bands are fully visible
-        lo, hi = ax.get_ylim()
-        for d in data.values():
-            h = d.get(n_jets)
-            if h is not None and h["errors"] is not None:
-                margin = 0.05 * (hi - lo)
-                lo = min(lo, (h["values"] - h["errors"]).min() - margin)
-                hi = max(hi, (h["values"] + h["errors"]).max() + margin)
-        if not args.log_y:
-            ax.set_ylim(lo, hi)
-        # Unsmoothed ratios do not enter the axis range, outliers are clipped
-        for name, d in data.items():
-            raw = d.get(n_jets, {}).get("raw")
-            if raw is not None:
-                ax.errorbar(
-                    raw["centers"],
-                    raw["values"],
-                    yerr=raw["errors"],
-                    fmt=".",
-                    markersize=3,
-                    linewidth=0.8,
-                    alpha=0.5,
-                    color=colors[name],
-                    label=f"{name} (unsmoothed)",
-                )
-        ax.axhline(1.0, color="gray", linestyle="--", linewidth=1)
-        ax.set_xlabel(r"$p_{T}$ [GeV]")
-        ax.set_ylabel("Z $p_{T}$ correction")
-        if args.log_y:
-            ax.set_yscale("log")
-        legend_title = _label(n_jets, n_jets == max_jets)
-        ax.legend(title=legend_title, fontsize=14, title_fontsize=14)
-        mplhep.cms.label(
-            ax=ax, data=True, com=13.6, lumi=None, text="Work in progress"
+        n_jets_bins = sorted(args.n_jets)
+        max_jets = max(data)
+        # Total figure size of the CMS style, panels share the x axis
+        fig, axes = plt.subplots(
+            len(n_jets_bins),
+            1,
+            figsize=matplotlib.rcParams["figure.figsize"],
+            sharex=True,
+            squeeze=False,
         )
-        out = args.output_dir / f"z_pt_correction_{n_jets}j"
-        fig.savefig(f"{out}.{args.format}", dpi=150)
+        axes = axes[:, 0]
+        for ax, n_jets in zip(axes, n_jets_bins, strict=True):
+            _plot_panel(ax, data[n_jets], _label(n_jets, n_jets == max_jets))
+        for ax in axes[:-1]:
+            ax.set_xlabel("")
+
+        # Labels and legend
+        campaign = path.stem.removeprefix("z_pt_")
+        mplhep.cms.label(
+            ax=axes[0],
+            data=True,
+            com=13.6,
+            lumi=None,
+            text="Work in progress",
+        )
+        axes[0].text(
+            0.03,
+            0.95,
+            campaign,
+            transform=axes[0].transAxes,
+            ha="left",
+            va="top",
+            fontsize=18,
+        )
+        axes[0].legend(loc="lower right", fontsize=14, ncols=2)
+
+        # Write the figure in all formats
+        fig.tight_layout()
+        for fmt in args.formats:
+            out = args.output_dir / f"z_pt_correction_{campaign}.{fmt}"
+            fig.savefig(out, dpi=100)
+            print(f"Wrote {out}")
         plt.close(fig)
-        print(f"Wrote {out}.{args.format}")
+
+    # Bandwidth scans
+    if args.bw_scan_dir is not None:
+        scan_files = sorted(args.bw_scan_dir.glob("*_pt_bw_scan_*.json"))
+        if not scan_files:
+            raise FileNotFoundError(
+                f"No bandwidth scan files in {args.bw_scan_dir}"
+            )
+        for path in scan_files:
+            for fmt in args.formats:
+                _plot_bw_scans(path, args.output_dir, fmt)
 
 
 if __name__ == "__main__":

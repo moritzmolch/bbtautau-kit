@@ -6,6 +6,9 @@ shapes_tag: "shapes-2026-11-05"
 # Tag of the b-tag weight normalization output, see `run_btag_renormalization`
 btag_renorm_tag: "btag-renorm-2026-10-22"
 
-# Tag of the Z and tt normalization output, see `run_z_normalization`
-z_norm_tag: "z-norm-2026-11-05"
-tt_norm_tag: "tt-norm-2026-11-05"
+# Tags of the tt and Z normalization and the Z pt corrections, written to
+# data/corrections/, see `bin/tt_norm_weights`, `bin/z_norm_weights` and
+# `bin/z_pt_weights`
+tt_norm_tag: "tt-norm-2026-11-09"
+z_norm_tag: "z-norm-2026-11-09"
+z_pt_tag: "z-pt-2026-11-09"

@@ -1,178 +1,222 @@
-"""Tests for the per-campaign, per-channel, per-category settings of the Z pt
-weight derivation."""
+"""Tests for the Z pt weight derivation: per-category smoothing settings,
+the binned correction and its plotting."""
 
+import numpy as np
 import pytest
 
 pytest.importorskip("ROOT")
 
-from xyh.shape_processor.derive_z_pt_weights import (  # noqa: E402
-    DerivationSettings,
-    resolve_settings,
+import correctionlib  # noqa: E402
+import ROOT  # noqa: E402
+
+from xyh.process_corrections._pt import (  # noqa: E402
+    SmoothingSettings,
+    _binned_ratio,
+    _choose_bandwidth,
+    _compute_pt_weights_and_shifts,
+    build_correction_set,
+    scan_bandwidth,
+)
+from xyh.process_corrections.derive_z_pt_weights import (  # noqa: E402
+    _resolve_smoothing_settings,
 )
 
-SETTINGS = {
-    "rebin": 1,
-    "bandwidth": 1.0,
-    "pt_clip": 100,
-    "campaigns": {
+SMOOTHING = {
+    "bw": 1.0,
+    "n_samples": 10,
+    "var_min": 0.0,
+    "var_max": 100.0,
+    "var_steps": 200,
+    "bw_down_factor": 0.5,
+    "bw_up_factor": 2.0,
+    "bw_scan_min": 0.5,
+    "bw_scan_max": 100.0,
+    "bw_scan_steps": 20,
+    "chi2_ndf_max": 1.0,
+    "overrides": {
         "2024_nano_v15": {
-            "channels": {
-                "mm": {
-                    "categories": {
-                        "mm_eq2j": {"rebin": 2, "bandwidth": None},
-                        "mm_eq3j": {"bandwidth": 3.0},
-                    },
-                },
-                "et": {
-                    "categories": {
-                        "et_eq2j": {"bandwidth": 4.0},
-                    },
-                },
-            },
-        },
-        "2022_pre_ee_nano_v12": {
-            "channels": {
-                "mm": {
-                    "categories": {
-                        "mm_eq2j": {"bandwidth": 5.0},
-                    },
-                },
-            },
+            "mm_eq0j": {"bw": 5.0},
+            "mm_eq1j": {"bw": 2.0, "n_samples": 20},
         },
     },
 }
+CATEGORIES = ["mm_eq0j", "mm_eq1j", "mm_eq2j"]
 
 
-def test_category_overrides_default():
-    assert resolve_settings(
-        SETTINGS, "2024_nano_v15", "mm", "mm_eq2j"
-    ) == DerivationSettings(rebin=2, bandwidth=None, pt_clip=100)
+def _hist(name, values, errors=None):
+    h = ROOT.TH1D(name, name, len(values), 0.0, 10.0 * len(values))
+    h.Sumw2()
+    for i, v in enumerate(values, start=1):
+        h.SetBinContent(i, v)
+        h.SetBinError(i, np.sqrt(v) if errors is None else errors[i - 1])
+    return h
 
 
-def test_unlisted_category_uses_default():
-    assert resolve_settings(
-        SETTINGS, "2024_nano_v15", "mm", "mm_eq0j"
-    ) == DerivationSettings(rebin=1, bandwidth=1.0, pt_clip=100)
-
-
-def test_channel_overrides_default():
-    assert resolve_settings(
-        SETTINGS, "2024_nano_v15", "et", "et_eq2j"
-    ) == DerivationSettings(rebin=1, bandwidth=4.0, pt_clip=100)
-
-
-def test_campaign_overrides_default():
-    assert resolve_settings(
-        SETTINGS, "2022_pre_ee_nano_v12", "mm", "mm_eq2j"
-    ) == DerivationSettings(rebin=1, bandwidth=5.0, pt_clip=100)
-
-
-def test_unknown_key_raises():
-    with pytest.raises(TypeError):
-        resolve_settings(
-            {"default": {"sigma": 1.0}}, "2024_nano_v15", "mm", "mm_eq2j"
-        )
-    with pytest.raises(TypeError):
-        resolve_settings(
-            {
-                "campaigns": {
-                    "2024_nano_v15": {
-                        "channels": {
-                            "mm": {
-                                "categories": {
-                                    "mm_eq2j": {"sigma": 1.0},
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-            "2024_nano_v15",
-            "mm",
-            "mm_eq2j",
-        )
-
-
-def test_two_stage_derivation(tmp_path, monkeypatch):
-    import correctionlib
-    import numpy as np
-
-    from xyh.core.z_pt_reweighting import Binned
-    from xyh.shape_processor import derive_z_pt_weights as stage
-
-    edges = np.arange(0.0, 101.0, 10.0)
-    centers = 0.5 * (edges[:-1] + edges[1:])
-    true_norm = {
-        "mm_eq2j_eq1b": 0.8,
-        "mm_eq2j_eq2b": 1.2,
-        "mm_eq3j_eq1b": 1.1,
-    }
-    true_shape = {2: 1.0 + 0.004 * centers, 3: 1.2 - 0.003 * centers}
-    z_hist = {
-        "mm_eq2j_eq1b": 1000.0 + 0 * centers,
-        "mm_eq2j_eq2b": 300.0 + 0 * centers,
-        "mm_eq3j_eq1b": 500.0 + 0 * centers,
-    }
-    background = 50.0 + 0 * centers
-
-    # Inclusive in b jets: the Z yields and backgrounds add up. The yields
-    # are the z histograms times 10. The normalization of the jet
-    # multiplicity is derived from the inclusive yields.
-    jet_cats = {
-        "mm_eq2j": ["mm_eq2j_eq1b", "mm_eq2j_eq2b"],
-        "mm_eq3j": ["mm_eq3j_eq1b"],
-    }
-    effective = {
-        jc: sum(true_norm[c] * z_hist[c][0] for c in cs)
-        / sum(z_hist[c][0] for c in cs)
-        for jc, cs in jet_cats.items()
-    }
-
-    def read(base_dir, inventory, category, variable):
-        wrap = lambda v, e=edges: Binned(e, v, v)  # noqa: E731
-        if variable == "yield":
-            e = np.linspace(0, 1, 2)
-            if category in jet_cats:
-                z = sum(z_hist[c][:1] for c in jet_cats[category]) * 10
-                bkg = background[:1] * 10 * len(jet_cats[category])
-                data = effective[category] * z + bkg
-            else:
-                z = z_hist[category][:1] * 10
-                bkg = background[:1] * 10
-                data = true_norm[category] * z + bkg
-            return wrap(data, e), wrap(z, e), [wrap(bkg, e)]
-        n_jets = int(category.split("_")[1][2])
-        z = sum(z_hist[c] for c in jet_cats[category])
-        bkg = background * len(jet_cats[category])
-        # The data follow the jet multiplicity normalization and true shape
-        data = effective[category] * z * true_shape[n_jets] + bkg
-        return wrap(data), wrap(z), [wrap(bkg)]
-
-    monkeypatch.setattr(stage, "_read_processes", read)
-    monkeypatch.setattr(stage, "load_inventory", lambda *a, **k: None)
-    output = tmp_path / "out.json"
-    stage.derive_z_pt_weights(
-        "unused",
-        {},
-        "2024_nano_v15",
-        "mm",
-        # Empty by construction, must be ignored
-        [*true_norm, "mm_eq0j_eq1b"],
-        tmp_path,
-        output,
-        {},
+def test_resolve_defaults_for_campaign_without_overrides():
+    settings = _resolve_smoothing_settings(
+        SMOOTHING, "2025_nano_v15", CATEGORIES
     )
+    assert set(settings) == set(CATEGORIES)
+    assert all(s.bw == 1.0 and s.n_samples == 10 for s in settings.values())
 
-    cset = correctionlib.CorrectionSet.from_file(str(output))
-    for category, norm in true_norm.items():
-        n_jets = int(category.split("_")[1][2])
-        assert cset["z_normalization"].evaluate(
-            n_jets, int(category[-2])
-        ) == pytest.approx(norm)
-    # The pt correction is the shape relative to the normalized prediction of
-    # the jet multiplicity inclusive in b jets
-    for n_jets in (2, 3):
-        for pt, expected in zip(centers, true_shape[n_jets], strict=True):
-            assert cset["z_pt_correction"].evaluate(
-                n_jets, float(pt)
-            ) == pytest.approx(expected)
+
+def test_resolve_override_and_default_mix():
+    settings = _resolve_smoothing_settings(
+        SMOOTHING, "2024_nano_v15", CATEGORIES
+    )
+    assert settings["mm_eq0j"].bw == 5.0
+    assert settings["mm_eq1j"] == SmoothingSettings(
+        bw=2.0,
+        n_samples=20,
+        var_min=0.0,
+        var_max=100.0,
+        var_steps=200,
+        bw_down_factor=0.5,
+        bw_up_factor=2.0,
+        bw_scan_min=0.5,
+        bw_scan_max=100.0,
+        bw_scan_steps=20,
+        chi2_ndf_max=1.0,
+    )
+    assert settings["mm_eq2j"].bw == 1.0
+
+
+def test_resolve_unknown_key_raises():
+    smoothing = {
+        **SMOOTHING,
+        "overrides": {"c": {"mm_eq0j": {"sigma": 1.0}}},
+    }
+    with pytest.raises(ValueError, match="sigma"):
+        _resolve_smoothing_settings(smoothing, "c", CATEGORIES)
+
+
+def test_resolve_unknown_category_raises():
+    smoothing = {**SMOOTHING, "overrides": {"c": {"mm_eq9j": {"bw": 1.0}}}}
+    with pytest.raises(ValueError, match="mm_eq9j"):
+        _resolve_smoothing_settings(smoothing, "c", CATEGORIES)
+
+
+def test_binned_ratio_normalizes_and_handles_empty_bins():
+    data = _hist("d", [100.0, 200.0, 300.0])
+    proc = _hist("p", [100.0, 0.0, 600.0])
+    edges, y, yerr = _binned_ratio(data, proc)
+    np.testing.assert_allclose(edges, [0.0, 10.0, 20.0, 30.0])
+    # Empty process bin: neutral ratio without uncertainty
+    assert y[1] == 1.0 and yerr[1] == 0.0
+    assert np.isfinite(y).all() and np.isfinite(yerr).all()
+
+
+@pytest.fixture
+def cset_path(tmp_path):
+    settings = SmoothingSettings(
+        bw=5.0,
+        n_samples=5,
+        var_min=0.0,
+        var_max=40.0,
+        var_steps=80,
+        bw_down_factor=0.5,
+        bw_up_factor=2.0,
+        bw_scan_min=0.5,
+        bw_scan_max=100.0,
+        bw_scan_steps=20,
+        chi2_ndf_max=1.0,
+    )
+    results, binned = {}, {}
+    for n_jets in (0, 1):
+        data = _hist("d", [400.0, 500.0, 600.0, 700.0])
+        proc = _hist("p", [300.0, 400.0, 500.0, 600.0])
+        other = _hist("o", [50.0, 50.0, 50.0, 50.0])
+        nominal, shifts, b, _ = _compute_pt_weights_and_shifts(
+            data, proc, other, settings, 0.1
+        )
+        results[n_jets], binned[n_jets] = (nominal, shifts), b
+    cset = build_correction_set(results, "z", binned_results=binned)
+    path = tmp_path / "z_pt.json"
+    path.write_text(cset.model_dump_json(exclude_unset=True))
+    return path
+
+
+def test_binned_correction_variations_finite_and_evaluates(cset_path):
+    cset = correctionlib.CorrectionSet.from_file(str(cset_path))
+    assert "z_pt" in cset and "z_pt_binned" in cset
+    corr = cset["z_pt_binned"]
+    nominal = corr.evaluate(0, 5.0, "nominal")
+    up = corr.evaluate(0, 5.0, "stat_up")
+    down = corr.evaluate(0, 5.0, "stat_down")
+    assert np.isfinite([nominal, up, down]).all()
+    assert up > nominal > down
+    # Out-of-range pt is clamped, missing variations raise
+    assert corr.evaluate(1, 1000.0, "nominal") == pytest.approx(
+        corr.evaluate(1, 35.0, "nominal")
+    )
+    with pytest.raises(IndexError):
+        corr.evaluate(0, 5.0, "bw_up")
+
+
+def test_plot_load_fills_binned(cset_path):
+    from xyh.scripts.plot_z_pt_weights import load
+
+    result = load(cset_path)
+    assert set(result) == {0, 1}
+    raw = result[0]["binned"]
+    np.testing.assert_allclose(raw["centers"], [5.0, 15.0, 25.0, 35.0])
+    assert (raw["errors"] > 0).all()
+    assert np.isfinite(raw["values"]).all()
+
+
+def _toy(curved, seed=1):
+    rng = np.random.default_rng(seed)
+    x = np.arange(2.5, 200.0, 5.0)
+    err = np.full_like(x, 0.02)
+    y = 1.0 + (0.2 * np.sin(x / 10.0) if curved else 0.0)
+    return x, y + rng.normal(size=x.shape) * err, err
+
+
+def test_scan_bandwidth_tiny_bw_interpolates_data_without_ndf():
+    x, y, err = _toy(curved=True)
+    chi2, ndf = scan_bandwidth(x, y, err, np.array([1e-3]))
+    assert chi2[0] == pytest.approx(0.0, abs=1e-9)
+    # The smoother is the identity: trace n, no degrees of freedom left
+    assert ndf[0] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_scan_bandwidth_skips_invalid_bins():
+    x, y, err = _toy(curved=False)
+    err[3] = 0.0
+    chi2, ndf = scan_bandwidth(x, y, err, np.array([5.0]))
+    assert np.isfinite(chi2).all() and 0 < ndf[0] < len(x) - 1
+
+
+def test_choose_bandwidth_curved_smaller_than_flat():
+    bws = np.geomspace(0.5, 100.0, 40)
+    bw_curved, scan = _choose_bandwidth(*_toy(curved=True), bws, 1.0)
+    bw_flat, _ = _choose_bandwidth(*_toy(curved=False), bws, 1.0)
+    assert bw_curved < bw_flat
+    assert bw_flat == bws[-1]
+    assert scan["chosen"] == bw_curved
+    assert len(scan["chi2_ndf"]) == len(bws)
+
+
+def test_choose_bandwidth_none_satisfying_picks_smallest():
+    x, y, err = _toy(curved=True)
+    bws = np.geomspace(20.0, 100.0, 5)
+    bw, scan = _choose_bandwidth(x, y, err, bws, 1.0)
+    assert bw == bws[0]
+
+
+def test_settings_invalid_bw_string_raises():
+    kwargs = {k: v for k, v in SMOOTHING.items() if k != "overrides"}
+    kwargs["bw"] = "foo"
+    with pytest.raises(ValueError, match="foo"):
+        SmoothingSettings(**kwargs)
+
+
+def test_resolve_auto_default_with_numeric_override():
+    smoothing = {
+        **SMOOTHING,
+        "bw": "auto",
+        "overrides": {"c": {"mm_eq0j": {"bw": 10.0}}},
+    }
+    settings = _resolve_smoothing_settings(smoothing, "c", CATEGORIES)
+    assert settings["mm_eq0j"].bw == 10.0
+    assert settings["mm_eq1j"].bw == "auto"

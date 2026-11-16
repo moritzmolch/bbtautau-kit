@@ -30,9 +30,25 @@ def hydra_cli(config_name: str) -> Callable[[], None]:
             version_base=None,
         )
         def wrapper(cfg: DictConfig) -> Any:
+            # Enable the tt normalization corrections, if configured. They are
+            # picked up by the weights via the environment variable.
+            tt_corrections_dir = cfg.get("tt_corrections", {}).get("input_dir")
+            if tt_corrections_dir:
+                os.environ["XYH_TT_CORRECTIONS_DIR"] = str(
+                    ROOT_DIR / tt_corrections_dir
+                )
+
+            # Enable the Z normalization corrections, if configured. They are
+            # picked up by the weights via the environment variable.
+            z_corrections_dir = cfg.get("z_corrections", {}).get("input_dir")
+            if z_corrections_dir:
+                os.environ["XYH_Z_CORRECTIONS_DIR"] = str(
+                    ROOT_DIR / z_corrections_dir
+                )
+
             # Enable the data-driven Z corrections, if configured. They are
             # picked up by the weights via the environment variable.
-            z_pt_weights_dir = cfg.get("z_pt_weights", {}).get("input_dir")
+            z_pt_weights_dir = cfg.get("z_pt_corrections", {}).get("input_dir")
             if z_pt_weights_dir:
                 os.environ["XYH_Z_PT_WEIGHTS_DIR"] = str(
                     ROOT_DIR / z_pt_weights_dir
@@ -41,9 +57,9 @@ def hydra_cli(config_name: str) -> Callable[[], None]:
             # Enable the b-tag weight normalization corrections, if
             # configured. They are picked up by `b_jet_weights` via the
             # environment variable, see `xyh.weights.jets`.
-            btag_renorm_weights_dir = cfg.get(
-                "btag_renorm_weights", {}
-            ).get("input_dir")
+            btag_renorm_weights_dir = cfg.get("btag_renorm_weights", {}).get(
+                "input_dir"
+            )
             if btag_renorm_weights_dir:
                 os.environ["XYH_BTAG_RENORM_WEIGHTS_DIR"] = str(
                     ROOT_DIR / btag_renorm_weights_dir

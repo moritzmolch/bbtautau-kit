@@ -3,6 +3,21 @@ from collections import OrderedDict
 from xyh.core.wrapper import Wrapper
 
 
+def _get_ditau_trigger_efficiency(trigger_flag, data_type):
+    return (
+        f"trg_{trigger_flag} * trg_eff_{data_type}_{trigger_flag}_leg1 "
+        + f"* trg_eff_{data_type}_{trigger_flag}_leg2"
+    )
+
+
+def _get_ditaujet_trigger_efficiency(trigger_flag, data_type):
+    return (
+        f"trg_{trigger_flag} * trg_eff_{data_type}_{trigger_flag}_leg1 "
+        + f"* trg_eff_{data_type}_{trigger_flag}_leg2"
+        + f"* trg_eff_{data_type}_{trigger_flag}_leg3"
+    )
+
+
 @Wrapper.wrap
 def trigger_weights(self) -> OrderedDict[str, str]:
     """
@@ -19,6 +34,40 @@ def trigger_weights(self) -> OrderedDict[str, str]:
     :return: Collection of weight definitions.
     """
 
+    # Construct di-tau+jet trigger weight for 2022/2023
+    ditau_eff_data = _get_ditau_trigger_efficiency(
+        "double_tau35_mediumdeeptau", "data"
+    )
+    ditau_eff_mc = _get_ditau_trigger_efficiency(
+        "double_tau35_mediumdeeptau", "mc"
+    )
+    ditaujet_eff_data = _get_ditau_trigger_efficiency(
+        "double_tau30_jet60_mediumdeeptau", "data"
+    )
+    ditaujet_eff_mc = _get_ditau_trigger_efficiency(
+        "double_tau30_jet60_mediumdeeptau", "mc"
+    )
+    wgt_tt_2022_2023 = (
+        f"({ditau_eff_data} + {ditaujet_eff_data} - {ditau_eff_data} * {ditaujet_eff_data})"
+        + " / "
+        f"({ditau_eff_mc} + {ditaujet_eff_mc} - {ditau_eff_mc} * {ditaujet_eff_mc})"
+    )
+
+    # Construct di-tau+jet trigger weight for 2024/2025
+    ditau_eff_data = _get_ditau_trigger_efficiency("double_tau30_pnet", "data")
+    ditau_eff_mc = _get_ditau_trigger_efficiency("double_tau30_pnet", "mc")
+    ditaujet_eff_data = _get_ditau_trigger_efficiency(
+        "double_tau26_jet60_pnet", "data"
+    )
+    ditaujet_eff_mc = _get_ditau_trigger_efficiency(
+        "double_tau26_jet60_pnet", "mc"
+    )
+    wgt_tt_2024_2025 = (
+        f"({ditau_eff_data} + {ditaujet_eff_data} - {ditau_eff_data} * {ditaujet_eff_data})"
+        + " / "
+        f"({ditau_eff_mc} + {ditaujet_eff_mc} - {ditau_eff_mc} * {ditaujet_eff_mc})"
+    )
+
     # Trigger weights are summarized in a nested map, where the first key
     # is an era or a tuple of eras, and the second key is the channel.
     trigger_weights = {
@@ -30,7 +79,7 @@ def trigger_weights(self) -> OrderedDict[str, str]:
         ): {
             "et": "trg_wgt_single_ele30",
             "mt": "trg_wgt_single_mu24",
-            "tt": "trg_wgt_double_tau35_mediumdeeptau_leg1 * trg_wgt_double_tau35_mediumdeeptau_leg2",
+            "tt": wgt_tt_2022_2023,
             "em": "trg_wgt_single_ele30",
             "ee": "trg_wgt_single_ele30",
             "mm": "trg_wgt_single_mu24",
@@ -38,12 +87,7 @@ def trigger_weights(self) -> OrderedDict[str, str]:
         ("2024_nano_v15", "2025_nano_v15"): {
             "et": "trg_wgt_single_ele30",
             "mt": "trg_wgt_single_mu24",
-            "tt": """
-                (
-                    trg_wgt_double_tau30_mediumpnet_leg1
-                    * trg_wgt_double_tau30_mediumpnet_leg2
-                )
-            """,
+            "tt": wgt_tt_2024_2025,
             "em": "trg_wgt_single_ele30",
             "ee": "trg_wgt_single_ele30",
             "mm": "trg_wgt_single_mu24",

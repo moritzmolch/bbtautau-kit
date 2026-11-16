@@ -67,7 +67,7 @@ class HydraTask(law.Task):
     @cached_property
     def z_corrections_tag(self) -> str:
         """Tag of the production the Z corrections are taken from."""
-        tag = OmegaConf.select(self.user_cfg, "z_pt_weights.tag")
+        tag = OmegaConf.select(self.user_cfg, "z_pt_corrections.tag")
         return tag or OmegaConf.select(
             self.user_cfg, "tags.shapes_tag", throw_on_missing=True
         )
@@ -86,11 +86,12 @@ class HydraTask(law.Task):
         """Overrides of the production the Z corrections are derived from.
 
         These are the user overrides, replaced by the overrides configured in
-        `z_pt_weights.overrides` and by the tag of the derivation production.
+        `z_pt_corrections.overrides` and by the tag of the derivation
+        production, which is used as shapes tag and as Z pt tag.
         No corrections are applied in the derivation production.
         """
         configured = list(
-            OmegaConf.select(self.user_cfg, "z_pt_weights.overrides") or []
+            OmegaConf.select(self.user_cfg, "z_pt_corrections.overrides") or []
         )
         tag = self.z_corrections_tag
         return self._merge_overrides(
@@ -98,11 +99,15 @@ class HydraTask(law.Task):
                 [
                     o
                     for o in shlex.split(self.overrides)
-                    if o.split("=", 1)[0] != "z_pt_weights.input_dir"
+                    if o.split("=", 1)[0] != "z_pt_corrections.input_dir"
                 ],
                 configured,
             ),
-            [f"tags.shapes_tag={tag}", f"z_pt_weights.tag={tag}"],
+            [
+                f"tags.shapes_tag={tag}",
+                f"tags.z_pt_tag={tag}",
+                f"z_pt_corrections.tag={tag}",
+            ],
         )
 
     @cached_property
@@ -121,7 +126,9 @@ class HydraTask(law.Task):
             # Always run in the derivation production
             return self._merge_overrides(self.derivation_overrides, forced)
         if self.applies_z_corrections:
-            forced.append(f"z_pt_weights.input_dir={self.z_corrections_dir}")
+            forced.append(
+                f"z_pt_corrections.input_dir={self.z_corrections_dir}"
+            )
         return self._merge_overrides(shlex.split(self.overrides), forced)
 
     @cached_property

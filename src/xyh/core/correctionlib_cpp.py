@@ -23,6 +23,7 @@ _HEADER = ROOT_DIR / "include" / "correctionlib.hxx"
 
 # Functions provided by the header, declared lazily on first use.
 _FUNCTIONS = (
+    "xyh_tt_normalization",
     "xyh_z_normalization",
     "xyh_z_pt_correction",
     "xyh_bjet_normalization",

@@ -344,15 +344,10 @@ def get_histograms_for_process_set(
     def _get_histograms_for_processes(process_groups: list[ProcessGroup]):
         return {
             process_group.name: {
-                p: list(
-                    filter_histograms(
-                        filtered_histograms,
-                        process=p,
-                    )
-                )
+                p: list(filter_histograms(filtered_histograms, process=p))
+                for p in process_group.processes
             }
             for process_group in process_groups
-            for p in process_group.processes
         }
 
     # Form dictionary of process set histograms

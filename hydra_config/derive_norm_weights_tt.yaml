@@ -15,13 +15,13 @@ output_dir: "${artifacts.tt_norm_dir}"
 channel: "em"
 categories:
 - "em_eq2j_eq1b"
-- "em_eq2j_eq2b"
+- "em_eq2j_geq2b"
 - "em_eq3j_eq1b"
-- "em_eq3j_eq2b"
-- "em_eq3j_geq3b"
+- "em_eq3j_geq2b"
 - "em_eq4j_eq1b"
-- "em_eq4j_eq2b"
-- "em_eq4j_geq3b"
+- "em_eq4j_geq2b"
+- "em_geq5j_eq1b"
+- "em_geq5j_geq2b"
 
 # Information needed for histogram processing
 # - The yield_variable defines the histogram which is used to derive the

@@ -64,19 +64,30 @@ inline int xyh_n_correction_sets_loaded() {
 }
 
 
-inline double xyh_z_normalization(
-    const char* file, int n_jets, int n_bjets) {
+inline double xyh_tt_normalization(
+    const char* file, int n_jets, int n_bjets, const char* variation) {
   static thread_local xyh::CorrectionCache cache;
-  return xyh::get_correction(cache, file, "z_normalization")->evaluate(
-      {n_jets, n_bjets});
+  return xyh::get_correction(cache, file, "tt_normalization")->evaluate(
+      {n_jets, n_bjets, variation});
 }
 
 
-inline double xyh_z_pt_correction(
-    const char* file, int n_jets, double genboson_pt) {
+inline double xyh_z_normalization(
+    const char* file, int n_jets, int n_bjets, const char* variation) {
   static thread_local xyh::CorrectionCache cache;
-  return xyh::get_correction(cache, file, "z_pt_correction")->evaluate(
-      {n_jets, genboson_pt});
+  return xyh::get_correction(cache, file, "z_normalization")->evaluate(
+      {n_jets, n_bjets, variation});
+}
+
+
+// Z pt weight (correction `z_pt` written by
+// `xyh.process_corrections.derive_z_pt_weights`) as function of the number of
+// jets, the pt and the variation ("nominal", "stat_up", "bw_down", ...)
+inline double xyh_z_pt_correction(
+    const char* file, int n_jets, double pt, const char* variation) {
+  static thread_local xyh::CorrectionCache cache;
+  return xyh::get_correction(cache, file, "z_pt")->evaluate(
+      {n_jets, pt, variation});
 }
 
 

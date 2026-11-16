@@ -22,6 +22,15 @@ def normalization(self) -> OrderedDict[str, str]:
     generator_weight = self.dataset_inst.x.generator_weight
     n_events = self.dataset_inst.n_events
 
+    # A zero (or missing) mean generator weight in the sample database would
+    # silently turn the event weights into inf/nan
+    if not generator_weight or generator_weight <= 0:
+        raise ValueError(
+            f"Invalid generator_weight {generator_weight} of dataset "
+            f"{self.dataset_inst.name} in {self.campaign_inst.name}, check "
+            "the sample database"
+        )
+
     # Set normalization, cross section, and lumi weights
     # section value right here
     weights["lumi_weight"] = f"(float) {lumi} * 1000"
@@ -32,6 +41,11 @@ def normalization(self) -> OrderedDict[str, str]:
         )
     """
     weights["xsec_weight"] = f"{xsec}"
+
+    # In 2024 and 2025, a sample weight accounting for splitting the 2024
+    # simulation into subparts needs to be added
+    if self.campaign_inst.x.year in [2024, 2025]:
+        weights["downsample_weight"] = "wgt_sample_split"
 
     return weights
 
